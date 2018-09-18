@@ -36,6 +36,11 @@ var EDITOR = function() {
 EDITOR.prototype = {
 
     /**
+     * Store old coordinates of the annotations before rotation happens.
+     */
+    oldannotationcoordinates: null,
+
+    /**
      * The dialogue used for all action menu displays.
      *
      * @property type
@@ -757,6 +762,8 @@ EDITOR.prototype = {
             annotationcolourbutton,
             searchcommentsbutton,
             expcolcommentsbutton,
+            rotateleftbutton,
+            rotaterightbutton,
             currentstampbutton,
             stampfiles,
             picker,
@@ -773,6 +780,16 @@ EDITOR.prototype = {
         if (this.get('readonly')) {
             return;
         }
+        // Rotate Left
+        rotateleftbutton = this.get_dialogue_element(SELECTOR.ROTATELEFTBUTTON);
+        rotateleftbutton.on('click', this.rotate_pdf, this, true);
+        rotateleftbutton.on('key', this.rotate_pdf, 'down:13', this, true);
+
+        // Rotate Right
+        rotaterightbutton = this.get_dialogue_element(SELECTOR.ROTATERIGHTBUTTON);
+        rotaterightbutton.on('click', this.rotate_pdf, this, false);
+        rotaterightbutton.on('key', this.rotate_pdf, 'down:13', this, false);
+
         // Setup the tool buttons.
         Y.each(TOOLSELECTOR, function(selector, tool) {
             toolnode = this.get_dialogue_element(selector);
@@ -1410,8 +1427,96 @@ EDITOR.prototype = {
         for (i = 0; i < this.drawables.length; i++) {
             this.drawables[i].scroll_update(x, y);
         }
-    }
+    },
 
+    /**
+     * Calculate degree to rotate
+     * @protected
+     * @param {Object} event javascript event
+     * @param {boolean} left  true if rotating left, false if rotating right
+     * @method rotatepdf
+     */
+    rotate_pdf: function(e, left) {
+        e.preventDefault();
+
+        if (this.get('destroyed')) {
+            return;
+        }
+
+        // Save old coordinates.
+        var i;
+        this.oldannotationcoordinates = [];
+        var annotations = this.pages[this.currentpage].annotations;
+        for (i = 0; i < annotations.length; i++) {
+            var old_annotation = annotations[i];
+            this.oldannotationcoordinates.push([old_annotation.x, old_annotation.y]);
+        }
+
+        var ajaxurl = AJAXBASE,
+            config;
+
+        config = {
+            method: 'post',
+            context: this,
+            sync: false,
+            data: {
+                'sesskey': M.cfg.sesskey,
+                'action': 'rotatepage',
+                'index': this.currentpage,
+                'userid': this.get('userid'),
+                'attemptnumber': this.get('attemptnumber'),
+                'assignmentid': this.get('assignmentid'),
+                'page': this.stringify_current_page(),
+                'rotateleft': left
+            },
+            on: {
+                success: function(tid, response) {
+                    var jsondata;
+                    try {
+                        jsondata = Y.JSON.parse(response.responseText);
+                        var page = this.pages[this.currentpage];
+                        page.url = jsondata.page.url;
+                        page.width = jsondata.page.width;
+                        page.height = jsondata.page.height;
+                        this.loadingicon.hide();
+
+                        // Change canvas size to fix the new page.
+                        var drawingcanvas = this.get_dialogue_element(SELECTOR.DRAWINGCANVAS);
+                        drawingcanvas.setStyle('backgroundImage', 'url("' + page.url + '")');
+                        drawingcanvas.setStyle('width', page.width + 'px');
+                        drawingcanvas.setStyle('height', page.height + 'px');
+
+                        // Move annotation to new position.
+                        var i;
+                        var annotations = this.pages[this.currentpage].annotations;
+                        for (i = 0; i < annotations.length; i++) {
+
+                            if ( this.oldannotationcoordinates && this.oldannotationcoordinates[i]) {
+                                var oldX = this.oldannotationcoordinates[i][0];
+                                var oldY = this.oldannotationcoordinates[i][1];
+                                var annotation = annotations[i];
+                                if (left) {
+                                    annotation.move(oldY, page.height - oldX);
+                                } else {
+                                    annotation.move(page.width - oldY,  oldX);
+                                }
+                            }
+                        }
+                        // Save Annotations.
+                        this.save_current_page();
+                    } catch (e) {
+                        return new M.core.exception(e);
+                    }
+                },
+                failure: function(tid, response) {
+                    return new M.core.exception(response.responseText);
+                }
+            }
+        };
+
+        Y.io(ajaxurl, config);
+
+    }
 };
 
 Y.extend(EDITOR, Y.Base, EDITOR.prototype, {

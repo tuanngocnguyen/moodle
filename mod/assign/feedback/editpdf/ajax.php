@@ -220,5 +220,46 @@ if ($action === 'pollconversions') {
     $result = $result && page_editor::unrelease_drafts($grade->id);
     echo json_encode($result);
     die();
+} else if ($action == 'rotatepage') {
+    require_capability('mod/assign:grade', $context);
+    $response = new stdClass();
+    $index = required_param('index', PARAM_INT);
+    $grade = $assignment->get_user_grade($userid, true, $attemptnumber);
+    $pagejson = required_param('page', PARAM_RAW);
+    $page = json_decode($pagejson);
+    $rotateleft = required_param('rotateleft', PARAM_BOOL);
+
+    $filearea = document_services::PAGE_IMAGE_FILEAREA;
+
+    $pagefile = document_services::rotate_page(
+        $assignment,
+        $userid,
+        $attemptnumber,
+        $index,
+        $rotateleft
+    );
+
+    $page->url = moodle_url::make_pluginfile_url(
+        $context->id,
+        document_services::COMPONENT,
+        $filearea,
+        $grade->id,
+        '/',
+        $pagefile->get_filename())->out();
+
+    if ($imageinfo = $pagefile->get_imageinfo()) {
+        $page->width = $imageinfo['width'];
+        $page->height = $imageinfo['height'];
+    } else {
+        $page->width = 0;
+        $page->height = 0;
+    }
+
+    $response = (object) [
+        'page' => $page,
+    ];
+
+    echo json_encode($response);
+    die();
 }
 
