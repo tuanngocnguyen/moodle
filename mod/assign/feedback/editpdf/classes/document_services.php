@@ -819,6 +819,15 @@ EOD;
         return $fs->delete_area_files($contextid, $component, $filearea, $itemid);
     }
 
+    /**
+     * Get All files in a File area
+     * @param $assignment Assignment
+     * @param $userid User ID
+     * @param $attemptnumber Attempt Number
+     * @param $filearea File Area
+     * @param string $filepath File Path
+     * @return array
+     */
     private static function get_files($assignment, $userid, $attemptnumber, $filearea, $filepath = '/') {
         $grade = $assignment->get_user_grade($userid, true, $attemptnumber);
         $itemid = $grade->id;
