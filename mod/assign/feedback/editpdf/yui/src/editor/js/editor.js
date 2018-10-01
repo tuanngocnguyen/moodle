@@ -1452,8 +1452,7 @@ EDITOR.prototype = {
             this.oldannotationcoordinates.push([old_annotation.x, old_annotation.y]);
         }
 
-        var ajaxurl = AJAXBASE,
-            config;
+        var ajaxurl = AJAXBASE, config;
 
         config = {
             method: 'post',
@@ -1466,7 +1465,6 @@ EDITOR.prototype = {
                 'userid': this.get('userid'),
                 'attemptnumber': this.get('attemptnumber'),
                 'assignmentid': this.get('assignmentid'),
-                'page': this.stringify_current_page(),
                 'rotateleft': left
             },
             on: {
@@ -1486,7 +1484,18 @@ EDITOR.prototype = {
                         drawingcanvas.setStyle('width', page.width + 'px');
                         drawingcanvas.setStyle('height', page.height + 'px');
 
-                        // Move annotation to new position.
+
+                        /**
+                         * Move annotation to old position.
+                         * Reason: When canvas size change
+                         * > Shape annotations move with relation to canvas coordinates
+                         * > Nodes of stamp annotations move with relation to canvas coordinates
+                         * > Presentation (picture) of stamp annotations  stay to document coordinates (stick to its own position)
+                         * > Without relocating the node and presentation of a stamp annotation to the same x,y position,
+                         * the stamp annotation cannot be chosen when using "drag" tool.
+                         * The following code brings all annotations to their old positions with relation to the canvas coordinates.
+                         */
+
                         var i;
                         var annotations = this.pages[this.currentpage].annotations;
                         for (i = 0; i < annotations.length; i++) {
@@ -1495,11 +1504,7 @@ EDITOR.prototype = {
                                 var oldX = this.oldannotationcoordinates[i][0];
                                 var oldY = this.oldannotationcoordinates[i][1];
                                 var annotation = annotations[i];
-                                if (left) {
-                                    annotation.move(oldY, page.height - oldX);
-                                } else {
-                                    annotation.move(page.width - oldY,  oldX);
-                                }
+                                annotation.move(oldX,  oldY);
                             }
                         }
                         // Save Annotations.

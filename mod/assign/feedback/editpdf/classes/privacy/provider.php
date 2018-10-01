@@ -142,6 +142,7 @@ class provider implements metadataprovider, assignfeedback_provider {
         // Remove table entries.
         $DB->delete_records('assignfeedback_editpdf_annot', ['gradeid' => $requestdata->get_pluginobject()->id]);
         $DB->delete_records('assignfeedback_editpdf_cmnt', ['gradeid' => $requestdata->get_pluginobject()->id]);
+        $DB->delete_records('assignfeedback_editpdf_rot', ['gradeid' => $requestdata->get_pluginobject()->id]);
         // Submission records in assignfeedback_editpdf_queue will be cleaned up in a scheduled task
     }
 }

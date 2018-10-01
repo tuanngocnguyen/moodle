@@ -225,10 +225,7 @@ if ($action === 'pollconversions') {
     $response = new stdClass();
     $index = required_param('index', PARAM_INT);
     $grade = $assignment->get_user_grade($userid, true, $attemptnumber);
-    $pagejson = required_param('page', PARAM_RAW);
-    $page = json_decode($pagejson);
     $rotateleft = required_param('rotateleft', PARAM_BOOL);
-
     $filearea = document_services::PAGE_IMAGE_FILEAREA;
 
     $pagefile = document_services::rotate_page(
@@ -239,6 +236,7 @@ if ($action === 'pollconversions') {
         $rotateleft
     );
 
+    $page = new stdClass();
     $page->url = moodle_url::make_pluginfile_url(
         $context->id,
         document_services::COMPONENT,
