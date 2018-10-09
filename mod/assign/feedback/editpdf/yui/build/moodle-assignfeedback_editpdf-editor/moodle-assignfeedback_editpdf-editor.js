@@ -2997,6 +2997,19 @@ var COMMENT = function(editor, gradeid, pageno, x, y, width, colour, rawtext) {
         return (bounds.has_min_width() && bounds.has_min_height());
     };
 
+    this.update_position = function() {
+
+        var node = this.drawable.nodes[0].one('textarea');
+        var container = node.ancestor('div');
+
+        var newlocation = new M.assignfeedback_editpdf.point(this.x, this.y);
+        var windowlocation = this.editor.get_window_coordinates(newlocation);
+
+        container.setX(windowlocation.x);
+        container.setY(windowlocation.y);
+        this.drawable.store_position(container, windowlocation.x, windowlocation.y);
+    };
+
 };
 
 M.assignfeedback_editpdf = M.assignfeedback_editpdf || {};
@@ -4759,7 +4772,6 @@ EDITOR.prototype = {
                         drawingcanvas.setStyle('width', page.width + 'px');
                         drawingcanvas.setStyle('height', page.height + 'px');
 
-
                         /**
                          * Move annotation to old position.
                          * Reason: When canvas size change
@@ -4770,17 +4782,25 @@ EDITOR.prototype = {
                          * the stamp annotation cannot be chosen when using "drag" tool.
                          * The following code brings all annotations to their old positions with relation to the canvas coordinates.
                          */
-
                         var i;
+                        // Annotations.
                         var annotations = this.pages[this.currentpage].annotations;
                         for (i = 0; i < annotations.length; i++) {
-
                             if ( this.oldannotationcoordinates && this.oldannotationcoordinates[i]) {
                                 var oldX = this.oldannotationcoordinates[i][0];
                                 var oldY = this.oldannotationcoordinates[i][1];
                                 var annotation = annotations[i];
                                 annotation.move(oldX,  oldY);
                             }
+                        }
+                        /**
+                         * Update Position of comments with relation to canvas coordinates.
+                         * Without this code, the comments will stay at their positions in windows/document coordinates
+                         *
+                         */
+                        var oldcomments = this.pages[this.currentpage].comments;
+                        for (i = 0; i < oldcomments.length; i++) {
+                            oldcomments[i].update_position();
                         }
                         // Save Annotations.
                         this.save_current_page();

@@ -1484,7 +1484,6 @@ EDITOR.prototype = {
                         drawingcanvas.setStyle('width', page.width + 'px');
                         drawingcanvas.setStyle('height', page.height + 'px');
 
-
                         /**
                          * Move annotation to old position.
                          * Reason: When canvas size change
@@ -1495,17 +1494,25 @@ EDITOR.prototype = {
                          * the stamp annotation cannot be chosen when using "drag" tool.
                          * The following code brings all annotations to their old positions with relation to the canvas coordinates.
                          */
-
                         var i;
+                        // Annotations.
                         var annotations = this.pages[this.currentpage].annotations;
                         for (i = 0; i < annotations.length; i++) {
-
                             if ( this.oldannotationcoordinates && this.oldannotationcoordinates[i]) {
                                 var oldX = this.oldannotationcoordinates[i][0];
                                 var oldY = this.oldannotationcoordinates[i][1];
                                 var annotation = annotations[i];
                                 annotation.move(oldX,  oldY);
                             }
+                        }
+                        /**
+                         * Update Position of comments with relation to canvas coordinates.
+                         * Without this code, the comments will stay at their positions in windows/document coordinates
+                         *
+                         */
+                        var oldcomments = this.pages[this.currentpage].comments;
+                        for (i = 0; i < oldcomments.length; i++) {
+                            oldcomments[i].update_position();
                         }
                         // Save Annotations.
                         this.save_current_page();
