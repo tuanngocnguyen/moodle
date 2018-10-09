@@ -618,6 +618,11 @@ var COMMENT = function(editor, gradeid, pageno, x, y, width, colour, rawtext) {
         return (bounds.has_min_width() && bounds.has_min_height());
     };
 
+    /**
+     * Update comment postion when rotating page
+     * @public
+     * @method update_position
+     */
     this.update_position = function() {
 
         var node = this.drawable.nodes[0].one('textarea');
