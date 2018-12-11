@@ -23,7 +23,9 @@
  */
 
 use tool_dataprivacy\api;
+use tool_dataprivacy\category;
 use tool_dataprivacy\data_request;
+use tool_dataprivacy\purpose;
 
 defined('MOODLE_INTERNAL') || die();
 global $CFG;
@@ -62,19 +64,20 @@ class tool_dataprivacy_expired_data_requests_testcase extends data_privacy_testc
         $dpouser = $this->getDataGenerator()->create_user();
         $this->assign_site_dpo($dpouser);
 
+        // Set site purpose.
+        $this->create_system_purpose();
+
         // Set request expiry to 5 minutes.
         set_config('privacyrequestexpiry', 300, 'tool_dataprivacy');
 
         // Create and approve data request.
         $this->setUser($studentuser->id);
         $datarequest = api::create_data_request($studentuser->id, api::DATAREQUEST_TYPE_EXPORT);
-        $this->setAdminUser();
-        ob_start();
-        $this->runAdhocTasks('\tool_dataprivacy\task\initiate_data_request_task');
         $requestid = $datarequest->get('id');
-        $this->setUser($dpouser->id);
-        api::approve_data_request($requestid);
         $this->setAdminUser();
+        api::approve_data_request($requestid);
+        $this->setUser();
+        ob_start();
         $this->runAdhocTasks('\tool_dataprivacy\task\process_data_request_task');
         ob_end_clean();
 
@@ -114,7 +117,6 @@ class tool_dataprivacy_expired_data_requests_testcase extends data_privacy_testc
         $this->assertEquals(0, $DB->count_records('files', $fileconditions));
     }
 
-
     /**
      * Test for \tool_dataprivacy\data_request::is_expired()
      * Tests for the expected request status to protect from false positive/negative,
@@ -130,13 +132,15 @@ class tool_dataprivacy_expired_data_requests_testcase extends data_privacy_testc
         $admin = get_admin();
         $this->setAdminUser();
 
+        // Set site purpose.
+        $this->create_system_purpose();
+
         // Create export request.
         $datarequest = api::create_data_request($admin->id, api::DATAREQUEST_TYPE_EXPORT);
         $requestid = $datarequest->get('id');
 
         // Approve the request.
         ob_start();
-        $this->runAdhocTasks('\tool_dataprivacy\task\initiate_data_request_task');
         $this->setAdminUser();
         api::approve_data_request($requestid);
         $this->runAdhocTasks('\tool_dataprivacy\task\process_data_request_task');
@@ -169,5 +173,29 @@ class tool_dataprivacy_expired_data_requests_testcase extends data_privacy_testc
         $this->assertEquals(api::DATAREQUEST_STATUS_EXPIRED, $request->get('status'));
         $result = data_request::is_expired($request);
         $this->assertTrue($result);
+    }
+
+    /**
+     * Create a site (system context) purpose and category.
+     *
+     * @return  void
+     */
+    protected function create_system_purpose() {
+        $purpose = new purpose(0, (object) [
+            'name' => 'Test purpose ' . rand(1, 1000),
+            'retentionperiod' => 'P1D',
+            'lawfulbases' => 'gdpr_art_6_1_a',
+        ]);
+        $purpose->create();
+
+        $cat = new category(0, (object) ['name' => 'Test category']);
+        $cat->create();
+
+        $record = (object) [
+            'purposeid'     => $purpose->get('id'),
+            'categoryid'    => $cat->get('id'),
+            'contextlevel'  => CONTEXT_SYSTEM,
+        ];
+        api::set_contextlevel($record);
     }
 }
