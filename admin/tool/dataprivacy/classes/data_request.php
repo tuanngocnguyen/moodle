@@ -21,7 +21,9 @@
  * @copyright  2018 Jun Pataleta
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 namespace tool_dataprivacy;
+
 defined('MOODLE_INTERNAL') || die();
 
 use core\persistent;
@@ -36,6 +38,12 @@ class data_request extends persistent {
 
     /** The table name this persistent object maps to. */
     const TABLE = 'tool_dataprivacy_request';
+
+    /** Data request created manually. */
+    const DATAREQUEST_CREATION_MANUAL = 0;
+
+    /** Data request created automatically. */
+    const DATAREQUEST_CREATION_AUTO = 1;
 
     /**
      * Return the definition of the properties of this model.
@@ -75,10 +83,9 @@ class data_request extends persistent {
                 'type' => PARAM_INT
             ],
             'status' => [
-                'default' => api::DATAREQUEST_STATUS_PENDING,
+                'default' => api::DATAREQUEST_STATUS_AWAITING_APPROVAL,
                 'choices' => [
                     api::DATAREQUEST_STATUS_PENDING,
-                    api::DATAREQUEST_STATUS_PREPROCESSING,
                     api::DATAREQUEST_STATUS_AWAITING_APPROVAL,
                     api::DATAREQUEST_STATUS_APPROVED,
                     api::DATAREQUEST_STATUS_PROCESSING,
@@ -110,6 +117,14 @@ class data_request extends persistent {
                 ],
                 'type' => PARAM_INT,
                 'default' => FORMAT_PLAIN
+            ],
+            'creationmethod' => [
+                'default' => self::DATAREQUEST_CREATION_MANUAL,
+                'choices' => [
+                    self::DATAREQUEST_CREATION_MANUAL,
+                    self::DATAREQUEST_CREATION_AUTO
+                ],
+                'type' => PARAM_INT
             ],
         ];
     }
@@ -143,8 +158,6 @@ class data_request extends persistent {
 
         return $result;
     }
-
-
 
     /**
      * Fetch completed data requests which are due to expire.
@@ -209,5 +222,74 @@ class data_request extends persistent {
                 }
             }
         }
+    }
+
+    /**
+     * Whether this request is in a state appropriate for reset/resubmission.
+     *
+     * Note: This does not check whether any other completed requests exist for this user.
+     *
+     * @return  bool
+     */
+    public function is_resettable() : bool {
+        if (api::DATAREQUEST_TYPE_OTHERS == $this->get('type')) {
+            // It is not possible to reset 'other' reqeusts.
+            return false;
+        }
+
+        $resettable = [
+            api::DATAREQUEST_STATUS_APPROVED => true,
+            api::DATAREQUEST_STATUS_REJECTED => true,
+        ];
+
+        return isset($resettable[$this->get('status')]);
+    }
+
+    /**
+     * Whether this request is 'active'.
+     *
+     * @return  bool
+     */
+    public function is_active() : bool {
+        $active = [
+            api::DATAREQUEST_STATUS_APPROVED => true,
+        ];
+
+        return isset($active[$this->get('status')]);
+    }
+
+    /**
+     * Reject this request and resubmit it as a fresh request.
+     *
+     * Note: This does not check whether any other completed requests exist for this user.
+     *
+     * @return  self
+     */
+    public function resubmit_request() : data_request {
+        if ($this->is_active()) {
+            $this->set('status', api::DATAREQUEST_STATUS_REJECTED)->save();
+        }
+
+        if (!$this->is_resettable()) {
+            throw new \moodle_exception('cannotreset', 'tool_dataprivacy');
+        }
+
+        $currentdata = $this->to_record();
+        unset($currentdata->id);
+
+        // Clone the original request, but do not notify.
+        $clone = api::create_data_request(
+                $this->get('userid'),
+                $this->get('type'),
+                $this->get('comments'),
+                $this->get('creationmethod'),
+                false
+            );
+        $clone->set('comments', $this->get('comments'));
+        $clone->set('dpo', $this->get('dpo'));
+        $clone->set('requestedby', $this->get('requestedby'));
+        $clone->save();
+
+        return $clone;
     }
 }

@@ -2997,6 +2997,11 @@ var COMMENT = function(editor, gradeid, pageno, x, y, width, colour, rawtext) {
         return (bounds.has_min_width() && bounds.has_min_height());
     };
 
+    /**
+     * Update comment postion when rotating page
+     * @public
+     * @method update_position
+     */
     this.update_position = function() {
 
         var node = this.drawable.nodes[0].one('textarea');
@@ -4068,6 +4073,7 @@ EDITOR.prototype = {
         if (this.get('readonly')) {
             return;
         }
+
         // Rotate Left
         rotateleftbutton = this.get_dialogue_element(SELECTOR.ROTATELEFTBUTTON);
         rotateleftbutton.on('click', this.rotate_pdf, this, true);
@@ -4077,6 +4083,8 @@ EDITOR.prototype = {
         rotaterightbutton = this.get_dialogue_element(SELECTOR.ROTATERIGHTBUTTON);
         rotaterightbutton.on('click', this.rotate_pdf, this, false);
         rotaterightbutton.on('key', this.rotate_pdf, 'down:13', this, false);
+
+        this.disable_touch_scroll();
 
         // Setup the tool buttons.
         Y.each(TOOLSELECTOR, function(selector, tool) {
@@ -4171,6 +4179,7 @@ EDITOR.prototype = {
         if (tool !== "comment" && tool !== "select" && tool !== "drag" && tool !== "stamp") {
             this.lastannotationtool = tool;
         }
+
         this.refresh_button_state();
     },
 
@@ -4813,10 +4822,57 @@ EDITOR.prototype = {
                 }
             }
         };
-
         Y.io(ajaxurl, config);
+    },
 
+    /**
+     * Test the browser support for options objects on event listeners.
+     * @return Boolean
+     */
+    event_listener_options_supported: function() {
+        var passivesupported = false,
+            options,
+            testeventname = "testpassiveeventoptions";
+
+        // Options support testing example from:
+        // https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener
+
+        try {
+            options = Object.defineProperty({}, "passive", {
+                get: function() {
+                    passivesupported = true;
+                }
+            });
+
+            // We use an event name that is not likely to conflict with any real event.
+            document.addEventListener(testeventname, options, options);
+            // We remove the event listener as we have tested the options already.
+            document.removeEventListener(testeventname, options, options);
+        } catch(err) {
+            // It's already false.
+            passivesupported = false;
+        }
+        return passivesupported;
+    },
+
+    /**
+     * Disable Touch Move scrolling
+     */
+    disable_touch_scroll: function() {
+        if (this.event_listener_options_supported()) {
+            document.addEventListener('touchmove', this.stop_touch_scroll, {passive: false});
+        }
+    },
+
+    /**
+     * Stop Touch Scrolling
+     * @param {Object} e
+     */
+    stop_touch_scroll: function(e) {
+        e.stopPropagation();
+        e.preventDefault();
     }
+
 };
 
 Y.extend(EDITOR, Y.Base, EDITOR.prototype, {

@@ -431,6 +431,9 @@ function upgrade_stale_php_files_present() {
 
     $someexamplesofremovedfiles = array(
         // Removed in 3.6.
+        '/lib/classes/session/memcache.php',
+        '/lib/eventslib.php',
+        '/lib/form/submitlink.php',
         '/lib/medialib.php',
         '/lib/password_compat/lib/password.php',
         // Removed in 3.5.
@@ -2639,9 +2642,6 @@ function upgrade_fix_config_auth_plugin_defaults($plugin) {
         include($settingspath);
 
         if ($settings) {
-            // Consistently with what admin/cli/upgrade.php does, apply the default settings twice.
-            // I assume this is done for theoretical cases when a default value depends on an other.
-            admin_apply_default_settings($settings, false);
             admin_apply_default_settings($settings, false);
         }
     }
