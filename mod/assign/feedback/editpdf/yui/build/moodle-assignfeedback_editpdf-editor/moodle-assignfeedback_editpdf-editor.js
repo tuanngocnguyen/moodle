@@ -4842,6 +4842,7 @@ EDITOR.prototype = {
         e.stopPropagation();
         e.preventDefault();
     }
+
 };
 
 Y.extend(EDITOR, Y.Base, EDITOR.prototype, {
