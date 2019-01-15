@@ -25,12 +25,16 @@ define(
 [
     'jquery',
     'core/custom_interaction_events',
-    'block_myoverview/view'
+    'block_myoverview/repository',
+    'block_myoverview/view',
+    'block_myoverview/selectors'
 ],
 function(
     $,
     CustomEvents,
-    View
+    Repository,
+    View,
+    Selectors
 ) {
 
     var SELECTORS = {
@@ -40,13 +44,37 @@ function(
     };
 
     /**
+     * Update the user preference for the block.
+     *
+     * @param {String} filter The type of filter: display/sort/grouping.
+     * @param {String} value The current preferred value.
+     */
+    var updatePreferences = function(filter, value) {
+        var type = null;
+        if (filter == 'display') {
+            type = 'block_myoverview_user_view_preference';
+        } else if (filter == 'sort') {
+            type = 'block_myoverview_user_sort_preference';
+        } else {
+            type = 'block_myoverview_user_grouping_preference';
+        }
+
+        Repository.updateUserPreferences({
+            preferences: [
+                {
+                    type: type,
+                    value: value
+                }
+            ]
+        });
+    };
+
+    /**
      * Event listener for the Display filter (cards, list).
      *
      * @param {object} root The root element for the overview block
-     * @param {object} viewRoot The root element for displaying courses.
-     * @param {object} viewContent content The content element for the courses view.
      */
-    var registerSelector = function(root, viewRoot, viewContent) {
+    var registerSelector = function(root) {
 
         var Selector = root.find(SELECTORS.FILTERS);
 
@@ -62,11 +90,14 @@ function(
                     return;
                 }
 
-                var attributename = 'data-' + option.attr('data-filter');
-                viewRoot.attr(attributename, option.attr('data-value'));
+                var filter = option.attr('data-filter');
+                var pref = option.attr('data-pref');
+
+                root.find(Selectors.courseView.region).attr('data-' + filter, option.attr('data-value'));
+                updatePreferences(filter, pref);
 
                 // Reset the views.
-                View.init(viewRoot, viewContent);
+                View.init(root);
 
                 data.originalEvent.preventDefault();
             }
@@ -83,8 +114,12 @@ function(
                     return;
                 }
 
-                viewRoot.attr('data-display', option.attr('data-value'));
-                View.reset(viewRoot, viewContent);
+                var filter = option.attr('data-display-option');
+                var pref = option.attr('data-pref');
+
+                root.find(Selectors.courseView.region).attr('data-display', option.attr('data-value'));
+                updatePreferences(filter, pref);
+                View.reset(root);
                 data.originalEvent.preventDefault();
             }
         );
@@ -95,12 +130,10 @@ function(
      * the navigation elements.
      *
      * @param {object} root The root element for the myoverview block
-     * @param {object} viewRoot The root element for the myoverview block
-     * @param {object} viewContent The content element for the myoverview block
      */
-    var init = function(root, viewRoot, viewContent) {
+    var init = function(root) {
         root = $(root);
-        registerSelector(root, viewRoot, viewContent);
+        registerSelector(root);
     };
 
     return {

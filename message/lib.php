@@ -525,7 +525,8 @@ function translate_message_default_setting($plugindefault, $processorname) {
 
 /**
  * Get messages sent or/and received by the specified users.
- * Please note that this function return deleted messages too.
+ * Please note that this function return deleted messages too. Besides, only individual conversation messages
+ * are returned to maintain backwards compatibility.
  *
  * @param  int      $useridto       the user id who received the message
  * @param  int      $useridfrom     the user id who sent the message. -10 or -20 for no-reply or support user
@@ -581,8 +582,9 @@ function message_get_messages($useridto, $useridfrom = 0, $notifications = -1, $
                                 $messagejoinsql
                              WHERE mr.useridfrom = ?
                                AND mr.useridfrom != mcm.userid
-                               AND u.deleted = 0 ";
-        $messageparams = array_merge($messagejoinparams, [$useridfrom]);
+                               AND u.deleted = 0
+                               AND mc.type = ? ";
+        $messageparams = array_merge($messagejoinparams, [$useridfrom, \core_message\api::MESSAGE_CONVERSATION_TYPE_INDIVIDUAL]);
 
         // Create the notifications query and params.
         $notificationsql .= "INNER JOIN {user} u
@@ -598,11 +600,23 @@ function message_get_messages($useridto, $useridfrom = 0, $notifications = -1, $
                                $messagejoinsql
                             WHERE mcm.userid = ?
                               AND mr.useridfrom != mcm.userid
-                              AND u.deleted = 0 ";
-        $messageparams = array_merge($messagejoinparams, [$useridto]);
-        if (!empty($useridfrom)) {
+                              AND u.deleted = 0
+                              AND mc.type = ? ";
+        $messageparams = array_merge($messagejoinparams, [$useridto, \core_message\api::MESSAGE_CONVERSATION_TYPE_INDIVIDUAL]);
+
+        // If we're dealing with messages only and both useridto and useridfrom are set,
+        // try to get a conversation between the users. Break early if we can't find one.
+        if (!empty($useridfrom) && $notifications == 0) {
             $messagesql .= " AND mr.useridfrom = ? ";
             $messageparams[] = $useridfrom;
+
+            // There should be an individual conversation between the users. If not, we can return early.
+            $conversationid = \core_message\api::get_conversation_between_users([$useridto, $useridfrom]);
+            if (empty($conversationid)) {
+                return [];
+            }
+            $messagesql .= " AND mc.id = ? ";
+            $messageparams[] = $conversationid;
         }
 
         // Create the notifications query and params.
@@ -716,10 +730,31 @@ function core_message_can_edit_message_profile($user) {
  * @return array
  */
 function core_message_user_preferences() {
-
     $preferences = [];
-    $preferences['message_blocknoncontacts'] = array('type' => PARAM_INT, 'null' => NULL_NOT_ALLOWED, 'default' => 0,
-        'choices' => array(0, 1));
+    $preferences['message_blocknoncontacts'] = array(
+        'type' => PARAM_INT,
+        'null' => NULL_NOT_ALLOWED,
+        'default' => 0,
+        'choices' => array(
+            \core_message\api::MESSAGE_PRIVACY_ONLYCONTACTS,
+            \core_message\api::MESSAGE_PRIVACY_COURSEMEMBER,
+            \core_message\api::MESSAGE_PRIVACY_SITE
+        ),
+        'cleancallback' => function ($value) {
+            global $CFG;
+
+            // When site-wide messaging between users is disabled, MESSAGE_PRIVACY_SITE should be converted.
+            if (empty($CFG->messagingallusers) && $value === \core_message\api::MESSAGE_PRIVACY_SITE) {
+                return \core_message\api::MESSAGE_PRIVACY_COURSEMEMBER;
+            }
+            return $value;
+        }
+    );
+    $preferences['message_entertosend'] = array(
+        'type' => PARAM_BOOL,
+        'null' => NULL_NOT_ALLOWED,
+        'default' => false
+    );
     $preferences['/^message_provider_([\w\d_]*)_logged(in|off)$/'] = array('isregex' => true, 'type' => PARAM_NOTAGS,
         'null' => NULL_NOT_ALLOWED, 'default' => 'none',
         'permissioncallback' => function ($user, $preferencename) {
@@ -746,4 +781,102 @@ function core_message_user_preferences() {
             return $parts ? join(',', $parts) : 'none';
         });
     return $preferences;
+}
+
+/**
+ * Renders the popup.
+ *
+ * @param renderer_base $renderer
+ * @return string The HTML
+ */
+function core_message_render_navbar_output(\renderer_base $renderer) {
+    global $USER, $CFG;
+
+    // Early bail out conditions.
+    if (!isloggedin() || isguestuser() || user_not_fully_set_up($USER) ||
+        get_user_preferences('auth_forcepasswordchange') ||
+        (!$USER->policyagreed && !is_siteadmin() &&
+            ($manager = new \core_privacy\local\sitepolicy\manager()) && $manager->is_defined())) {
+        return '';
+    }
+
+    $output = '';
+
+    // Add the messages popover.
+    if (!empty($CFG->messaging)) {
+        $unreadcount = \core_message\api::count_unread_conversations($USER);
+        $requestcount = \core_message\api::get_received_contact_requests_count($USER->id);
+        $context = [
+            'userid' => $USER->id,
+            'unreadcount' => $unreadcount + $requestcount
+        ];
+        $output .= $renderer->render_from_template('core_message/message_popover', $context);
+    }
+
+    return $output;
+}
+
+/**
+ * Render the message drawer to be included in the top of the body of
+ * each page.
+ *
+ * @return string HTML
+ */
+function core_message_standard_after_main_region_html() {
+    global $USER, $CFG, $PAGE;
+
+    // Early bail out conditions.
+    if (empty($CFG->messaging) || !isloggedin() || isguestuser() || user_not_fully_set_up($USER) ||
+        get_user_preferences('auth_forcepasswordchange') ||
+        (!$USER->policyagreed && !is_siteadmin() &&
+            ($manager = new \core_privacy\local\sitepolicy\manager()) && $manager->is_defined())) {
+        return '';
+    }
+
+    $renderer = $PAGE->get_renderer('core');
+    $requestcount = \core_message\api::get_received_contact_requests_count($USER->id);
+    $contactscount = \core_message\api::count_contacts($USER->id);
+
+    $choices = [];
+    $choices[] = [
+        'value' => \core_message\api::MESSAGE_PRIVACY_ONLYCONTACTS,
+        'text' => get_string('contactableprivacy_onlycontacts', 'message')
+    ];
+    $choices[] = [
+        'value' => \core_message\api::MESSAGE_PRIVACY_COURSEMEMBER,
+        'text' => get_string('contactableprivacy_coursemember', 'message')
+    ];
+    if (!empty($CFG->messagingallusers)) {
+        // Add the MESSAGE_PRIVACY_SITE option when site-wide messaging between users is enabled.
+        $choices[] = [
+            'value' => \core_message\api::MESSAGE_PRIVACY_SITE,
+            'text' => get_string('contactableprivacy_site', 'message')
+        ];
+    }
+
+    // Enter to send.
+    $entertosend = get_user_preferences('message_entertosend', false, $USER);
+
+    // Get the unread counts for the current user.
+    $unreadcounts = \core_message\api::get_unread_conversation_counts($USER->id);
+
+    return $renderer->render_from_template('core_message/message_drawer', [
+        'contactrequestcount' => $requestcount,
+        'loggedinuser' => [
+            'id' => $USER->id,
+            'midnight' => usergetmidnight(time())
+        ],
+        'contacts' => [
+            'sectioncontacts' => [
+                'placeholders' => array_fill(0, $contactscount > 50 ? 50 : $contactscount, true)
+            ],
+            'sectionrequests' => [
+                'placeholders' => array_fill(0, $requestcount > 50 ? 50 : $requestcount, true)
+            ],
+        ],
+        'settings' => [
+            'privacy' => $choices,
+            'entertosend' => $entertosend
+        ]
+    ]);
 }

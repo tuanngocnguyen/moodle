@@ -28,35 +28,36 @@
                 "courseimage": "https://moodlesite/pluginfile/123/course/overviewfiles/123.jpg",
                 "fullname": "course 3",
                 "hasprogress": true,
-                "progress": 10
+                "progress": 10,
+                "coursecategory": "Miscellaneous"
             }
         ]
     }
 }}
 
-<div class="row card-deck" role="list">
-{{#courses}}
-    <div class="card course-card" role="listitem">
-        <a href="{{viewurl}}" tabindex="-1" role="presentation">
-            <div class="card-img-top myoverviewimg" style='background-image: url("{{{courseimage}}}");'>
-                <span class="sr-only">{{#str}}aria:courseimage, block_myoverview{{/str}}</span>
-            </div>
-        </a>
-        <div class="card-body course-info-container" id="course-info-container-{{id}}">
-            <div class="d-flex">
-                <div class="card-title">
-                    <a href="{{viewurl}}">
-                        <span class="sr-only">{{#str}}aria:coursename, block_myoverview{{/str}}</span>
-                        {{#shortentext}}140, {{{fullname}}} {{/shortentext}}
-                    </a>
-                </div>
-            </div>
-        </div>
+{{< core_course/coursecards }}
+    {{$menu}}
+        {{> block_myoverview/course-action-menu }}
+    {{/menu}}
+    {{$progress}}
         {{#hasprogress}}
-        <div class="card-footer course-card-footer">
-            {{> block_myoverview/progress-bar}}
-        </div>
+            <div class="card-footer dashboard-card-footer border-0 bg-white">
+                {{> block_myoverview/progress-bar}}
+            </div>
         {{/hasprogress}}
-    </div>
-{{/courses}}
-</div>
+    {{/progress}}
+    {{$coursename}}
+        <span class="multiline">
+            {{#shortentext}}50, {{{fullname}}} {{/shortentext}}
+        </span>
+    {{/coursename}}
+    {{$coursecategory}}
+        <span class="sr-only">
+            {{#str}}aria:coursecategory, core_course{{/str}}
+        </span>
+        <div>{{{coursecategory}}}</div>
+    {{/coursecategory}}
+    {{$divider}}
+        <div class="pl-1 pr-1">|</div>
+    {{/divider}}
+{{/ core_course/coursecards }}

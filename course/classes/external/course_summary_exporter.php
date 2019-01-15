@@ -35,12 +35,26 @@ use moodle_url;
  */
 class course_summary_exporter extends \core\external\exporter {
 
+    /**
+     * Constructor - saves the persistent object, and the related objects.
+     *
+     * @param mixed $data - Either an stdClass or an array of values.
+     * @param array $related - An optional list of pre-loaded objects related to this object.
+     */
+    public function __construct($data, $related = array()) {
+        if (!array_key_exists('isfavourite', $related)) {
+            $related['isfavourite'] = false;
+        }
+        parent::__construct($data, $related);
+    }
+
     protected static function define_related() {
         // We cache the context so it does not need to be retrieved from the course.
-        return array('context' => '\\context');
+        return array('context' => '\\context', 'isfavourite' => 'bool?');
     }
 
     protected function get_other_values(renderer_base $output) {
+        global $CFG;
         $courseimage = self::get_course_image($this->data);
         if (!$courseimage) {
             $courseimage = self::get_course_pattern($this->data);
@@ -51,12 +65,17 @@ class course_summary_exporter extends \core\external\exporter {
             $hasprogress = true;
         }
         $progress = floor($progress);
+        $coursecategory = \core_course_category::get($this->data->category, MUST_EXIST, true);
         return array(
             'fullnamedisplay' => get_course_display_name_for_list($this->data),
             'viewurl' => (new moodle_url('/course/view.php', array('id' => $this->data->id)))->out(false),
             'courseimage' => $courseimage,
             'progress' => $progress,
-            'hasprogress' => $hasprogress
+            'hasprogress' => $hasprogress,
+            'isfavourite' => $this->related['isfavourite'],
+            'hidden' => boolval(get_user_preferences('block_myoverview_hidden_course_' . $this->data->id, 0)),
+            'showshortname' => $CFG->courselistshortnames ? true : false,
+            'coursecategory' => $coursecategory->name
         );
     }
 
@@ -119,6 +138,22 @@ class course_summary_exporter extends \core\external\exporter {
             ),
             'hasprogress' => array(
                 'type' => PARAM_BOOL
+            ),
+            'isfavourite' => array(
+                'type' => PARAM_BOOL
+            ),
+            'hidden' => array(
+                'type' => PARAM_BOOL
+            ),
+            'timeaccess' => array(
+                'type' => PARAM_INT,
+                'optional' => true
+            ),
+            'showshortname' => array(
+                'type' => PARAM_BOOL
+            ),
+            'coursecategory' => array(
+                'type' => PARAM_TEXT
             )
         );
     }

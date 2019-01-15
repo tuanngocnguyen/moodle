@@ -161,7 +161,6 @@ class core_user_external extends external_api {
         $transaction = $DB->start_delegated_transaction();
 
         $userids = array();
-        $createpassword = false;
         foreach ($params['users'] as $user) {
             // Make sure that the username, firstname and lastname are not blank.
             foreach (array('username', 'firstname', 'lastname') as $fieldname) {
@@ -194,7 +193,8 @@ class core_user_external extends external_api {
             }
 
             // Make sure we have a password or have to create one.
-            if (empty($user['password']) && empty($user['createpassword'])) {
+            $authplugin = get_auth_plugin($user['auth']);
+            if ($authplugin->is_internal() && empty($user['password']) && empty($user['createpassword'])) {
                 throw new invalid_parameter_exception('Invalid password: you must provide a password, or set createpassword.');
             }
 
@@ -213,11 +213,15 @@ class core_user_external extends external_api {
 
             $createpassword = !empty($user['createpassword']);
             unset($user['createpassword']);
-            if ($createpassword) {
-                $user['password'] = '';
-                $updatepassword = false;
+            $updatepassword = false;
+            if ($authplugin->is_internal()) {
+                if ($createpassword) {
+                    $user['password'] = '';
+                } else {
+                    $updatepassword = true;
+                }
             } else {
-                $updatepassword = true;
+                $user['password'] = AUTH_PASSWORD_NOT_CACHED;
             }
 
             // Create the user data now!
@@ -366,7 +370,8 @@ class core_user_external extends external_api {
                     new external_single_structure(
                         array(
                             'type'  => new external_value(PARAM_RAW, 'The name of the preference'),
-                            'value' => new external_value(PARAM_RAW, 'The value of the preference')
+                            'value' => new external_value(PARAM_RAW, 'The value of the preference, do not set this field if you
+                                want to remove (unset) the current value.', VALUE_DEFAULT, null),
                         )
                     ), 'User preferences', VALUE_DEFAULT, array()
                 )
@@ -383,7 +388,7 @@ class core_user_external extends external_api {
      * @return null
      * @since Moodle 3.2
      */
-    public static function update_user_preferences($userid, $emailstop = null, $preferences = array()) {
+    public static function update_user_preferences($userid = 0, $emailstop = null, $preferences = array()) {
         global $USER, $CFG;
 
         require_once($CFG->dirroot . '/user/lib.php');
@@ -401,7 +406,8 @@ class core_user_external extends external_api {
             'emailstop' => $emailstop,
             'preferences' => $preferences
         );
-        self::validate_parameters(self::update_user_preferences_parameters(), $params);
+        $params = self::validate_parameters(self::update_user_preferences_parameters(), $params);
+        $preferences = $params['preferences'];
 
         // Preferences.
         if (!empty($preferences)) {

@@ -39,8 +39,8 @@ use required_capability_exception;
 use stdClass;
 use tool_dataprivacy\external\data_request_exporter;
 use tool_dataprivacy\local\helper;
-use tool_dataprivacy\task\initiate_data_request_task;
 use tool_dataprivacy\task\process_data_request_task;
+use tool_dataprivacy\data_request;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -63,9 +63,6 @@ class api {
 
     /** Newly submitted and we haven't yet started finding out where they have data. */
     const DATAREQUEST_STATUS_PENDING = 0;
-
-    /** Newly submitted and we have started to find the location of data. */
-    const DATAREQUEST_STATUS_PREPROCESSING = 1;
 
     /** Metadata ready and awaiting review and approval by the Data Protection officer. */
     const DATAREQUEST_STATUS_AWAITING_APPROVAL = 2;
@@ -227,41 +224,60 @@ class api {
      * @param int $foruser The user whom the request is being made for.
      * @param int $type The request type.
      * @param string $comments Request comments.
+     * @param int $creationmethod The creation method of the data request.
+     * @param bool $notify Notify DPOs of this pending request.
      * @return data_request
      * @throws invalid_persistent_exception
      * @throws coding_exception
      */
-    public static function create_data_request($foruser, $type, $comments = '') {
+    public static function create_data_request($foruser, $type, $comments = '',
+            $creationmethod = data_request::DATAREQUEST_CREATION_MANUAL,
+            $notify = null
+        ) {
         global $USER;
+
+        if (null === $notify) {
+            // Only if notifications have not been decided by caller.
+            if ( data_request::DATAREQUEST_CREATION_AUTO == $creationmethod) {
+                // If the request was automatically created, then do not notify unless explicitly set.
+                $notify = false;
+            } else {
+                $notify = true;
+            }
+        }
 
         $datarequest = new data_request();
         // The user the request is being made for.
         $datarequest->set('userid', $foruser);
 
-        $requestinguser = $USER->id;
-        // Check when the user is making a request on behalf of another.
-        if ($requestinguser != $foruser) {
-            if (self::is_site_dpo($requestinguser)) {
-                // The user making the request is a DPO. Should be fine.
-                $datarequest->set('dpo', $requestinguser);
-            }
-        }
+        // The cron is considered to be a guest user when it creates a data request.
+        // NOTE: This should probably be changed. We should leave the default value for $requestinguser if
+        // the request is not explicitly created by a specific user.
+        $requestinguser = (isguestuser() && $creationmethod == data_request::DATAREQUEST_CREATION_AUTO) ?
+                get_admin()->id : $USER->id;
         // The user making the request.
         $datarequest->set('requestedby', $requestinguser);
         // Set status.
-        $datarequest->set('status', self::DATAREQUEST_STATUS_PENDING);
+        $datarequest->set('status', self::DATAREQUEST_STATUS_AWAITING_APPROVAL);
         // Set request type.
         $datarequest->set('type', $type);
         // Set request comments.
         $datarequest->set('comments', $comments);
+        // Set the creation method.
+        $datarequest->set('creationmethod', $creationmethod);
 
         // Store subject access request.
         $datarequest->create();
 
-        // Fire an ad hoc task to initiate the data request process.
-        $task = new initiate_data_request_task();
-        $task->set_custom_data(['requestid' => $datarequest->get('id')]);
-        manager::queue_adhoc_task($task, true);
+        if ($notify) {
+            // Get the list of the site Data Protection Officers.
+            $dpos = api::get_site_dpos();
+
+            // Email the data request to the Data Protection Officer(s)/Admin(s).
+            foreach ($dpos as $dpo) {
+                api::notify_dpo($dpo, $datarequest);
+            }
+        }
 
         return $datarequest;
     }
@@ -276,6 +292,7 @@ class api {
      * @param int $userid The User ID.
      * @param int[] $statuses The status filters.
      * @param int[] $types The request type filters.
+     * @param int[] $creationmethods The request creation method filters.
      * @param string $sort The order by clause.
      * @param int $offset Amount of records to skip.
      * @param int $limit Amount of records to fetch.
@@ -283,7 +300,8 @@ class api {
      * @throws coding_exception
      * @throws dml_exception
      */
-    public static function get_data_requests($userid = 0, $statuses = [], $types = [], $sort = '', $offset = 0, $limit = 0) {
+    public static function get_data_requests($userid = 0, $statuses = [], $types = [], $creationmethods = [],
+                                             $sort = '', $offset = 0, $limit = 0) {
         global $DB, $USER;
         $results = [];
         $sqlparams = [];
@@ -304,6 +322,13 @@ class api {
         if (!empty($types)) {
             list($typeinsql, $typeparams) = $DB->get_in_or_equal($types, SQL_PARAMS_NAMED);
             $sqlconditions[] = "type $typeinsql";
+            $sqlparams = array_merge($sqlparams, $typeparams);
+        }
+
+        // Set request creation method filter.
+        if (!empty($creationmethods)) {
+            list($typeinsql, $typeparams) = $DB->get_in_or_equal($creationmethods, SQL_PARAMS_NAMED);
+            $sqlconditions[] = "creationmethod $typeinsql";
             $sqlparams = array_merge($sqlparams, $typeparams);
         }
 
@@ -349,7 +374,7 @@ class api {
 
             if (!empty($expiredrequests)) {
                 data_request::expire($expiredrequests);
-                $results = self::get_data_requests($userid, $statuses, $types, $sort, $offset, $limit);
+                $results = self::get_data_requests($userid, $statuses, $types, $creationmethods, $sort, $offset, $limit);
             }
         }
 
@@ -362,11 +387,12 @@ class api {
      * @param int $userid The User ID.
      * @param int[] $statuses The status filters.
      * @param int[] $types The request type filters.
+     * @param int[] $creationmethods The request creation method filters.
      * @return int
      * @throws coding_exception
      * @throws dml_exception
      */
-    public static function get_data_requests_count($userid = 0, $statuses = [], $types = []) {
+    public static function get_data_requests_count($userid = 0, $statuses = [], $types = [], $creationmethods = []) {
         global $DB, $USER;
         $count = 0;
         $sqlparams = [];
@@ -378,6 +404,11 @@ class api {
         if (!empty($types)) {
             list($typeinsql, $typeparams) = $DB->get_in_or_equal($types, SQL_PARAMS_NAMED);
             $sqlconditions[] = "type $typeinsql";
+            $sqlparams = array_merge($sqlparams, $typeparams);
+        }
+        if (!empty($creationmethods)) {
+            list($typeinsql, $typeparams) = $DB->get_in_or_equal($creationmethods, SQL_PARAMS_NAMED);
+            $sqlconditions[] = "creationmethod $typeinsql";
             $sqlparams = array_merge($sqlparams, $typeparams);
         }
         if ($userid) {
@@ -438,14 +469,56 @@ class api {
             self::DATAREQUEST_STATUS_EXPIRED,
             self::DATAREQUEST_STATUS_DELETED,
         ];
-        list($insql, $inparams) = $DB->get_in_or_equal($nonpendingstatuses, SQL_PARAMS_NAMED);
-        $select = 'type = :type AND userid = :userid AND status NOT ' . $insql;
+        list($insql, $inparams) = $DB->get_in_or_equal($nonpendingstatuses, SQL_PARAMS_NAMED, 'st', false);
+        $select = "type = :type AND userid = :userid AND status {$insql}";
         $params = array_merge([
             'type' => $type,
             'userid' => $userid
         ], $inparams);
 
         return data_request::record_exists_select($select, $params);
+    }
+
+    /**
+     * Find whether any ongoing requests exist for a set of users.
+     *
+     * @param   array   $userids
+     * @return  array
+     */
+    public static function find_ongoing_request_types_for_users(array $userids) : array {
+        global $DB;
+
+        if (empty($userids)) {
+            return [];
+        }
+
+        // Check if the user already has an incomplete data request of the same type.
+        $nonpendingstatuses = [
+            self::DATAREQUEST_STATUS_COMPLETE,
+            self::DATAREQUEST_STATUS_CANCELLED,
+            self::DATAREQUEST_STATUS_REJECTED,
+            self::DATAREQUEST_STATUS_DOWNLOAD_READY,
+            self::DATAREQUEST_STATUS_EXPIRED,
+            self::DATAREQUEST_STATUS_DELETED,
+        ];
+        list($statusinsql, $statusparams) = $DB->get_in_or_equal($nonpendingstatuses, SQL_PARAMS_NAMED, 'st', false);
+        list($userinsql, $userparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'us');
+
+        $select = "userid {$userinsql} AND status {$statusinsql}";
+        $params = array_merge($statusparams, $userparams);
+
+        $requests = $DB->get_records_select(data_request::TABLE, $select, $params, 'userid', 'id, userid, type');
+
+        $returnval = [];
+        foreach ($userids as $userid) {
+            $returnval[$userid] = (object) [];
+        }
+
+        foreach ($requests as $request) {
+            $returnval[$request->userid]->{$request->type} = true;
+        }
+
+        return $returnval;
     }
 
     /**
@@ -543,11 +616,6 @@ class api {
 
         // Update the status and the DPO.
         $result = self::update_request_status($requestid, self::DATAREQUEST_STATUS_APPROVED, $USER->id);
-
-        // Approve all the contexts attached to the request.
-        // Currently, approving the request implicitly approves all associated contexts, but this may change in future, allowing
-        // users to selectively approve certain contexts only.
-        self::update_request_contexts_with_status($requestid, contextlist_context::STATUS_APPROVED);
 
         // Fire an ad hoc task to initiate the data request process.
         $task = new process_data_request_task();
@@ -914,7 +982,7 @@ class api {
      * @param int $forcedvalue Use this categoryid value as if this was this context instance category.
      * @return category|false
      */
-    public static function get_effective_context_category(\context $context, $forcedvalue=false) {
+    public static function get_effective_context_category(\context $context, $forcedvalue = false) {
         if (!data_registry::defaults_set()) {
             return false;
         }
@@ -941,15 +1009,14 @@ class api {
      * Returns the effective category given a context level.
      *
      * @param int $contextlevel
-     * @param int $forcedvalue Use this categoryid value as if this was this context level category.
      * @return category|false
      */
-    public static function get_effective_contextlevel_category($contextlevel, $forcedvalue=false) {
+    public static function get_effective_contextlevel_category($contextlevel) {
         if (!data_registry::defaults_set()) {
             return false;
         }
 
-        return data_registry::get_effective_contextlevel_value($contextlevel, 'category', $forcedvalue);
+        return data_registry::get_effective_contextlevel_value($contextlevel, 'category');
     }
 
     /**
@@ -968,6 +1035,34 @@ class api {
     }
 
     /**
+     * Creates an expired context record for the provided context id.
+     *
+     * @param int $contextid
+     * @return \tool_dataprivacy\expired_context
+     */
+    public static function create_expired_context($contextid) {
+        $record = (object)[
+            'contextid' => $contextid,
+            'status' => expired_context::STATUS_EXPIRED,
+        ];
+        $expiredctx = new expired_context(0, $record);
+        $expiredctx->save();
+
+        return $expiredctx;
+    }
+
+    /**
+     * Deletes an expired context record.
+     *
+     * @param int $id The tool_dataprivacy_ctxexpire id.
+     * @return bool True on success.
+     */
+    public static function delete_expired_context($id) {
+        $expiredcontext = new expired_context($id);
+        return $expiredcontext->delete();
+    }
+
+    /**
      * Updates the status of an expired context.
      *
      * @param \tool_dataprivacy\expired_context $expiredctx
@@ -980,133 +1075,43 @@ class api {
     }
 
     /**
-     * Adds the contexts from the contextlist_collection to the request with the status provided.
+     * Finds all contextlists having at least one approved context, and returns them as in a contextlist_collection.
      *
-     * @param contextlist_collection $clcollection a collection of contextlists for all components.
-     * @param int $requestid the id of the request.
-     * @param int $status the status to set the contexts to.
+     * @param   contextlist_collection  $collection The collection of unapproved contextlist objects.
+     * @param   \stdClass               $foruser The target user
+     * @param   int                     $type The purpose of the collection
+     * @return  contextlist_collection  The collection of approved_contextlist objects.
      */
-    public static function add_request_contexts_with_status(contextlist_collection $clcollection, int $requestid, int $status) {
-        $request = new data_request($requestid);
-        foreach ($clcollection as $contextlist) {
-            // Convert the \core_privacy\local\request\contextlist into a contextlist persistent and store it.
-            $clp = \tool_dataprivacy\contextlist::from_contextlist($contextlist);
-            $clp->create();
-            $contextlistid = $clp->get('id');
+    public static function get_approved_contextlist_collection_for_collection(contextlist_collection $collection,
+            \stdClass $foruser, int $type) : contextlist_collection {
 
-            // Store the associated contexts in the contextlist.
-            foreach ($contextlist->get_contextids() as $contextid) {
-                if ($request->get('type') == static::DATAREQUEST_TYPE_DELETE) {
-                    $context = \context::instance_by_id($contextid);
-                    if (($purpose = static::get_effective_context_purpose($context)) && !empty($purpose->get('protected'))) {
+        // Create the approved contextlist collection object.
+        $approvedcollection = new contextlist_collection($collection->get_userid());
+        $isconfigured = data_registry::defaults_set();
+
+        foreach ($collection as $contextlist) {
+            $contextids = [];
+            foreach ($contextlist as $context) {
+                if ($isconfigured && self::DATAREQUEST_TYPE_DELETE == $type) {
+                    // Data can only be deleted from it if the context is either expired, or unprotected.
+                    // Note: We can only check whether a context is expired or unprotected if the site is configured and
+                    // defaults are set appropriately. If they are not, we treat all contexts as though they are
+                    // unprotected.
+                    $purpose = static::get_effective_context_purpose($context);
+                    if (!expired_contexts_manager::is_context_expired_or_unprotected_for_user($context, $foruser)) {
                         continue;
                     }
                 }
-                $context = new contextlist_context();
-                $context->set('contextid', $contextid)
-                    ->set('contextlistid', $contextlistid)
-                    ->set('status', $status)
-                    ->create();
+
+                $contextids[] = $context->id;
             }
 
-            // Create the relation to the request.
-            $requestcontextlist = request_contextlist::create_relation($requestid, $contextlistid);
-            $requestcontextlist->create();
-        }
-    }
-
-    /**
-     * Sets the status of all contexts associated with the request.
-     *
-     * @param int $requestid the requestid to which the contexts belong.
-     * @param int $status the status to set to.
-     * @throws \dml_exception if the requestid is invalid.
-     * @throws \moodle_exception if the status is invalid.
-     */
-    public static function update_request_contexts_with_status(int $requestid, int $status) {
-        // Validate contextlist_context status using the persistent's attribute validation.
-        $contextlistcontext = new contextlist_context();
-        $contextlistcontext->set('status', $status);
-        if (array_key_exists('status', $contextlistcontext->get_errors())) {
-            throw new moodle_exception("Invalid contextlist_context status: $status");
-        }
-
-        // Validate requestid using the persistent's record validation.
-        // A dml_exception is thrown if the record is missing.
-        $datarequest = new data_request($requestid);
-
-        // Bulk update the status of the request contexts.
-        global $DB;
-
-        $select = "SELECT ctx.id as id
-                     FROM {" . request_contextlist::TABLE . "} rcl
-                     JOIN {" . contextlist::TABLE . "} cl ON rcl.contextlistid = cl.id
-                     JOIN {" . contextlist_context::TABLE . "} ctx ON cl.id = ctx.contextlistid
-                    WHERE rcl.requestid = ?";
-
-        // Fetch records IDs to be updated and update by chunks, if applicable (limit of 1000 records per update).
-        $limit = 1000;
-        $idstoupdate = $DB->get_fieldset_sql($select, [$requestid]);
-        $count = count($idstoupdate);
-        $idchunks = $idstoupdate;
-        if ($count > $limit) {
-            $idchunks = array_chunk($idstoupdate, $limit);
-        }
-        $transaction = $DB->start_delegated_transaction();
-        $initialparams = [$status];
-        foreach ($idchunks as $chunk) {
-            list($insql, $inparams) = $DB->get_in_or_equal($chunk);
-            $update = "UPDATE {" . contextlist_context::TABLE . "}
-                          SET status = ?
-                        WHERE id $insql";
-            $params = array_merge($initialparams, $inparams);
-            $DB->execute($update, $params);
-        }
-        $transaction->allow_commit();
-    }
-
-    /**
-     * Finds all request contextlists having at least on approved context, and returns them as in a contextlist_collection.
-     *
-     * @param data_request $request the data request with which the contextlists are associated.
-     * @return contextlist_collection the collection of approved_contextlist objects.
-     */
-    public static function get_approved_contextlist_collection_for_request(data_request $request) : contextlist_collection {
-        $foruser = core_user::get_user($request->get('userid'));
-
-        // Fetch all approved contextlists and create the core_privacy\local\request\contextlist objects here.
-        global $DB;
-        $sql = "SELECT cl.component, ctx.contextid
-                  FROM {" . request_contextlist::TABLE . "} rcl
-                  JOIN {" . contextlist::TABLE . "} cl ON rcl.contextlistid = cl.id
-                  JOIN {" . contextlist_context::TABLE . "} ctx ON cl.id = ctx.contextlistid
-                 WHERE rcl.requestid = ?
-                   AND ctx.status = ?
-              ORDER BY cl.component, ctx.contextid";
-
-        // Create the approved contextlist collection object.
-        $lastcomponent = null;
-        $approvedcollection = new contextlist_collection($foruser->id);
-
-        $rs = $DB->get_recordset_sql($sql, [$request->get('id'), contextlist_context::STATUS_APPROVED]);
-        foreach ($rs as $record) {
-            // If we encounter a new component, and we've built up contexts for the last, then add the approved_contextlist for the
-            // last (the one we've just finished with) and reset the context array for the next one.
-            if ($lastcomponent != $record->component) {
-                if (!empty($contexts)) {
-                    $approvedcollection->add_contextlist(new approved_contextlist($foruser, $lastcomponent, $contexts));
-                }
-                $contexts = [];
+            // The data for the last component contextlist won't have been written yet, so write it now.
+            if (!empty($contextids)) {
+                $approvedcollection->add_contextlist(
+                        new approved_contextlist($foruser, $contextlist->get_component(), $contextids)
+                    );
             }
-
-            $contexts[] = $record->contextid;
-            $lastcomponent = $record->component;
-        }
-        $rs->close();
-
-        // The data for the last component contextlist won't have been written yet, so write it now.
-        if (!empty($contexts)) {
-            $approvedcollection->add_contextlist(new approved_contextlist($foruser, $lastcomponent, $contexts));
         }
 
         return $approvedcollection;
@@ -1195,5 +1200,26 @@ class api {
         }
 
         return true;
+    }
+
+    /**
+     * Format the supplied date interval as a retention period.
+     *
+     * @param   \DateInterval   $interval
+     * @return  string
+     */
+    public static function format_retention_period(\DateInterval $interval) : string {
+        // It is one or another.
+        if ($interval->y) {
+            $formattedtime = get_string('numyears', 'moodle', $interval->format('%y'));
+        } else if ($interval->m) {
+            $formattedtime = get_string('nummonths', 'moodle', $interval->format('%m'));
+        } else if ($interval->d) {
+            $formattedtime = get_string('numdays', 'moodle', $interval->format('%d'));
+        } else {
+            $formattedtime = get_string('retentionperiodzero', 'tool_dataprivacy');
+        }
+
+        return $formattedtime;
     }
 }
