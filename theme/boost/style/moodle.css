@@ -11151,6 +11151,10 @@ div.editor_atto_toolbar button .icon {
     padding-left: 0.5rem;
     content: "/"; }
 
+#page-admin-tasklogs .task-class {
+  font-size: 0.8203125rem;
+  color: #868e96; }
+
 .blockmovetarget .accesshide {
   position: relative;
   left: initial; }
@@ -11252,8 +11256,8 @@ div.editor_atto_toolbar button .icon {
   overflow-x: scroll; }
 
 .summaryimage {
-  height: 7rem;
-  width: 7rem;
+  height: 5rem;
+  width: 5rem;
   background-position: center;
   background-size: cover; }
 
