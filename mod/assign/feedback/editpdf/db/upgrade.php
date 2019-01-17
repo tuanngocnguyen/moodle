@@ -122,7 +122,7 @@ function xmldb_assignfeedback_editpdf_upgrade($oldversion) {
         }
 
         // Editpdf savepoint reached.
-        upgrade_plugin_savepoint(true, XXXXXXXXXX, 'assignfeedback', 'editpdf');
+        upgrade_plugin_savepoint(true, 2019010800, 'assignfeedback', 'editpdf');
     }
 
     return true;
