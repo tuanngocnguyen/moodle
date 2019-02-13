@@ -265,7 +265,6 @@ EOD;
             $submission = $assignment->get_user_submission($userid, false, $attemptnumber);
         }
 
-
         $contextid = $assignment->get_context()->id;
         $component = 'assignfeedback_editpdf';
         $filearea = self::COMBINED_PDF_FILEAREA;
@@ -523,7 +522,7 @@ EOD;
 
                 // Need to reorder the files following their name.
                 // because get_directory_files() return a different order than generate_page_images_for_attempt().
-                foreach($files as $file) {
+                foreach ($files as $file) {
                     // Extract the page number from the file name image_pageXXXX.png.
                     preg_match('/page([\d]+)\./', $file->get_filename(), $matches);
                     if (empty($matches) or !is_numeric($matches[1])) {
@@ -844,10 +843,8 @@ EOD;
         $itemid = $grade->id;
         $contextid = $assignment->get_context()->id;
         $component = self::COMPONENT;
-
         $fs = get_file_storage();
         $files = $fs->get_directory_files($contextid, $component, $filearea, $itemid, $filepath);
-
         return $files;
     }
 
@@ -934,9 +931,7 @@ EOD;
                         $content = imagerotate($source, -90, 0);
                     }
                     $filename = $matches[0].'png';
-                    $tmpdir = make_temp_directory(
-                        self::COMPONENT .'/'
-                        . self::PAGE_IMAGE_FILEAREA .'/'
+                    $tmpdir = make_temp_directory(self::COMPONENT . '/' . self::PAGE_IMAGE_FILEAREA . '/'
                         . self::hash($assignment, $userid, $attemptnumber));
                     $tempfile = $tmpdir . '/' . time() . '_' . $filename;
                     imagepng($content, $tempfile);
