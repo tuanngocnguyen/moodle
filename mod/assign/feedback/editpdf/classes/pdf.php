@@ -737,7 +737,7 @@ class pdf extends \FPDI {
         }
 
         $testimagefolder = \make_temp_directory('assignfeedback_editpdf_test');
-        @unlink($testimagefolder.'/'.self::IMAGE_PAGE.'0.png'); // Delete any previous test images.
+        unlink($testimagefolder.'/'.self::IMAGE_PAGE.'0.png'); // Delete any previous test images.
 
         $pdf = new pdf();
         $pdf->set_pdf($testfile);

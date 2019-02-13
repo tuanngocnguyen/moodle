@@ -37,6 +37,7 @@ use DOMDocument;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class document_services {
+
     /** Compoment name */
     const COMPONENT = "assignfeedback_editpdf";
     /** File area for generated pdf */
@@ -428,7 +429,6 @@ EOD;
             if (!empty($files[$i])) {
                 page_editor::set_page_rotation($grade->id, $i, false, $files[$i]->get_pathnamehash());
             }
-
         }
         $pdf->Close(); // PDF loaded and never saved/outputted needs to be closed.
 
