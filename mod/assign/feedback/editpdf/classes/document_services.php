@@ -708,7 +708,6 @@ EOD;
         $generatedpdf = $tmpdir . '/' . $filename;
         $pdf->save_pdf($generatedpdf);
 
-
         $record = new \stdClass();
 
         $record->contextid = $assignment->get_context()->id;
@@ -717,7 +716,6 @@ EOD;
         $record->itemid = $grade->id;
         $record->filepath = '/';
         $record->filename = $filename;
-
 
         // Only keep one current version of the generated pdf.
         $fs->delete_area_files($record->contextid, $record->component, $record->filearea, $record->itemid);
