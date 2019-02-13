@@ -668,7 +668,6 @@ EOD;
                 }
             }
 
-
             $comments = page_editor::get_comments($grade->id, $i, false);
             $annotations = page_editor::get_annotations($grade->id, $i, false);
 
