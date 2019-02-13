@@ -621,9 +621,9 @@ var COMMENT = function(editor, gradeid, pageno, x, y, width, colour, rawtext) {
     /**
      * Update comment position when rotating page.
      * @public
-     * @method update_position
+     * @method updatePosition
      */
-    this.update_position = function() {
+    this.updatePosition = function() {
 
         var node = this.drawable.nodes[0].one('textarea');
         var container = node.ancestor('div');

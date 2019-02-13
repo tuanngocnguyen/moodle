@@ -831,13 +831,13 @@ EDITOR.prototype = {
 
         // Rotate Left.
         rotateleftbutton = this.get_dialogue_element(SELECTOR.ROTATELEFTBUTTON);
-        rotateleftbutton.on('click', this.rotate_pdf, this, true);
-        rotateleftbutton.on('key', this.rotate_pdf, 'down:13', this, true);
+        rotateleftbutton.on('click', this.rotatePDF, this, true);
+        rotateleftbutton.on('key', this.rotatePDF, 'down:13', this, true);
 
         // Rotate Right.
         rotaterightbutton = this.get_dialogue_element(SELECTOR.ROTATERIGHTBUTTON);
-        rotaterightbutton.on('click', this.rotate_pdf, this, false);
-        rotaterightbutton.on('key', this.rotate_pdf, 'down:13', this, false);
+        rotaterightbutton.on('click', this.rotatePDF, this, false);
+        rotaterightbutton.on('key', this.rotatePDF, 'down:13', this, false);
 
         this.disable_touch_scroll();
 
@@ -1502,7 +1502,7 @@ EDITOR.prototype = {
      * @param {boolean} left  true if rotating left, false if rotating right
      * @method rotatepdf
      */
-    rotate_pdf: function(e, left) {
+    rotatePDF: function(e, left) {
         e.preventDefault();
 
         if (this.get('destroyed')) {
@@ -1514,8 +1514,8 @@ EDITOR.prototype = {
         this.oldannotationcoordinates = [];
         var annotations = this.pages[this.currentpage].annotations;
         for (i = 0; i < annotations.length; i++) {
-            var old_annotation = annotations[i];
-            this.oldannotationcoordinates.push([old_annotation.x, old_annotation.y]);
+            var oldannotation = annotations[i];
+            this.oldannotationcoordinates.push([oldannotation.x, oldannotation.y]);
         }
 
         var ajaxurl = AJAXBASE;
@@ -1578,7 +1578,7 @@ EDITOR.prototype = {
                          */
                         var oldcomments = page.comments;
                         for (i = 0; i < oldcomments.length; i++) {
-                            oldcomments[i].update_position();
+                            oldcomments[i].updatePosition();
                         }
                         // Save Annotations.
                         return self.save_current_page();
