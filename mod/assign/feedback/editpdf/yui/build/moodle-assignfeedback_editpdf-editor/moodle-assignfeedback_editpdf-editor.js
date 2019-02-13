@@ -48,9 +48,10 @@ var AJAXBASE = M.cfg.wwwroot + '/mod/assign/feedback/editpdf/ajax.php',
         UNSAVEDCHANGESDIV: '.assignfeedback_editpdf_warningmessages',
         UNSAVEDCHANGESINPUT: 'input[name="assignfeedback_editpdf_haschanges"]',
         STAMPSBUTTON: '.currentstampbutton',
-        DIALOGUE: '.' + CSS.DIALOGUE,
+        USERINFOREGION: '[data-region="user-info"]',
         ROTATELEFTBUTTON: '.rotateleftbutton',
-        ROTATERIGHTBUTTON: '.rotaterightbutton'
+        ROTATERIGHTBUTTON: '.rotaterightbutton',
+        DIALOGUE: '.' + CSS.DIALOGUE
     },
     SELECTEDBORDERCOLOUR = 'rgba(200, 200, 255, 0.9)',
     SELECTEDFILLCOLOUR = 'rgba(200, 200, 255, 0.5)',
@@ -3000,11 +3001,11 @@ var COMMENT = function(editor, gradeid, pageno, x, y, width, colour, rawtext) {
     };
 
     /**
-     * Update comment postion when rotating page
+     * Update comment position when rotating page.
      * @public
-     * @method update_position
+     * @method updatePosition
      */
-    this.update_position = function() {
+    this.updatePosition = function() {
 
         var node = this.drawable.nodes[0].one('textarea');
         var container = node.ancestor('div');
@@ -3757,9 +3758,7 @@ EDITOR.prototype = {
      * @method poll_document_conversion_status
      */
     poll_document_conversion_status: function() {
-        if (this.get('destroyed')) {
-            return;
-        }
+        var requestUserId = this.get('userid');
 
         Y.io(AJAXBASE, {
             method: 'get',
@@ -3775,6 +3774,15 @@ EDITOR.prototype = {
             },
             on: {
                 success: function(tid, response) {
+                    var currentUserRegion = Y.one(SELECTOR.USERINFOREGION);
+                    if (currentUserRegion) {
+                        var currentUserId = currentUserRegion.getAttribute('data-userid');
+                        if (currentUserId && (currentUserId != requestUserId)) {
+                            // Polling conversion status needs to abort because
+                            // the current user changed.
+                            return;
+                        }
+                    }
                     var data = this.handle_response_data(response),
                         poll = false;
                     if (data) {
@@ -3823,9 +3831,6 @@ EDITOR.prototype = {
      * @method get_images_for_documents
      */
     start_document_to_image_conversion: function() {
-        if (this.get('destroyed')) {
-            return;
-        }
         Y.io(AJAXBASE, {
             method: 'get',
             context: this,
@@ -3958,9 +3963,6 @@ EDITOR.prototype = {
      * @method update_page_load_progress
      */
     update_page_load_progress: function() {
-        if (this.get('destroyed')) {
-            return;
-        }
         var checkconversionstatus,
             ajax_error_total = 0,
             progressbar = this.get_dialogue_element(SELECTOR.PROGRESSBARCONTAINER + ' .bar');
@@ -3983,9 +3985,6 @@ EDITOR.prototype = {
             },
             on: {
                 success: function(tid, response) {
-                    if (this.get('destroyed')) {
-                        return;
-                    }
                     ajax_error_total = 0;
 
                     var progress = 0;
@@ -4007,9 +4006,6 @@ EDITOR.prototype = {
                     }
                 },
                 failure: function(tid, response) {
-                    if (this.get('destroyed')) {
-                        return;
-                    }
                     ajax_error_total = ajax_error_total + 1;
                     // We only continue on error if the all pages were not generated,
                     // and if the ajax call did not produce 5 errors in the row.
@@ -4042,9 +4038,6 @@ EDITOR.prototype = {
      * @return  {object}
      */
     handle_response_data: function(response) {
-        if (this.get('destroyed')) {
-            return;
-        }
         var data;
         try {
             data = Y.JSON.parse(response.responseText);
@@ -4124,15 +4117,15 @@ EDITOR.prototype = {
             return;
         }
 
-        // Rotate Left
+        // Rotate Left.
         rotateleftbutton = this.get_dialogue_element(SELECTOR.ROTATELEFTBUTTON);
-        rotateleftbutton.on('click', this.rotate_pdf, this, true);
-        rotateleftbutton.on('key', this.rotate_pdf, 'down:13', this, true);
+        rotateleftbutton.on('click', this.rotatePDF, this, true);
+        rotateleftbutton.on('key', this.rotatePDF, 'down:13', this, true);
 
-        // Rotate Right
+        // Rotate Right.
         rotaterightbutton = this.get_dialogue_element(SELECTOR.ROTATERIGHTBUTTON);
-        rotaterightbutton.on('click', this.rotate_pdf, this, false);
-        rotaterightbutton.on('key', this.rotate_pdf, 'down:13', this, false);
+        rotaterightbutton.on('click', this.rotatePDF, this, false);
+        rotaterightbutton.on('key', this.rotatePDF, 'down:13', this, false);
 
         this.disable_touch_scroll();
 
@@ -4543,9 +4536,6 @@ EDITOR.prototype = {
      */
     save_current_page: function() {
         this.clear_warnings(false);
-        if (this.get('destroyed')) {
-            return;
-        }
         var ajaxurl = AJAXBASE,
             config;
 
@@ -4689,7 +4679,9 @@ EDITOR.prototype = {
         }
 
         page = this.pages[this.currentpage];
-        this.loadingicon.hide();
+        if (this.loadingicon) {
+            this.loadingicon.hide();
+        }
         drawingcanvas.setStyle('backgroundImage', 'url("' + page.url + '")');
         drawingcanvas.setStyle('width', page.width + 'px');
         drawingcanvas.setStyle('height', page.height + 'px');
@@ -4791,13 +4783,13 @@ EDITOR.prototype = {
     },
 
     /**
-     * Calculate degree to rotate
+     * Calculate degree to rotate.
      * @protected
      * @param {Object} e javascript event
      * @param {boolean} left  true if rotating left, false if rotating right
      * @method rotatepdf
      */
-    rotate_pdf: function(e, left) {
+    rotatePDF: function(e, left) {
         e.preventDefault();
 
         if (this.get('destroyed')) {
@@ -4809,8 +4801,8 @@ EDITOR.prototype = {
         this.oldannotationcoordinates = [];
         var annotations = this.pages[this.currentpage].annotations;
         for (i = 0; i < annotations.length; i++) {
-            var old_annotation = annotations[i];
-            this.oldannotationcoordinates.push([old_annotation.x, old_annotation.y]);
+            var oldannotation = annotations[i];
+            this.oldannotationcoordinates.push([oldannotation.x, oldannotation.y]);
         }
 
         var ajaxurl = AJAXBASE;
@@ -4869,11 +4861,11 @@ EDITOR.prototype = {
                         }
                         /**
                          * Update Position of comments with relation to canvas coordinates.
-                         * Without this code, the comments will stay at their positions in windows/document coordinates
+                         * Without this code, the comments will stay at their positions in windows/document coordinates.
                          */
                         var oldcomments = page.comments;
                         for (i = 0; i < oldcomments.length; i++) {
-                            oldcomments[i].update_position();
+                            oldcomments[i].updatePosition();
                         }
                         // Save Annotations.
                         return self.save_current_page();
@@ -4995,10 +4987,6 @@ M.assignfeedback_editpdf.editor = M.assignfeedback_editpdf.editor || {};
  * @param {Object} params
  */
 M.assignfeedback_editpdf.editor.init = M.assignfeedback_editpdf.editor.init || function(params) {
-    if (typeof M.assignfeedback_editpdf.instance !== 'undefined') {
-        M.assignfeedback_editpdf.instance.destroy();
-    }
-
     M.assignfeedback_editpdf.instance = new EDITOR(params);
     return M.assignfeedback_editpdf.instance;
 };

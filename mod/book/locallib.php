@@ -52,7 +52,7 @@ define ('BOOK_LINK_TEXT', '2');
 /**
  * Preload book chapters and fix toc structure if necessary.
  *
- * Returns array of chapters with standard 'pagenum', 'id, pagenum, subchapter, title, hidden'
+ * Returns array of chapters with standard 'pagenum', 'id, pagenum, subchapter, title, content, contentformat, hidden'
  * and extra 'parent, number, subchapters, prev, next'.
  * Please note the content/text of chapters is not included.
  *
@@ -61,7 +61,8 @@ define ('BOOK_LINK_TEXT', '2');
  */
 function book_preload_chapters($book) {
     global $DB;
-    $chapters = $DB->get_records('book_chapters', array('bookid'=>$book->id), 'pagenum', 'id, pagenum, subchapter, title, hidden');
+    $chapters = $DB->get_records('book_chapters', array('bookid' => $book->id), 'pagenum', 'id, pagenum,
+            subchapter, title, content, contentformat, hidden');
     if (!$chapters) {
         return array();
     }
@@ -167,7 +168,7 @@ function book_get_chapter_title($chid, $chapters, $book, $context) {
  * @param   stdClass    $chapter    The current chapter
  * @param   stdClass    $book       The book
  * @param   stdClass    $cm         The course module
- * @param   bool        $edit       Whether the user is editing
+ * @param   bool|null   $edit       Whether the user is editing
  */
 function book_add_fake_block($chapters, $chapter, $book, $cm, $edit = null) {
     global $PAGE, $USER;
@@ -184,7 +185,7 @@ function book_add_fake_block($chapters, $chapter, $book, $cm, $edit = null) {
         }
     }
 
-    $toc = book_get_toc($chapters, $chapter, $book, $cm, $edit, 0);
+    $toc = book_get_toc($chapters, $chapter, $book, $cm, $edit);
 
     $bc = new block_contents();
     $bc->title = get_string('toc', 'mod_book');
@@ -214,6 +215,7 @@ function book_get_toc($chapters, $chapter, $book, $cm, $edit) {
     $first = 1;
 
     $context = context_module::instance($cm->id);
+    $viewhidden = has_capability('mod/book:viewhiddenchapters', $context);
 
     switch ($book->numbering) {
         case BOOK_NUM_NONE:
@@ -230,7 +232,7 @@ function book_get_toc($chapters, $chapter, $book, $cm, $edit) {
             break;
     }
 
-    if ($edit) { // Teacher's TOC
+    if ($edit) { // Editing on (Teacher's TOC).
         $toc .= html_writer::start_tag('ul');
         $i = 0;
         foreach ($chapters as $ch) {
@@ -350,12 +352,12 @@ function book_get_toc($chapters, $chapter, $book, $cm, $edit) {
         $toc .= html_writer::end_tag('li');
         $toc .= html_writer::end_tag('ul');
 
-    } else { // Normal students view
+    } else { // Editing off. Normal students, teachers view.
         $toc .= html_writer::start_tag('ul');
         foreach ($chapters as $ch) {
             $title = trim(format_string($ch->title, true, array('context'=>$context)));
             $titleunescaped = trim(format_string($ch->title, true, array('context' => $context, 'escape' => false)));
-            if (!$ch->hidden) {
+            if (!$ch->hidden || ($ch->hidden && $viewhidden)) {
                 if (!$ch->subchapter) {
                     $nch++;
                     $ns = 0;
@@ -386,12 +388,15 @@ function book_get_toc($chapters, $chapter, $book, $cm, $edit) {
                           $title = "$nch.$ns. $title";
                     }
                 }
+
+                $cssclass = ($ch->hidden && $viewhidden) ? 'dimmed_text' : '';
+
                 if ($ch->id == $chapter->id) {
-                    $toc .= html_writer::tag('strong', $title);
+                    $toc .= html_writer::tag('strong', $title, array('class' => $cssclass));
                 } else {
                     $toc .= html_writer::link(new moodle_url('view.php',
                                               array('id' => $cm->id, 'chapterid' => $ch->id)),
-                                              $title, array('title' => s($titleunescaped)));
+                                              $title, array('title' => s($titleunescaped), 'class' => $cssclass));
                 }
 
                 if (!$ch->subchapter) {
