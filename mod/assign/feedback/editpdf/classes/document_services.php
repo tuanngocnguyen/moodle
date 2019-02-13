@@ -709,6 +709,7 @@ EOD;
         $generatedpdf = $tmpdir . '/' . $filename;
         $pdf->save_pdf($generatedpdf);
 
+
         $record = new \stdClass();
 
         $record->contextid = $assignment->get_context()->id;
