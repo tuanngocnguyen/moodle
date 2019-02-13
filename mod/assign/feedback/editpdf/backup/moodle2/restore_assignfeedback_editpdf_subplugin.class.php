@@ -120,13 +120,9 @@ class restore_assignfeedback_editpdf_subplugin extends restore_subplugin {
      */
     public function process_assignfeedback_editpdf_pagerotation($data) {
         global $DB;
-
         $data = (object)$data;
         $oldgradeid = $data->gradeid;
-        // The mapping is set in the restore for the core assign activity
-        // when a grade node is processed.
         $data->gradeid = $this->get_mappingid('grade', $oldgradeid);
-
         $DB->insert_record('assignfeedback_editpdf_rot', $data);
     }
 }
