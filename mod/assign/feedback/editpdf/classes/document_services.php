@@ -944,8 +944,8 @@ EOD;
                     $filearea = self::PAGE_IMAGE_FILEAREA;
                     $newfile = self::save_file($assignment, $userid, $attemptnumber, $filearea, $tempfile);
 
-                    @unlink($tempfile);
-                    @rmdir($tmpdir);
+                    unlink($tempfile);
+                    rmdir($tmpdir);
                     imagedestroy($source);
                     imagedestroy($content);
                     $file->delete();
