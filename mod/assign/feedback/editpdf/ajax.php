@@ -233,22 +233,11 @@ if ($action === 'pollconversions') {
     $rotateleft = required_param('rotateleft', PARAM_BOOL);
     $filearea = document_services::PAGE_IMAGE_FILEAREA;
 
-    $pagefile = document_services::rotate_page(
-        $assignment,
-        $userid,
-        $attemptnumber,
-        $index,
-        $rotateleft
-    );
+    $pagefile = document_services::rotate_page($assignment, $userid, $attemptnumber, $index, $rotateleft);
 
     $page = new stdClass();
-    $page->url = moodle_url::make_pluginfile_url(
-        $context->id,
-        document_services::COMPONENT,
-        $filearea,
-        $grade->id,
-        '/',
-        $pagefile->get_filename())->out();
+    $page->url = moodle_url::make_pluginfile_url($context->id, document_services::COMPONENT, $filearea,
+        $grade->id, '/', $pagefile->get_filename())->out();
 
     if ($imageinfo = $pagefile->get_imageinfo()) {
         $page->width = $imageinfo['width'];
