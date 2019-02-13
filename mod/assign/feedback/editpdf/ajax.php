@@ -243,9 +243,7 @@ if ($action === 'pollconversions') {
         $page->width = 0;
         $page->height = 0;
     }
-    $response = (object) [
-        'page' => $page,
-    ];
+    $response = (object) ['page' => $page];
     echo json_encode($response);
     die();
 }
