@@ -265,6 +265,7 @@ EOD;
             $submission = $assignment->get_user_submission($userid, false, $attemptnumber);
         }
 
+
         $contextid = $assignment->get_context()->id;
         $component = 'assignfeedback_editpdf';
         $filearea = self::COMBINED_PDF_FILEAREA;
@@ -667,6 +668,7 @@ EOD;
                 }
             }
 
+
             $comments = page_editor::get_comments($grade->id, $i, false);
             $annotations = page_editor::get_annotations($grade->id, $i, false);
 
@@ -716,6 +718,7 @@ EOD;
         $record->itemid = $grade->id;
         $record->filepath = '/';
         $record->filename = $filename;
+
 
         // Only keep one current version of the generated pdf.
         $fs->delete_area_files($record->contextid, $record->component, $record->filearea, $record->itemid);
