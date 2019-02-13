@@ -829,12 +829,12 @@ EDITOR.prototype = {
             return;
         }
 
-        // Rotate Left
+        // Rotate Left.
         rotateleftbutton = this.get_dialogue_element(SELECTOR.ROTATELEFTBUTTON);
         rotateleftbutton.on('click', this.rotate_pdf, this, true);
         rotateleftbutton.on('key', this.rotate_pdf, 'down:13', this, true);
 
-        // Rotate Right
+        // Rotate Right.
         rotaterightbutton = this.get_dialogue_element(SELECTOR.ROTATERIGHTBUTTON);
         rotaterightbutton.on('click', this.rotate_pdf, this, false);
         rotaterightbutton.on('key', this.rotate_pdf, 'down:13', this, false);
@@ -1496,7 +1496,7 @@ EDITOR.prototype = {
     },
 
     /**
-     * Calculate degree to rotate
+     * Calculate degree to rotate.
      * @protected
      * @param {Object} e javascript event
      * @param {boolean} left  true if rotating left, false if rotating right
@@ -1574,7 +1574,7 @@ EDITOR.prototype = {
                         }
                         /**
                          * Update Position of comments with relation to canvas coordinates.
-                         * Without this code, the comments will stay at their positions in windows/document coordinates
+                         * Without this code, the comments will stay at their positions in windows/document coordinates.
                          */
                         var oldcomments = page.comments;
                         for (i = 0; i < oldcomments.length; i++) {

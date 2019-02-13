@@ -619,7 +619,7 @@ var COMMENT = function(editor, gradeid, pageno, x, y, width, colour, rawtext) {
     };
 
     /**
-     * Update comment postion when rotating page
+     * Update comment position when rotating page.
      * @public
      * @method update_position
      */
