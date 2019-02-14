@@ -105,6 +105,7 @@ function xmldb_assignfeedback_editpdf_upgrade($oldversion) {
         $table->add_field('pageno', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
         $table->add_field('pathnamehash', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
         $table->add_field('isrotated', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('degree', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
 
         // Adding keys to table assignfeedback_editpdf_rot.
         $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);

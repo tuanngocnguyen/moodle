@@ -78,6 +78,7 @@
         <FIELD NAME="pageno" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Page number"/>
         <FIELD NAME="pathnamehash" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="File path hash of the rotated page"/>
         <FIELD NAME="isrotated" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether the page is rotated or not"/>
+        <FIELD NAME="degree" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Rotation degree"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
