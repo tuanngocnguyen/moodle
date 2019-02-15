@@ -181,7 +181,6 @@ class tool_recyclebin_course_bin_tests extends advanced_testcase {
      * Tests that user data is restored when module is restored.
      */
     public function test_userdata_restore() {
-
         // Create assignment and user submission.
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $generator = $this->getDataGenerator()->get_plugin_generator('mod_assign');
