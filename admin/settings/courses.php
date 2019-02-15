@@ -38,6 +38,12 @@ if ($hassiteconfig or has_any_capability($capabilities, $systemcontext)) {
         )
     );
     $ADMIN->add('courses',
+        new admin_externalpage('course_customfield', new lang_string('course_customfield', 'admin'),
+            $CFG->wwwroot . '/course/customfield.php',
+            array('moodle/course:configurecustomfields')
+        )
+    );
+    $ADMIN->add('courses',
         new admin_externalpage('addcategory', new lang_string('addcategory', 'admin'),
             new moodle_url('/course/editcategory.php', array('parent' => 0)),
             array('moodle/category:manage')
@@ -154,7 +160,6 @@ if ($hassiteconfig or has_any_capability($capabilities, $systemcontext)) {
     $temp->add(new admin_setting_configselect('moodlecourse/groupmodeforce', new lang_string('force'), new lang_string('coursehelpforce'), 0,array(0 => new lang_string('no'), 1 => new lang_string('yes'))));
 
     $ADMIN->add('courses', $temp);
-
 
     // "courserequests" settingpage.
     $temp = new admin_settingpage('courserequest', new lang_string('courserequest'));

@@ -38,6 +38,11 @@ defined('MOODLE_INTERNAL') || die();
  */
 class moodle_content_writer implements content_writer {
     /**
+     * Maximum context name char size.
+     */
+    const MAX_CONTEXT_NAME_LENGTH = 32;
+
+    /**
      * @var string The base path on disk for this instance.
      */
     protected $path = null;
@@ -212,7 +217,8 @@ class moodle_content_writer implements content_writer {
                 [$file->get_filepath()]
             );
             $path = $this->get_path($pathitems, $file->get_filename());
-            check_dir_exists(dirname($path), true, true);
+            $fullpath = $this->get_full_path($pathitems, $file->get_filename());
+            check_dir_exists(dirname($fullpath), true, true);
             $this->files[$path] = $file;
         }
 
@@ -253,15 +259,17 @@ class moodle_content_writer implements content_writer {
     /**
      * Determine the path for the current context.
      *
-     * @return  array                       The context path.
+     * @return array The context path.
+     * @throws \coding_exception
      */
-    protected function get_context_path() : Array {
+    protected function get_context_path() : array {
         $path = [];
         $contexts = array_reverse($this->context->get_parent_contexts(true));
         foreach ($contexts as $context) {
             $name = $context->get_context_name();
-            $id = '_.' . $context->id;
-            $path[] = shorten_filename(clean_param("{$name} {$id}", PARAM_FILE), MAX_FILENAME_SIZE, true);
+            $id = ' _.' . $context->id;
+            $path[] = shorten_text(clean_param($name, PARAM_FILE),
+                    self::MAX_CONTEXT_NAME_LENGTH, true, json_decode('"' . '\u2026' . '"')) . $id;
         }
 
         return $path;
@@ -375,11 +383,14 @@ class moodle_content_writer implements content_writer {
      *
      * @param   string          $path       The path to export the data at.
      * @param   string          $data       The data to be exported.
+     * @throws  \moodle_exception           If the file cannot be written for some reason.
      */
     protected function write_data(string $path, string $data) {
         $targetpath = $this->path . DIRECTORY_SEPARATOR . $path;
         check_dir_exists(dirname($targetpath), true, true);
-        file_put_contents($targetpath, $data);
+        if (file_put_contents($targetpath, $data) === false) {
+            throw new \moodle_exception('cannotsavefile', 'error', '', $targetpath);
+        }
         $this->files[$path] = $targetpath;
     }
 
@@ -453,7 +464,7 @@ class moodle_content_writer implements content_writer {
 
                 $this->write_data($newshortpath, $variablecontent);
             } else {
-                $treekey[$shortpath] = 'No var';
+                $treekey[clean_param($shortpath, PARAM_PATH)] = 'No var';
             }
         }
         return [$tree, $treekey, $allfiles];
@@ -488,11 +499,11 @@ class moodle_content_writer implements content_writer {
             $url = clean_param($url, PARAM_PATH);
             $treeleaf->name = $file;
             $treeleaf->itemtype = 'item';
-            $gokey = $url . DIRECTORY_SEPARATOR . $file;
+            $gokey = clean_param($url . '/' . $file, PARAM_PATH);
             if (isset($treekey[$gokey]) && $treekey[$gokey] !== 'No var') {
                 $treeleaf->datavar = $treekey[$gokey];
             } else {
-                $treeleaf->url = new \moodle_url($url . DIRECTORY_SEPARATOR . $file);
+                $treeleaf->url = new \moodle_url($url . '/' . $file);
             }
         };
 
@@ -635,16 +646,9 @@ class moodle_content_writer implements content_writer {
         $this->copy_data($moodleimgpath, ['pix', 'moodlelogo.svg']);
 
         // Additional required css.
-        // Determine what direction to show the data export page according to the user preference.
-        $rtl = right_to_left();
-        if (!$rtl) {
-            $bootstrapdestination = 'bootstrap.min.css';
-            $this->write_url_content('https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css',
-                    $bootstrapdestination);
-        } else {
-            $rtldestination = 'rtlbootstrap.min.css';
-            $this->write_url_content('https://cdn.rtlcss.com/bootstrap/v4.0.0/css/bootstrap.min.css', $rtldestination);
-        }
+        $csspath = ['theme', 'boost', 'style', 'moodle.css'];
+        $destination = ['moodle.css'];
+        $this->copy_data($csspath, $destination);
 
         $csspath = ['privacy', 'export_files', 'general.css'];
         $destination = ['general.css'];
@@ -666,6 +670,7 @@ class moodle_content_writer implements content_writer {
         $siteurl = $CFG->wwwroot;
 
         // Create custom index.html file.
+        $rtl = right_to_left();
         $htmlpage = new \core_privacy\output\exported_html_page($navigationhtml, $systemname, $fullusername, $rtl, $siteurl);
         $outputpage = $output->render_html_page($htmlpage);
         $this->write_data('index.html', $outputpage);
@@ -711,31 +716,13 @@ class moodle_content_writer implements content_writer {
      *
      * @param  string $filepath The file path.
      * @return string contents of the file.
+     * @throws \moodle_exception If the file cannot be opened.
      */
     protected function get_file_content(string $filepath) : String {
-        $filepointer = fopen($filepath, 'r');
-        $content = '';
-        while (!feof($filepointer)) {
-            $content .= fread($filepointer, filesize($filepath));
+        $content = file_get_contents($filepath);
+        if ($content === false) {
+            throw new \moodle_exception('cannotopenfile', 'error', '', $filepath);
         }
         return $content;
-    }
-
-    /**
-     * Write url files to the export.
-     *
-     * @param  string $url  Url of the file.
-     * @param  string $path Path to store the file.
-     */
-    protected function write_url_content(string $url, string $path) {
-        $filepointer = fopen($url, 'r');
-        $targetpath = $this->path . DIRECTORY_SEPARATOR . $path;
-        check_dir_exists(dirname($targetpath), true, true);
-        $status = file_put_contents($targetpath, $filepointer);
-        if ($status === false) {
-            // There was an error. Throw an exception to allow the download status to remain as requiring download.
-            throw new \moodle_exception('Content download was incomplete');
-        }
-        $this->files[$path] = $targetpath;
     }
 }

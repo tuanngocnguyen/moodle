@@ -26,24 +26,6 @@ function xmldb_data_upgrade($oldversion) {
 
     $dbman = $DB->get_manager();
 
-    if ($oldversion < 2016090600) {
-
-        // Define field config to be added to data.
-        $table = new xmldb_table('data');
-        $field = new xmldb_field('config', XMLDB_TYPE_TEXT, null, null, null, null, null, 'timemodified');
-
-        // Conditionally launch add field config.
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
-        }
-
-        // Data savepoint reached.
-        upgrade_mod_savepoint(true, 2016090600, 'data');
-    }
-
-    // Automatically generated Moodle v3.2.0 release upgrade line.
-    // Put any upgrade step following this.
-
     if ($oldversion < 2017032800) {
 
         // Define field completionentries to be added to data. Require a number of entries to be considered complete.
@@ -66,6 +48,9 @@ function xmldb_data_upgrade($oldversion) {
     // Put any upgrade step following this.
 
     // Automatically generated Moodle v3.5.0 release upgrade line.
+    // Put any upgrade step following this.
+
+    // Automatically generated Moodle v3.6.0 release upgrade line.
     // Put any upgrade step following this.
 
     return true;

@@ -22,6 +22,22 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['aria:coursecategory'] = 'Course category';
+$string['aria:courseimage'] = 'Course image';
+$string['aria:courseshortname'] = 'Course short name';
+$string['aria:coursename'] = 'Course name';
+$string['aria:favourite'] = 'Course is starred';
+$string['customfield_islocked'] = 'Locked';
+$string['customfield_islocked_help'] = 'When the field is locked only managers with capability "Modify locked fields" will be able to change it in the course editing form';
+$string['customfield_notvisible'] = 'Not visible';
+$string['customfield_visibility'] = 'Visible to';
+$string['customfield_visibility_help'] = 'Who should be able able to see the data in the course listing';
+$string['customfield_visibletoall'] = 'Everyone';
+$string['customfield_visibletoteachers'] = 'Course editors';
+$string['customfieldsettings'] = 'Settings for course custom fields';
+$string['favourite'] = 'Starred course';
 $string['privacy:perpage'] = 'The number of courses to show per page.';
 $string['privacy:completionpath'] = 'Course completion';
+$string['privacy:favouritespath'] = 'Course starred information';
 $string['privacy:metadata:completionsummary'] = 'The course contains completion information about the user.';
+$string['privacy:metadata:favouritessummary'] = 'The course contains information relating to the course being starred by the user.';

@@ -1799,9 +1799,7 @@ function quiz_supports($feature) {
 function quiz_get_extra_capabilities() {
     global $CFG;
     require_once($CFG->libdir . '/questionlib.php');
-    $caps = question_get_all_capabilities();
-    $caps[] = 'moodle/site:accessallgroups';
-    return $caps;
+    return question_get_all_capabilities();
 }
 
 /**
@@ -2186,6 +2184,12 @@ function mod_quiz_core_calendar_provide_event_action(calendar_event $event,
         return null;
     }
 
+    if (!$quizobj->is_participant($USER->id)) {
+        // If the user is not a participant then they have
+        // no action to take. This will filter out the events for teachers.
+        return null;
+    }
+
     $attempts = quiz_get_user_attempts($quizobj->get_quizid(), $USER->id);
     if (!empty($attempts)) {
         // The student's last attempt is finished.
@@ -2266,16 +2270,14 @@ function mod_quiz_get_completion_active_rule_descriptions($cm) {
     foreach ($cm->customdata['customcompletionrules'] as $key => $val) {
         switch ($key) {
             case 'completionattemptsexhausted':
-                if (empty($val)) {
-                    continue;
+                if (!empty($val)) {
+                    $descriptions[] = get_string('completionattemptsexhausteddesc', 'quiz');
                 }
-                $descriptions[] = get_string('completionattemptsexhausteddesc', 'quiz');
                 break;
             case 'completionpass':
-                if (empty($val)) {
-                    continue;
+                if (!empty($val)) {
+                    $descriptions[] = get_string('completionpassdesc', 'quiz', format_time($val));
                 }
-                $descriptions[] = get_string('completionpassdesc', 'quiz', format_time($val));
                 break;
             default:
                 break;

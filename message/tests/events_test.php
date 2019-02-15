@@ -239,6 +239,101 @@ class core_message_events_testcase extends core_message_messagelib_testcase {
     }
 
     /**
+     * Test the group message sent event.
+     *
+     * We can't test events in any testing of the message_send() function as there is a conditional PHPUNIT check in message_send,
+     * resulting in fake messages being generated and captured under test. As a result, none of the events code, nor message
+     * processor code is called during testing.
+     */
+    public function test_group_message_sent() {
+        $event = \core\event\group_message_sent::create([
+            'objectid' => 3,
+            'userid' => 1,
+            'context'  => context_system::instance(),
+            'other' => [
+                'courseid' => 4,
+                'conversationid' => 54
+            ]
+        ]);
+
+        // Trigger and capture the event.
+        $sink = $this->redirectEvents();
+        $event->trigger();
+        $events = $sink->get_events();
+        $event = reset($events);
+
+        // Check that the event data is valid.
+        $this->assertInstanceOf('\core\event\group_message_sent', $event);
+        $this->assertEquals(context_system::instance(), $event->get_context());
+        $url = new moodle_url('/message/index.php');
+        $this->assertEquals($url, $event->get_url());
+        $this->assertEquals(3, $event->objectid);
+        $this->assertEquals(4, $event->other['courseid']);
+        $this->assertEquals(54, $event->other['conversationid']);
+    }
+
+    /**
+     * Test the group message sent event when created without a courseid.
+     */
+    public function test_group_message_sent_without_other_courseid() {
+        // Creating a message_sent event without other[courseid] leads to exception.
+        $this->expectException('coding_exception');
+        $this->expectExceptionMessage('The \'courseid\' value must be set in other');
+
+        $event = \core\event\group_message_sent::create([
+            'userid' => 1,
+            'objectid' => 3,
+            'context'  => context_system::instance(),
+            'relateduserid' => 2,
+            'other' => [
+                'conversationid' => 34
+            ]
+        ]);
+    }
+
+    /**
+     * Test the group message sent event when created without a conversationid.
+     */
+    public function test_group_message_sent_without_other_conversationid() {
+        // Creating a message_sent event without other[courseid] leads to exception.
+        $this->expectException('coding_exception');
+        $this->expectExceptionMessage('The \'conversationid\' value must be set in other');
+
+        $event = \core\event\group_message_sent::create([
+            'userid' => 1,
+            'objectid' => 3,
+            'context'  => context_system::instance(),
+            'relateduserid' => 2,
+            'other' => [
+                'courseid' => 44,
+            ]
+        ]);
+    }
+
+    /**
+     * Test the group message sent event using the create_from_ids() method.
+     */
+    public function test_group_message_sent_via_create_from_ids() {
+        // Fields are: userfromid, conversationid, messageid, courseid.
+        $event = \core\event\group_message_sent::create_from_ids(1, 2, 3, 4);
+
+        // Trigger and capture the event.
+        $sink = $this->redirectEvents();
+        $event->trigger();
+        $events = $sink->get_events();
+        $event = reset($events);
+
+        // Check that the event data is valid.
+        $this->assertInstanceOf('\core\event\group_message_sent', $event);
+        $this->assertEquals(context_system::instance(), $event->get_context());
+        $this->assertEquals(new moodle_url('/message/index.php'), $event->get_url());
+        $this->assertEquals(1, $event->userid);
+        $this->assertEquals(2, $event->other['conversationid']);
+        $this->assertEquals(3, $event->objectid);
+        $this->assertEquals(4, $event->other['courseid']);
+    }
+
+    /**
      * Test the message viewed event.
      */
     public function test_message_viewed() {
@@ -274,7 +369,9 @@ class core_message_events_testcase extends core_message_messagelib_testcase {
      * Test the message deleted event.
      */
     public function test_message_deleted() {
-        global $DB;
+        global $DB, $USER;
+
+        $this->setAdminUser();
 
         // Create users to send messages between.
         $user1 = $this->getDataGenerator()->create_user();
@@ -294,12 +391,12 @@ class core_message_events_testcase extends core_message_messagelib_testcase {
 
         // Check that the event data is valid.
         $this->assertInstanceOf('\core\event\message_deleted', $event);
-        $this->assertEquals($user1->id, $event->userid); // The user who deleted it.
-        $this->assertEquals($user2->id, $event->relateduserid);
+        $this->assertEquals($USER->id, $event->userid); // The user who deleted it.
+        $this->assertEquals($user1->id, $event->relateduserid);
         $this->assertEquals($mua->id, $event->objectid);
         $this->assertEquals($messageid, $event->other['messageid']);
-        $this->assertEquals($user1->id, $event->other['useridfrom']);
-        $this->assertEquals($user2->id, $event->other['useridto']);
+
+        $this->setUser($user1);
 
         // Create a read message.
         $messageid = $this->send_fake_message($user1, $user2);
@@ -318,12 +415,10 @@ class core_message_events_testcase extends core_message_messagelib_testcase {
 
         // Check that the event data is valid.
         $this->assertInstanceOf('\core\event\message_deleted', $event);
-        $this->assertEquals($user2->id, $event->userid);
-        $this->assertEquals($user1->id, $event->relateduserid);
+        $this->assertEquals($user1->id, $event->userid);
+        $this->assertEquals($user2->id, $event->relateduserid);
         $this->assertEquals($mua->id, $event->objectid);
         $this->assertEquals($messageid, $event->other['messageid']);
-        $this->assertEquals($user1->id, $event->other['useridfrom']);
-        $this->assertEquals($user2->id, $event->other['useridto']);
     }
 
     /**
@@ -336,7 +431,7 @@ class core_message_events_testcase extends core_message_messagelib_testcase {
         $user1 = self::getDataGenerator()->create_user();
         $user2 = self::getDataGenerator()->create_user();
 
-        // The person doing the search.
+        // The person doing the deletion.
         $this->setUser($user1);
 
         // Send some messages back and forth.
@@ -364,6 +459,7 @@ class core_message_events_testcase extends core_message_messagelib_testcase {
         // Trigger and capture the event.
         $sink = $this->redirectEvents();
         \core_message\api::delete_conversation($user1->id, $user2->id);
+        $this->assertDebuggingCalled();
         $events = $sink->get_events();
 
         // Get the user actions for the messages deleted by that user.
@@ -383,18 +479,14 @@ class core_message_events_testcase extends core_message_messagelib_testcase {
         // Check that the event data is valid.
         $i = 1;
         foreach ($events as $event) {
-            $useridfromid = ($i % 2 == 0) ? $user2->id : $user1->id;
-            $useridtoid = ($i % 2 == 0) ? $user1->id : $user2->id;
             $messageid = $messages[$i - 1];
 
             $this->assertInstanceOf('\core\event\message_deleted', $event);
 
             $this->assertEquals($muatest[$messageid]->id, $event->objectid);
             $this->assertEquals($user1->id, $event->userid);
-            $this->assertEquals($user2->id, $event->relateduserid);
+            $this->assertEquals($user1->id, $event->relateduserid);
             $this->assertEquals($messageid, $event->other['messageid']);
-            $this->assertEquals($useridfromid, $event->other['useridfrom']);
-            $this->assertEquals($useridtoid, $event->other['useridto']);
 
             $i++;
         }

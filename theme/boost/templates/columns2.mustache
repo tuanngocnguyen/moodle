@@ -68,7 +68,7 @@
                     <div> {{{ output.region_main_settings_menu }}} </div>
                 </div>
                 {{/hasregionmainsettingsmenu}}
-                <section id="region-main" {{#hasblocks}}class="has-blocks mb-2"{{/hasblocks}}>
+                <section id="region-main" {{#hasblocks}}class="has-blocks mb-3"{{/hasblocks}}>
 
                     {{#hasregionmainsettingsmenu}}
                         <div class="region_main_settings_menu_proxy"></div>
@@ -87,6 +87,7 @@
             </div>
         </div>
     </div>
+    {{{ output.standard_after_main_region_html }}}
     {{> theme_boost/nav-drawer }}
     {{> theme_boost/footer }}
 </div>

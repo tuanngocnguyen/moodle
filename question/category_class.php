@@ -115,13 +115,11 @@ class question_category_list_item extends list_item {
         // Each section adds html to be displayed as part of this list item.
         $questionbankurl = new moodle_url('/question/edit.php', $this->parentlist->pageurl->params());
         $questionbankurl->param('cat', $category->id . ',' . $category->contextid);
-        $catediturl = new moodle_url($this->parentlist->pageurl, array('edit' => $this->id));
         $item = '';
-        $item .= html_writer::tag('b', html_writer::link($catediturl,
-                format_string($category->name, true, array('context' => $this->parentlist->context)),
-                array('title' => $str->edit))) . ' ';
-        $item .= html_writer::link($questionbankurl, '(' . $category->questioncount . ')',
-                array('title' => $editqestions)) . ' ';
+        $text = format_string($category->name, true, ['context' => $this->parentlist->context])
+                . ' (' . $category->questioncount . ')';
+        $item .= html_writer::tag('b', html_writer::link($questionbankurl, $text,
+                        ['title' => $editqestions]) . ' ');
         $item .= format_text($category->info, $category->infoformat,
                 array('context' => $this->parentlist->context, 'noclean' => true));
 
@@ -420,7 +418,9 @@ class question_category_object {
             }
         }
 
-        if (((string) $idnumber !== '') && !empty($contextid)) {
+        if ((string) $idnumber === '') {
+            $idnumber = null;
+        } else if (!empty($contextid)) {
             // While this check already exists in the form validation, this is a backstop preventing unnecessary errors.
             if ($DB->record_exists('question_categories',
                     ['idnumber' => $idnumber, 'contextid' => $contextid])) {
@@ -493,7 +493,9 @@ class question_category_object {
             }
         }
 
-        if (((string) $idnumber !== '') && !empty($tocontextid)) {
+        if ((string) $idnumber === '') {
+            $idnumber = null;
+        } else if (!empty($tocontextid)) {
             // While this check already exists in the form validation, this is a backstop preventing unnecessary errors.
             if ($DB->record_exists('question_categories',
                     ['idnumber' => $idnumber, 'contextid' => $tocontextid])) {

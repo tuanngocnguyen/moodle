@@ -436,12 +436,14 @@ $cache = '.var_export($cache, true).';
             'countries'   => null,
             'course'      => $CFG->dirroot.'/course',
             'currencies'  => null,
+            'customfield' => $CFG->dirroot.'/customfield',
             'dbtransfer'  => null,
             'debug'       => null,
             'editor'      => $CFG->dirroot.'/lib/editor',
             'edufields'   => null,
             'enrol'       => $CFG->dirroot.'/enrol',
             'error'       => null,
+            'favourites'  => $CFG->dirroot . '/favourites',
             'filepicker'  => null,
             'fileconverter' => $CFG->dirroot.'/files/converter',
             'files'       => $CFG->dirroot.'/files',
@@ -503,6 +505,7 @@ $cache = '.var_export($cache, true).';
             'mod'           => $CFG->dirroot.'/mod',
             'auth'          => $CFG->dirroot.'/auth',
             'calendartype'  => $CFG->dirroot.'/calendar/type',
+            'customfield'   => $CFG->dirroot.'/customfield/field',
             'enrol'         => $CFG->dirroot.'/enrol',
             'message'       => $CFG->dirroot.'/message/output',
             'block'         => $CFG->dirroot.'/blocks',
@@ -1276,5 +1279,32 @@ $cache = '.var_export($cache, true).';
             $components['core']['core_' . $subsystemname] = $subsystempath;
         }
         return $components;
+    }
+
+    /**
+     * Returns a list of frankenstyle component names.
+     *
+     * E.g.
+     *  [
+     *      'core_course',
+     *      'core_message',
+     *      'mod_assign',
+     *      ...
+     *  ]
+     * @return array the list of frankenstyle component names.
+     */
+    public static function get_component_names() : array {
+        $componentnames = [];
+        // Get all plugins.
+        foreach (self::get_plugin_types() as $plugintype => $typedir) {
+            foreach (self::get_plugin_list($plugintype) as $pluginname => $plugindir) {
+                $componentnames[] = $plugintype . '_' . $pluginname;
+            }
+        }
+        // Get all subsystems.
+        foreach (self::get_core_subsystems() as $subsystemname => $subsystempath) {
+            $componentnames[] = 'core_' . $subsystemname;
+        }
+        return $componentnames;
     }
 }

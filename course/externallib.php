@@ -29,6 +29,7 @@ defined('MOODLE_INTERNAL') || die;
 use core_course\external\course_summary_exporter;
 
 require_once("$CFG->libdir/externallib.php");
+require_once("lib.php");
 
 /**
  * Course external functions
@@ -85,6 +86,7 @@ class core_course_external extends external_api {
     public static function get_course_contents($courseid, $options = array()) {
         global $CFG, $DB;
         require_once($CFG->dirroot . "/course/lib.php");
+        require_once($CFG->libdir . '/completionlib.php');
 
         //validate parameter
         $params = self::validate_parameters(self::get_course_contents_parameters(),
@@ -167,6 +169,8 @@ class core_course_external extends external_api {
             $sections = $modinfo->get_section_info_all();
             $coursenumsections = course_get_format($course)->get_last_section_number();
             $stealthmodules = array();   // Array to keep all the modules available but not visible in a course section/topic.
+
+            $completioninfo = new completion_info($course);
 
             //for each sections (first displayed to last displayed)
             $modinfosections = $modinfo->get_sections();
@@ -261,6 +265,22 @@ class core_course_external extends external_api {
                         $module['modplural'] = $cm->modplural;
                         $module['modicon'] = $cm->get_icon_url()->out(false);
                         $module['indent'] = $cm->indent;
+                        $module['onclick'] = $cm->onclick;
+                        $module['afterlink'] = $cm->afterlink;
+                        $module['customdata'] = json_encode($cm->customdata);
+                        $module['completion'] = $cm->completion;
+
+                        // Check module completion.
+                        $completion = $completioninfo->is_enabled($cm);
+                        if ($completion != COMPLETION_DISABLED) {
+                            $completiondata = $completioninfo->get_data($cm, true);
+                            $module['completiondata'] = array(
+                                'state'         => $completiondata->completionstate,
+                                'timecompleted' => $completiondata->timemodified,
+                                'overrideby'    => $completiondata->overrideby,
+                                'valueused'     => core_availability\info::completion_value_used($course, $cm->id)
+                            );
+                        }
 
                         if (!empty($cm->showdescription) or $cm->modname == 'label') {
                             // We want to use the external format. However from reading get_formatted_content(), $cm->content format is always FORMAT_HTML.
@@ -408,6 +428,23 @@ class core_course_external extends external_api {
                                     'modplural' => new external_value(PARAM_TEXT, 'activity module plural name'),
                                     'availability' => new external_value(PARAM_RAW, 'module availability settings', VALUE_OPTIONAL),
                                     'indent' => new external_value(PARAM_INT, 'number of identation in the site'),
+                                    'onclick' => new external_value(PARAM_RAW, 'Onclick action.', VALUE_OPTIONAL),
+                                    'afterlink' => new external_value(PARAM_RAW, 'After link info to be displayed.',
+                                        VALUE_OPTIONAL),
+                                    'customdata' => new external_value(PARAM_RAW, 'Custom data (JSON encoded).', VALUE_OPTIONAL),
+                                    'completion' => new external_value(PARAM_INT, 'Type of completion tracking:
+                                        0 means none, 1 manual, 2 automatic.', VALUE_OPTIONAL),
+                                    'completiondata' => new external_single_structure(
+                                        array(
+                                            'state' => new external_value(PARAM_INT, 'Completion state value:
+                                                0 means incomplete, 1 complete, 2 complete pass, 3 complete fail'),
+                                            'timecompleted' => new external_value(PARAM_INT, 'Timestamp for completion status.'),
+                                            'overrideby' => new external_value(PARAM_INT, 'The user id who has overriden the
+                                                status.'),
+                                            'valueused' => new external_value(PARAM_BOOL, 'Whether the completion status affects
+                                                the availability of another activity.', VALUE_OPTIONAL),
+                                        ), 'Module completion data.', VALUE_OPTIONAL
+                                    ),
                                     'contents' => new external_multiple_structure(
                                           new external_single_structure(
                                               array(
@@ -517,6 +554,19 @@ class core_course_external extends external_api {
             if (array_key_exists('numsections', $courseformatoptions)) {
                 // For backward-compartibility
                 $courseinfo['numsections'] = $courseformatoptions['numsections'];
+            }
+
+            $handler = core_course\customfield\course_handler::create();
+            if ($customfields = $handler->export_instance_data($course->id)) {
+                $courseinfo['customfields'] = [];
+                foreach ($customfields as $data) {
+                    $courseinfo['customfields'][] = [
+                        'type' => $data->get_type(),
+                        'value' => $data->get_value(),
+                        'name' => $data->get_name(),
+                        'shortname' => $data->get_shortname()
+                    ];
+                }
             }
 
             //some field should be returned only if the user has update permission
@@ -629,9 +679,16 @@ class core_course_external extends external_api {
                                 new external_single_structure(
                                     array('name' => new external_value(PARAM_ALPHANUMEXT, 'course format option name'),
                                         'value' => new external_value(PARAM_RAW, 'course format option value')
-                                )),
-                                    'additional options for particular course format', VALUE_OPTIONAL
+                                )), 'additional options for particular course format', VALUE_OPTIONAL
                              ),
+                            'customfields' => new external_multiple_structure(
+                                new external_single_structure(
+                                    ['name' => new external_value(PARAM_TEXT, 'The name of the custom field'),
+                                     'shortname' => new external_value(PARAM_ALPHANUMEXT, 'The shortname of the custom field'),
+                                     'type'  => new external_value(PARAM_COMPONENT,
+                                         'The type of the custom field - text, checkbox...'),
+                                     'value' => new external_value(PARAM_RAW, 'The value of the custom field')]
+                                ), 'Custom fields and associated values', VALUE_OPTIONAL),
                         ), 'course'
                 )
         );
@@ -705,8 +762,14 @@ class core_course_external extends external_api {
                                         'value' => new external_value(PARAM_RAW, 'course format option value')
                                 )),
                                     'additional options for particular course format', VALUE_OPTIONAL),
-                        )
-                    ), 'courses to create'
+                            'customfields' => new external_multiple_structure(
+                                new external_single_structure(
+                                    array(
+                                        'shortname'  => new external_value(PARAM_ALPHANUMEXT, 'The shortname of the custom field'),
+                                        'value' => new external_value(PARAM_RAW, 'The value of the custom field'),
+                                )), 'custom fields for the course', VALUE_OPTIONAL
+                            )
+                    )), 'courses to create'
                 )
             )
         );
@@ -794,6 +857,13 @@ class core_course_external extends external_api {
                 }
             }
 
+            // Custom fields.
+            if (!empty($course['customfields'])) {
+                foreach ($course['customfields'] as $field) {
+                    $course['customfield_'.$field['shortname']] = $field['value'];
+                }
+            }
+
             //Note: create_course() core function check shortname, idnumber, category
             $course['id'] = create_course((object) $course)->id;
 
@@ -875,8 +945,14 @@ class core_course_external extends external_api {
                                 new external_single_structure(
                                     array('name' => new external_value(PARAM_ALPHANUMEXT, 'course format option name'),
                                         'value' => new external_value(PARAM_RAW, 'course format option value')
-                                )),
-                                    'additional options for particular course format', VALUE_OPTIONAL),
+                                )), 'additional options for particular course format', VALUE_OPTIONAL),
+                            'customfields' => new external_multiple_structure(
+                                new external_single_structure(
+                                    [
+                                        'shortname'  => new external_value(PARAM_ALPHANUMEXT, 'The shortname of the custom field'),
+                                        'value' => new external_value(PARAM_RAW, 'The value of the custom field')
+                                    ]
+                                ), 'Custom fields', VALUE_OPTIONAL),
                         )
                     ), 'courses to update'
                 )
@@ -987,6 +1063,13 @@ class core_course_external extends external_api {
                         if (isset($option['name']) && isset($option['value'])) {
                             $course[$option['name']] = $option['value'];
                         }
+                    }
+                }
+
+                // Prepare list of custom fields.
+                if (isset($course['customfields'])) {
+                    foreach ($course['customfields'] as $field) {
+                        $course['customfield_' . $field['shortname']] = $field['value'];
                     }
                 }
 
@@ -2465,6 +2548,17 @@ class core_course_external extends external_api {
                 new external_value(PARAM_PLUGIN, 'enrollment method'),
                 'enrollment methods list'
             ),
+            'customfields' => new external_multiple_structure(
+                new external_single_structure(
+                    array(
+                        'name' => new external_value(PARAM_RAW, 'The name of the custom field'),
+                        'shortname' => new external_value(PARAM_RAW,
+                            'The shortname of the custom field - to be able to build the field class in the code'),
+                        'type'  => new external_value(PARAM_ALPHANUMEXT,
+                            'The type of the custom field - text field, checkbox...'),
+                        'value' => new external_value(PARAM_RAW, 'The value of the custom field'),
+                    )
+                ), 'Custom fields', VALUE_OPTIONAL),
         );
 
         if (!$onlypublicdata) {
@@ -3663,6 +3757,10 @@ class core_course_external extends external_api {
                 break;
             case COURSE_TIMELINE_FUTURE:
                 break;
+            case COURSE_FAVOURITES:
+                break;
+            case COURSE_TIMELINE_HIDDEN:
+                break;
             default:
                 throw new invalid_parameter_exception('Invalid classification');
         }
@@ -3671,18 +3769,52 @@ class core_course_external extends external_api {
 
         $requiredproperties = course_summary_exporter::define_properties();
         $fields = join(',', array_keys($requiredproperties));
-        $courses = course_get_enrolled_courses_for_logged_in_user(0, $offset, $sort, $fields);
-        list($filteredcourses, $processedcount) = course_filter_courses_by_timeline_classification(
-            $courses,
-            $classification,
-            $limit
-        );
+        $hiddencourses = get_hidden_courses_on_timeline();
+        $courses = [];
+
+        // If the timeline requires the hidden courses then restrict the result to only $hiddencourses else exclude.
+        if ($classification == COURSE_TIMELINE_HIDDEN) {
+            $courses = course_get_enrolled_courses_for_logged_in_user(0, $offset, $sort, $fields,
+                COURSE_DB_QUERY_LIMIT, $hiddencourses);
+        } else {
+            $courses = course_get_enrolled_courses_for_logged_in_user(0, $offset, $sort, $fields,
+                COURSE_DB_QUERY_LIMIT, [], $hiddencourses);
+        }
+
+        $favouritecourseids = [];
+        $ufservice = \core_favourites\service_factory::get_service_for_user_context(\context_user::instance($USER->id));
+        $favourites = $ufservice->find_favourites_by_type('core_course', 'courses');
+
+        if ($favourites) {
+            $favouritecourseids = array_map(
+                function($favourite) {
+                    return $favourite->itemid;
+                }, $favourites);
+        }
+
+        if ($classification == COURSE_FAVOURITES) {
+            list($filteredcourses, $processedcount) = course_filter_courses_by_favourites(
+                $courses,
+                $favouritecourseids,
+                $limit
+            );
+        } else {
+            list($filteredcourses, $processedcount) = course_filter_courses_by_timeline_classification(
+                $courses,
+                $classification,
+                $limit
+            );
+        }
 
         $renderer = $PAGE->get_renderer('core');
-        $formattedcourses = array_map(function($course) use ($renderer) {
+        $formattedcourses = array_map(function($course) use ($renderer, $favouritecourseids) {
             context_helper::preload_from_record($course);
             $context = context_course::instance($course->id);
-            $exporter = new course_summary_exporter($course, ['context' => $context]);
+            $isfavourite = false;
+            if (in_array($course->id, $favouritecourseids)) {
+                $isfavourite = true;
+            }
+            $exporter = new course_summary_exporter($course, ['context' => $context, 'isfavourite' => $isfavourite]);
             return $exporter->export($renderer);
         }, $filteredcourses);
 
@@ -3704,5 +3836,199 @@ class core_course_external extends external_api {
                 'nextoffset' => new external_value(PARAM_INT, 'Offset for the next request')
             )
         );
+    }
+
+    /**
+     * Returns description of method parameters
+     *
+     * @return external_function_parameters
+     */
+    public static function set_favourite_courses_parameters() {
+        return new external_function_parameters(
+            array(
+                'courses' => new external_multiple_structure(
+                    new external_single_structure(
+                        array(
+                            'id' => new external_value(PARAM_INT, 'course ID'),
+                            'favourite' => new external_value(PARAM_BOOL, 'favourite status')
+                        )
+                    )
+                )
+            )
+        );
+    }
+
+    /**
+     * Set the course favourite status for an array of courses.
+     *
+     * @param  array $courses List with course id's and favourite status.
+     * @return array Array with an array of favourite courses.
+     */
+    public static function set_favourite_courses(
+        array $courses
+    ) {
+        global $USER;
+
+        $params = self::validate_parameters(self::set_favourite_courses_parameters(),
+            array(
+                'courses' => $courses
+            )
+        );
+
+        $warnings = [];
+
+        $ufservice = \core_favourites\service_factory::get_service_for_user_context(\context_user::instance($USER->id));
+
+        foreach ($params['courses'] as $course) {
+
+            $warning = [];
+
+            $favouriteexists = $ufservice->favourite_exists('core_course', 'courses', $course['id'],
+                    \context_course::instance($course['id']));
+
+            if ($course['favourite']) {
+                if (!$favouriteexists) {
+                    try {
+                        $ufservice->create_favourite('core_course', 'courses', $course['id'],
+                                \context_course::instance($course['id']));
+                    } catch (Exception $e) {
+                        $warning['courseid'] = $course['id'];
+                        if ($e instanceof moodle_exception) {
+                            $warning['warningcode'] = $e->errorcode;
+                        } else {
+                            $warning['warningcode'] = $e->getCode();
+                        }
+                        $warning['message'] = $e->getMessage();
+                        $warnings[] = $warning;
+                        $warnings[] = $warning;
+                    }
+                } else {
+                    $warning['courseid'] = $course['id'];
+                    $warning['warningcode'] = 'coursealreadyfavourited';
+                    $warning['message'] = 'Course already favourited';
+                    $warnings[] = $warning;
+                }
+            } else {
+                if ($favouriteexists) {
+                    try {
+                        $ufservice->delete_favourite('core_course', 'courses', $course['id'],
+                                \context_course::instance($course['id']));
+                    } catch (Exception $e) {
+                        $warning['courseid'] = $course['id'];
+                        if ($e instanceof moodle_exception) {
+                            $warning['warningcode'] = $e->errorcode;
+                        } else {
+                            $warning['warningcode'] = $e->getCode();
+                        }
+                        $warning['message'] = $e->getMessage();
+                        $warnings[] = $warning;
+                        $warnings[] = $warning;
+                    }
+                } else {
+                    $warning['courseid'] = $course['id'];
+                    $warning['warningcode'] = 'cannotdeletefavourite';
+                    $warning['message'] = 'Could not delete favourite status for course';
+                    $warnings[] = $warning;
+                }
+            }
+        }
+
+        return [
+            'warnings' => $warnings
+        ];
+    }
+
+    /**
+     * Returns description of method result value
+     *
+     * @return external_description
+     */
+    public static function set_favourite_courses_returns() {
+        return new external_single_structure(
+            array(
+                'warnings' => new external_warnings()
+            )
+        );
+    }
+
+    /**
+     * Returns description of method parameters
+     *
+     * @return external_function_parameters
+     * @since Moodle 3.6
+     */
+    public static function get_recent_courses_parameters() {
+        return new external_function_parameters(
+            array(
+                'userid' => new external_value(PARAM_INT, 'id of the user, default to current user', VALUE_DEFAULT, 0),
+                'limit' => new external_value(PARAM_INT, 'result set limit', VALUE_DEFAULT, 0),
+                'offset' => new external_value(PARAM_INT, 'Result set offset', VALUE_DEFAULT, 0),
+                'sort' => new external_value(PARAM_TEXT, 'Sort string', VALUE_DEFAULT, null)
+            )
+        );
+    }
+
+    /**
+     * Get last accessed courses adding additional course information like images.
+     *
+     * @param int $userid User id from which the courses will be obtained
+     * @param int $limit Restrict result set to this amount
+     * @param int $offset Skip this number of records from the start of the result set
+     * @param string|null $sort SQL string for sorting
+     * @return array List of courses
+     * @throws  invalid_parameter_exception
+     */
+    public static function get_recent_courses(int $userid = 0, int $limit = 0, int $offset = 0, string $sort = null) {
+        global $USER, $PAGE;
+
+        if (empty($userid)) {
+            $userid = $USER->id;
+        }
+
+        $params = self::validate_parameters(self::get_recent_courses_parameters(),
+            array(
+                'userid' => $userid,
+                'limit' => $limit,
+                'offset' => $offset,
+                'sort' => $sort
+            )
+        );
+
+        $userid = $params['userid'];
+        $limit = $params['limit'];
+        $offset = $params['offset'];
+        $sort = $params['sort'];
+
+        $usercontext = context_user::instance($userid);
+
+        self::validate_context($usercontext);
+
+        if ($userid != $USER->id and !has_capability('moodle/user:viewdetails', $usercontext)) {
+            return array();
+        }
+
+        $courses = course_get_recent_courses($userid, $limit, $offset, $sort);
+
+        $renderer = $PAGE->get_renderer('core');
+
+        $recentcourses = array_map(function($course) use ($renderer) {
+            context_helper::preload_from_record($course);
+            $context = context_course::instance($course->id);
+            $isfavourite = !empty($course->component);
+            $exporter = new course_summary_exporter($course, ['context' => $context, 'isfavourite' => $isfavourite]);
+            return $exporter->export($renderer);
+        }, $courses);
+
+        return $recentcourses;
+    }
+
+    /**
+     * Returns description of method result value
+     *
+     * @return external_description
+     * @since Moodle 3.6
+     */
+    public static function get_recent_courses_returns() {
+        return new external_multiple_structure(course_summary_exporter::get_read_structure(), 'Courses');
     }
 }

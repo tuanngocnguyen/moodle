@@ -406,10 +406,16 @@ class qformat_default {
             $question->timecreated = time();
             $question->modifiedby = $USER->id;
             $question->timemodified = time();
-            if (isset($question->idnumber) && (string) $question->idnumber !== '') {
-                if ($DB->record_exists('question', ['idnumber' => $question->idnumber, 'category' => $question->category])) {
-                    // We cannot have duplicate idnumbers in a category.
+            if (isset($question->idnumber)) {
+                if ((string) $question->idnumber === '') {
+                    // Id number not really set. Get rid of it.
                     unset($question->idnumber);
+                } else {
+                    if ($DB->record_exists('question',
+                            ['idnumber' => $question->idnumber, 'category' => $question->category])) {
+                        // We cannot have duplicate idnumbers in a category. Just remove it.
+                        unset($question->idnumber);
+                    }
                 }
             }
 
@@ -570,10 +576,10 @@ class qformat_default {
                 // Do nothing unless the child category appears before the parent category
                 // in the imported xml file. Because the parent was created without info being available
                 // at that time, this allows the info to be added from the xml data.
-                if ($key == (count($catnames) - 1) && $lastcategoryinfo && $lastcategoryinfo->info !== null &&
-                        $lastcategoryinfo->info !== "" && $category->info == "") {
+                if ($key == (count($catnames) - 1) && $lastcategoryinfo && isset($lastcategoryinfo->info) &&
+                        $lastcategoryinfo->info !== '' && $category->info === '') {
                     $category->info = $lastcategoryinfo->info;
-                    if ($lastcategoryinfo->infoformat !== null && $lastcategoryinfo->infoformat !== "") {
+                    if (isset($lastcategoryinfo->infoformat) && $lastcategoryinfo->infoformat !== '') {
                         $category->infoformat = $lastcategoryinfo->infoformat;
                     }
                     $DB->update_record('question_categories', $category);
@@ -595,10 +601,10 @@ class qformat_default {
                 $category->name = $catname;
                 $category->info = '';
                 // Only add info (category description) for the final category in the catpath.
-                if ($key == (count($catnames) - 1) && $lastcategoryinfo && $lastcategoryinfo->info !== null &&
-                        $lastcategoryinfo->info !== "") {
+                if ($key == (count($catnames) - 1) && $lastcategoryinfo && isset($lastcategoryinfo->info) &&
+                        $lastcategoryinfo->info !== '') {
                     $category->info = $lastcategoryinfo->info;
-                    if ($lastcategoryinfo->infoformat !== null && $lastcategoryinfo->infoformat !== "") {
+                    if (isset($lastcategoryinfo->infoformat) && $lastcategoryinfo->infoformat !== '') {
                         $category->infoformat = $lastcategoryinfo->infoformat;
                     }
                 }
@@ -697,7 +703,7 @@ class qformat_default {
         $question = new stdClass();
         $question->shuffleanswers = $defaultshuffleanswers;
         $question->defaultmark = 1;
-        $question->image = "";
+        $question->image = '';
         $question->usecase = 0;
         $question->multiplier = array();
         $question->questiontextformat = FORMAT_MOODLE;
@@ -868,7 +874,7 @@ class qformat_default {
 
         // results are first written into string (and then to a file)
         // so create/initialize the string here
-        $expout = "";
+        $expout = '';
 
         // track which category questions are in
         // if it changes we will record the category change in the output

@@ -2107,6 +2107,74 @@ class admin_setting_heading extends admin_setting {
     }
 }
 
+/**
+ * No setting - just name and description in same row.
+ *
+ * @copyright 2018 onwards Amaia Anabitarte
+ * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class admin_setting_description extends admin_setting {
+
+    /**
+     * Not a setting, just text
+     *
+     * @param string $name
+     * @param string $visiblename
+     * @param string $description
+     */
+    public function __construct($name, $visiblename, $description) {
+        $this->nosave = true;
+        parent::__construct($name, $visiblename, $description, '');
+    }
+
+    /**
+     * Always returns true
+     *
+     * @return bool Always returns true
+     */
+    public function get_setting() {
+        return true;
+    }
+
+    /**
+     * Always returns true
+     *
+     * @return bool Always returns true
+     */
+    public function get_defaultsetting() {
+        return true;
+    }
+
+    /**
+     * Never write settings
+     *
+     * @param mixed $data Gets converted to str for comparison against yes value
+     * @return string Always returns an empty string
+     */
+    public function write_setting($data) {
+        // Do not write any setting.
+        return '';
+    }
+
+    /**
+     * Returns an HTML string
+     *
+     * @param string $data
+     * @param string $query
+     * @return string Returns an HTML string
+     */
+    public function output_html($data, $query='') {
+        global $OUTPUT;
+
+        $context = new stdClass();
+        $context->title = $this->visiblename;
+        $context->description = $this->description;
+
+        return $OUTPUT->render_from_template('core_admin/setting_description', $context);
+    }
+}
+
+
 
 /**
  * The most flexible setting, the user enters text.
@@ -2421,7 +2489,28 @@ class admin_setting_configpasswordunmask extends admin_setting_configtext {
         $element = $OUTPUT->render_from_template('core_admin/setting_configpasswordunmask', $context);
         return format_admin_setting($this, $this->visiblename, $element, $this->description, true, '', null, $query);
     }
+}
 
+/**
+ * Password field, allows unmasking of password, with an advanced checkbox that controls an additional $name.'_adv' setting.
+ *
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright 2018 Paul Holden (pholden@greenhead.ac.uk)
+ */
+class admin_setting_configpasswordunmask_with_advanced extends admin_setting_configpasswordunmask {
+
+    /**
+     * Constructor
+     *
+     * @param string $name unique ascii name, either 'mysetting' for settings that in config, or 'myplugin/mysetting' for ones in config_plugins.
+     * @param string $visiblename localised
+     * @param string $description long localised info
+     * @param array $defaultsetting ('value'=>string, 'adv'=>bool)
+     */
+    public function __construct($name, $visiblename, $description, $defaultsetting) {
+        parent::__construct($name, $visiblename, $description, $defaultsetting['value']);
+        $this->set_advanced_flag_options(admin_setting_flag::ENABLED, !empty($defaultsetting['adv']));
+    }
 }
 
 /**
@@ -7193,6 +7282,129 @@ class admin_setting_manageformats extends admin_setting {
 }
 
 /**
+ * Custom fields manager. Allows to enable/disable custom fields and jump to settings.
+ *
+ * @package    core
+ * @copyright  2018 Toni Barbera
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class admin_setting_managecustomfields extends admin_setting {
+
+    /**
+     * Calls parent::__construct with specific arguments
+     */
+    public function __construct() {
+        $this->nosave = true;
+        parent::__construct('customfieldsui', new lang_string('managecustomfields', 'core_admin'), '', '');
+    }
+
+    /**
+     * Always returns true
+     *
+     * @return true
+     */
+    public function get_setting() {
+        return true;
+    }
+
+    /**
+     * Always returns true
+     *
+     * @return true
+     */
+    public function get_defaultsetting() {
+        return true;
+    }
+
+    /**
+     * Always returns '' and doesn't write anything
+     *
+     * @param mixed $data string or array, must not be NULL
+     * @return string Always returns ''
+     */
+    public function write_setting($data) {
+        // Do not write any setting.
+        return '';
+    }
+
+    /**
+     * Search to find if Query is related to format plugin
+     *
+     * @param string $query The string to search for
+     * @return bool true for related false for not
+     */
+    public function is_related($query) {
+        if (parent::is_related($query)) {
+            return true;
+        }
+        $formats = core_plugin_manager::instance()->get_plugins_of_type('customfield');
+        foreach ($formats as $format) {
+            if (strpos($format->component, $query) !== false ||
+                    strpos(core_text::strtolower($format->displayname), $query) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Return XHTML to display control
+     *
+     * @param mixed $data Unused
+     * @param string $query
+     * @return string highlight
+     */
+    public function output_html($data, $query='') {
+        global $CFG, $OUTPUT;
+        $return = '';
+        $return = $OUTPUT->heading(new lang_string('customfields', 'core_customfield'), 3, 'main');
+        $return .= $OUTPUT->box_start('generalbox customfieldsui');
+
+        $fields = core_plugin_manager::instance()->get_plugins_of_type('customfield');
+
+        $txt = get_strings(array('settings', 'name', 'enable', 'disable', 'up', 'down'));
+        $txt->uninstall = get_string('uninstallplugin', 'core_admin');
+        $txt->updown = "$txt->up/$txt->down";
+
+        $table = new html_table();
+        $table->head  = array($txt->name, $txt->enable, $txt->uninstall, $txt->settings);
+        $table->align = array('left', 'center', 'center', 'center');
+        $table->attributes['class'] = 'managecustomfieldtable generaltable admintable';
+        $table->data  = array();
+
+        $spacer = $OUTPUT->pix_icon('spacer', '', 'moodle', array('class' => 'iconsmall'));
+        foreach ($fields as $field) {
+            $url = new moodle_url('/admin/customfields.php',
+                    array('sesskey' => sesskey(), 'field' => $field->name));
+
+            if ($field->is_enabled()) {
+                $strfieldname = $field->displayname;
+                $hideshow = html_writer::link($url->out(false, array('action' => 'disable')),
+                        $OUTPUT->pix_icon('t/hide', $txt->disable, 'moodle', array('class' => 'iconsmall')));
+            } else {
+                $strfieldname = $field->displayname;
+                $class = 'dimmed_text';
+                $hideshow = html_writer::link($url->out(false, array('action' => 'enable')),
+                    $OUTPUT->pix_icon('t/show', $txt->enable, 'moodle', array('class' => 'iconsmall')));
+            }
+            $settings = '';
+            if ($field->get_settings_url()) {
+                $settings = html_writer::link($field->get_settings_url(), $txt->settings);
+            }
+            $uninstall = '';
+            if ($uninstallurl = core_plugin_manager::instance()->get_uninstall_url('customfield_'.$field->name, 'manage')) {
+                $uninstall = html_writer::link($uninstallurl, $txt->uninstall);
+            }
+            $row = new html_table_row(array($strfieldname, $hideshow, $uninstall, $settings));
+            $table->data[] = $row;
+        }
+        $return .= html_writer::table($table);
+        $return .= $OUTPUT->box_end();
+        return highlight($query, $return);
+    }
+}
+
+/**
  * Data formats manager. Allow reorder and to enable/disable data formats and jump to settings
  *
  * @copyright  2016 Brendan Heywood (brendan@catalyst-au.net)
@@ -8006,12 +8218,16 @@ function admin_get_root($reload=false, $requirefulltree=true) {
 
 /**
  * This function applies default settings.
+ * Because setting the defaults of some settings can enable other settings,
+ * this function is called recursively until no more new settings are found.
  *
  * @param object $node, NULL means complete tree, null by default
- * @param bool $unconditional if true overrides all values with defaults, null buy default
+ * @param bool $unconditional if true overrides all values with defaults, true by default
+ * @param array $admindefaultsettings default admin settings to apply. Used recursively
+ * @param array $settingsoutput The names and values of the changed settings. Used recursively
+ * @return array $settingsoutput The names and values of the changed settings
  */
-function admin_apply_default_settings($node=NULL, $unconditional=true) {
-    global $CFG;
+function admin_apply_default_settings($node=null, $unconditional=true, $admindefaultsettings=array(), $settingsoutput=array()) {
 
     if (is_null($node)) {
         core_plugin_manager::reset_caches();
@@ -8021,26 +8237,46 @@ function admin_apply_default_settings($node=NULL, $unconditional=true) {
     if ($node instanceof admin_category) {
         $entries = array_keys($node->children);
         foreach ($entries as $entry) {
-            admin_apply_default_settings($node->children[$entry], $unconditional);
+            $settingsoutput = admin_apply_default_settings(
+                    $node->children[$entry], $unconditional, $admindefaultsettings, $settingsoutput
+                    );
         }
 
     } else if ($node instanceof admin_settingpage) {
-            foreach ($node->settings as $setting) {
-                if (!$unconditional and !is_null($setting->get_setting())) {
-                //do not override existing defaults
-                    continue;
-                }
-                $defaultsetting = $setting->get_defaultsetting();
-                if (is_null($defaultsetting)) {
-                // no value yet - default maybe applied after admin user creation or in upgradesettings
-                    continue;
-                }
+        foreach ($node->settings as $setting) {
+            if (!$unconditional and !is_null($setting->get_setting())) {
+                // Do not override existing defaults.
+                continue;
+            }
+            $defaultsetting = $setting->get_defaultsetting();
+            if (is_null($defaultsetting)) {
+                // No value yet - default maybe applied after admin user creation or in upgradesettings.
+                continue;
+            }
+
+            $settingname = $node->name . '_' . $setting->name; // Get a unique name for the setting.
+
+            if (!array_key_exists($settingname, $admindefaultsettings)) {  // Only update a setting if not already processed.
+                $admindefaultsettings[$settingname] = $settingname;
+                $settingsoutput[$settingname] = $defaultsetting;
+
+                // Set the default for this setting.
                 $setting->write_setting($defaultsetting);
                 $setting->write_setting_flags(null);
+            } else {
+                unset($admindefaultsettings[$settingname]); // Remove processed settings.
             }
         }
+    }
+
+    // Call this function recursively until all settings are processed.
+    if (($node instanceof admin_root) && (!empty($admindefaultsettings))) {
+        $settingsoutput = admin_apply_default_settings(null, $unconditional, $admindefaultsettings, $settingsoutput);
+    }
     // Just in case somebody modifies the list of active plugins directly.
     core_plugin_manager::reset_caches();
+
+    return $settingsoutput;
 }
 
 /**
@@ -8198,6 +8434,7 @@ function admin_search_settings_html($query) {
                 if (array_key_exists($fullname, $adminroot->errors)) {
                     $data = $adminroot->errors[$fullname]->data;
                 } else {
+                    $data = $setting->get_setting();
                     $data = $setting->get_setting();
                 // do not use defaults if settings not available - upgradesettings handles the defaults!
                 }

@@ -22,9 +22,6 @@
 function xmldb_glossary_upgrade($oldversion) {
     global $CFG, $DB;
 
-    // Automatically generated Moodle v3.2.0 release upgrade line.
-    // Put any upgrade step following this.
-
     // Automatically generated Moodle v3.3.0 release upgrade line.
     // Put any upgrade step following this.
 
@@ -99,6 +96,9 @@ function xmldb_glossary_upgrade($oldversion) {
 
         upgrade_mod_savepoint(true, 2018051401, 'glossary');
     }
+
+    // Automatically generated Moodle v3.6.0 release upgrade line.
+    // Put any upgrade step following this.
 
     return true;
 }

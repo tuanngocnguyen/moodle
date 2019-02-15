@@ -47,6 +47,9 @@
             <directory suffix="_test.php">lib/tests</directory>
             <directory suffix="_test.php">lib/ajax/tests</directory>
         </testsuite>
+        <testsuite name="core_favourites_testsuite">
+            <directory suffix="_test.php">favourites/tests</directory>
+        </testsuite>
         <testsuite name="core_form_testsuite">
             <directory suffix="_test.php">lib/form/tests</directory>
         </testsuite>
@@ -88,6 +91,9 @@
         </testsuite>
         <testsuite name="core_blog_testsuite">
             <directory suffix="_test.php">blog/tests</directory>
+        </testsuite>
+        <testsuite name="core_customfield_testsuite">
+            <directory suffix="_test.php">customfield/tests</directory>
         </testsuite>
         <testsuite name="core_iplookup_testsuite">
             <directory suffix="_test.php">iplookup/tests</directory>

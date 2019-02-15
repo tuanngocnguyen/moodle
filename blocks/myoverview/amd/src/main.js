@@ -32,12 +32,6 @@ function(
     View,
     ViewNav
 ) {
-
-    var SELECTORS = {
-        COURSES_VIEW: '[data-region="courses-view"]',
-        COURSES_VIEW_CONTENT: '[data-region="course-view-content"]'
-    };
-
     /**
      * Initialise all of the modules for the overview block.
      *
@@ -45,12 +39,10 @@ function(
      */
     var init = function(root) {
         root = $(root);
-        var coursesViewRoot = root.find(SELECTORS.COURSES_VIEW);
-        var coursesViewContent = root.find(SELECTORS.COURSES_VIEW_CONTENT);
         // Initialise the course navigation elements.
-        ViewNav.init(root, coursesViewRoot, coursesViewContent);
+        ViewNav.init(root);
         // Initialise the courses view modules.
-        View.init(coursesViewRoot, coursesViewContent);
+        View.init(root);
     };
 
     return {

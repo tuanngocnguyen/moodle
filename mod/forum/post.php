@@ -349,7 +349,13 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum.
                 $event->add_record_snapshot('forum_discussions', $discussion);
                 $event->trigger();
 
-                redirect(new moodle_url('/mod/forum/view.php', ['f' => $discussion->forum]));
+                $message = get_string('eventdiscussiondeleted', 'forum');
+                redirect(
+                    new moodle_url('/mod/forum/view.php', ['f' => $discussion->forum]),
+                    $message,
+                    null,
+                    \core\output\notification::NOTIFY_SUCCESS
+                );
 
             } else if (forum_delete_post($post, has_capability('mod/forum:deleteanypost', $modcontext),
                 $course, $cm, $forum)) {
@@ -363,7 +369,13 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum.
                     $discussionurl = new moodle_url("/mod/forum/discuss.php", array('d' => $discussion->id));
                 }
 
-                redirect(forum_go_back_to($discussionurl));
+                $message = get_string('eventpostdeleted', 'forum');
+                redirect(
+                    forum_go_back_to($discussionurl),
+                    $message,
+                    null,
+                    \core\output\notification::NOTIFY_SUCCESS
+                );
             } else {
                 print_error('errorwhiledelete', 'forum');
             }
@@ -506,8 +518,13 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum.
         $event->add_record_snapshot('forum_discussions', $discussion);
         $event->trigger();
 
-        redirect(forum_go_back_to(new moodle_url("/mod/forum/discuss.php", array('d' => $newid))));
-
+        $message = get_string('discussionsplit', 'forum');
+        redirect(
+            forum_go_back_to(new moodle_url("/mod/forum/discuss.php", array('d' => $newid))),
+            $message,
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
     } else {
         // Display the prune form.
         $course = $DB->get_record('course', array('id' => $forum->course));
@@ -576,7 +593,7 @@ file_prepare_draft_area($draftitemid, $modcontext->id, 'mod_forum', 'attachment'
 
 if ($USER->id != $post->userid) {   // Not the original author, so add a message to the end.
     $data = new stdClass();
-    $data->date = userdate($post->modified);
+    $data->date = userdate($post->created);
     if ($post->messageformat == FORMAT_HTML) {
         $data->name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$USER->id.'&course='.$post->course.'">'.
             fullname($USER).'</a>';
@@ -678,6 +695,9 @@ if ($mformpost->is_cancelled()) {
     $fromform->message       = $fromform->message['text'];
     // WARNING: the $fromform->message array has been overwritten, do not use it anymore!
     $fromform->messagetrust  = trusttext_trusted($modcontext);
+
+    // Clean message text.
+    $fromform = trusttext_pre_edit($fromform, 'message', $modcontext);
 
     if ($fromform->edit) {           // Updating a post.
         unset($fromform->groupid);
