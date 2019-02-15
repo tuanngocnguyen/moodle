@@ -608,6 +608,12 @@ $CFG->admin = 'admin';
 //
 //      $CFG->disablelogintoken = true;
 //
+// Moodle 3.7+ checks that cron is running frequently. If the time between cron runs
+// is greater than this value (in seconds), you get a warning on the admin page. (This
+// setting only controls whether or not the warning appears, it has no other effect.)
+//
+//      $CFG->expectedcronfrequency = 200;
+//
 //=========================================================================
 // 7. SETTINGS FOR DEVELOPMENT SERVERS - not intended for production use!!!
 //=========================================================================
@@ -861,6 +867,13 @@ $CFG->admin = 'admin';
 // BEHAT_DISABLE_HISTOGRAM
 // Example:
 //   define('BEHAT_DISABLE_HISTOGRAM', true);
+//
+// Mobile app Behat testing requires this option, pointing to a developer Moodle Mobile directory:
+//   $CFG->behat_ionic_dirroot = '/where/I/keep/my/git/checkouts/moodlemobile2';
+//
+// The following option can be used to indicate a running Ionic server (otherwise Behat will start
+// one automatically for each test run, which is convenient but takes ages):
+//   $CFG->behat_ionic_wwwroot = 'http://localhost:8100';
 //
 //=========================================================================
 // 12. DEVELOPER DATA GENERATOR

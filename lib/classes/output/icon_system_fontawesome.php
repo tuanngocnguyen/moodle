@@ -211,6 +211,7 @@ class icon_system_fontawesome extends icon_system_font {
             'core:i/categoryevent' => 'fa-cubes',
             'core:i/course' => 'fa-graduation-cap',
             'core:i/courseevent' => 'fa-university',
+            'core:i/customfield' => 'fa-hand-o-right',
             'core:i/db' => 'fa-database',
             'core:i/delete' => 'fa-trash',
             'core:i/down' => 'fa-arrow-down',
@@ -444,6 +445,9 @@ class icon_system_fontawesome extends icon_system_font {
 
         if (!$subpix->is_mapped()) {
             $data['unmappedIcon'] = $icon->export_for_template($output);
+        }
+        if (isset($icon->attributes['aria-hidden'])) {
+            $data['aria-hidden'] = $icon->attributes['aria-hidden'];
         }
         return $output->render_from_template('core/pix_icon_fontawesome', $data);
     }

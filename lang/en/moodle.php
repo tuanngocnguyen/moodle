@@ -502,6 +502,7 @@ $string['deletingolddata'] = 'Deleting old data';
 $string['department'] = 'Department';
 $string['desc'] = 'Descending';
 $string['description'] = 'Description';
+$string['descriptiona'] = 'Description: {$a}';
 $string['deselectall'] = 'Deselect all';
 $string['detailedless'] = 'Less detailed';
 $string['detailedmore'] = 'More detailed';
@@ -2166,8 +2167,6 @@ $string['withchosenfiles'] = 'With chosen files';
 $string['withdisablednote'] = '{$a} (disabled)';
 $string['withoutuserdata'] = 'without user data';
 $string['withselectedusers'] = 'With selected users...';
-$string['withselectedusers_help'] = '* Send message - For sending a message to one or more participants
-* Add a new note - For adding a note to a selected participant';
 $string['withuserdata'] = 'with user data';
 $string['wordforstudent'] = 'Your word for Student';
 $string['wordforstudenteg'] = 'eg Student, Participant etc';
