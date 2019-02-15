@@ -405,7 +405,7 @@ class page_editor {
      * @param string $pathnamehash
      * @throws \dml_exception
      */
-    public static function set_page_rotation($gradeid, $pageno, $isrotated, $pathnamehash) {
+    public static function set_page_rotation($gradeid, $pageno, $isrotated, $pathnamehash, $degree = 0) {
         global $DB;
         $oldrecord = self::get_page_rotation($gradeid, $pageno);
         if ( $oldrecord == null) {
@@ -414,10 +414,12 @@ class page_editor {
             $record->pageno = $pageno;
             $record->isrotated = $isrotated;
             $record->pathnamehash = $pathnamehash;
+            $record->degree = $degree;
             $DB->insert_record('assignfeedback_editpdf_rot', $record, false);
         } else {
             $oldrecord->isrotated = $isrotated;
             $oldrecord->pathnamehash = $pathnamehash;
+            $oldrecord->degree = $degree;
             $DB->update_record('assignfeedback_editpdf_rot', $oldrecord, false);
         }
     }

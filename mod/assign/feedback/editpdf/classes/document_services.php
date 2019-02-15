@@ -265,7 +265,6 @@ EOD;
             $submission = $assignment->get_user_submission($userid, false, $attemptnumber);
         }
 
-
         $contextid = $assignment->get_context()->id;
         $component = 'assignfeedback_editpdf';
         $filearea = self::COMBINED_PDF_FILEAREA;
@@ -369,7 +368,7 @@ EOD;
      * @param int $attemptnumber (-1 means latest attempt)
      * @return array(stored_file)
      */
-    protected static function generate_page_images_for_attempt($assignment, $userid, $attemptnumber) {
+    protected static function generate_page_images_for_attempt($assignment, $userid, $attemptnumber, $resetrotation = true) {
         global $CFG;
 
         require_once($CFG->libdir . '/pdflib.php');
@@ -418,6 +417,15 @@ EOD;
         for ($i = 0; $i < $pagecount; $i++) {
             try {
                 $image = $pdf->get_image($i);
+                if (!$resetrotation) {
+                    $pagerotation = page_editor::get_page_rotation($grade->id, $i);
+                    if ( !empty($pagerotation) && ($degree = $pagerotation->degree) != 0) {
+                        $filepath = $tmpdir . '/' . $image;
+                        $imageresource = imagecreatefrompng($filepath);
+                        $content = imagerotate($imageresource, $degree, 0);
+                        imagepng($content, $filepath);
+                    }
+                }
             } catch (\moodle_exception $e) {
                 // We catch only moodle_exception here as other exceptions indicate issue with setup not the pdf.
                 $image = pdf::get_error_image($tmpdir, $i);
@@ -427,7 +435,9 @@ EOD;
             @unlink($tmpdir . '/' . $image);
             // Set page rotation default value.
             if (!empty($files[$i])) {
-                page_editor::set_page_rotation($grade->id, $i, false, $files[$i]->get_pathnamehash());
+                if ($resetrotation) {
+                    page_editor::set_page_rotation($grade->id, $i, false, $files[$i]->get_pathnamehash());
+                }
             }
         }
         $pdf->Close(); // PDF loaded and never saved/outputted needs to be closed.
@@ -496,6 +506,7 @@ EOD;
         $files = $fs->get_directory_files($contextid, $component, $filearea, $itemid, $filepath);
 
         $pages = array();
+        $resetrotation = false;
         if (!empty($files)) {
             $first = reset($files);
             $pagemodified = $first->get_timemodified();
@@ -519,6 +530,7 @@ EOD;
                 $fs->delete_area_files($contextid, $component, $filearea, $itemid);
                 page_editor::delete_draft_content($itemid);
                 $files = array();
+                $resetrotation = true;
             } else {
 
                 // Need to reorder the files following their name.
@@ -545,7 +557,7 @@ EOD;
                 // whenever we are requesting the readonly version.
                 throw new \moodle_exception('Could not find readonly pages for grade ' . $grade->id);
             }
-            $pages = self::generate_page_images_for_attempt($assignment, $userid, $attemptnumber);
+            $pages = self::generate_page_images_for_attempt($assignment, $userid, $attemptnumber, $resetrotation);
         }
 
         return $pages;
@@ -709,7 +721,6 @@ EOD;
         $generatedpdf = $tmpdir . '/' . $filename;
         $pdf->save_pdf($generatedpdf);
 
-
         $record = new \stdClass();
 
         $record->contextid = $assignment->get_context()->id;
@@ -718,7 +729,6 @@ EOD;
         $record->itemid = $grade->id;
         $record->filepath = '/';
         $record->filename = $filename;
-
 
         // Only keep one current version of the generated pdf.
         $fs->delete_area_files($record->contextid, $record->component, $record->filearea, $record->itemid);
@@ -908,6 +918,7 @@ EOD;
      */
     public static function rotate_page($assignment, $userid, $attemptnumber, $index, $rotateleft) {
         $assignment = self::get_assignment_from_param($assignment);
+        $grade = $assignment->get_user_grade($userid, true, $attemptnumber);
         // Check permission.
         if (!$assignment->can_view_submission($userid)) {
             print_error('nopermission');
@@ -926,10 +937,14 @@ EOD;
 
                 if ($pagenumber == $index) {
                     $source = imagecreatefromstring($file->get_content());
+                    $pagerotation = page_editor::get_page_rotation($grade->id, $index);
+                    $degree = empty($pagerotation) ? 0 : $pagerotation->degree;
                     if ($rotateleft) {
                         $content = imagerotate($source, 90, 0);
+                        $degree = ($degree + 90) % 360;
                     } else {
                         $content = imagerotate($source, -90, 0);
+                        $degree = ($degree - 90) % 360;
                     }
                     $filename = $matches[0].'png';
                     $tmpdir = make_temp_directory(self::COMPONENT . '/' . self::PAGE_IMAGE_FILEAREA . '/'
@@ -946,8 +961,7 @@ EOD;
                     imagedestroy($content);
                     $file->delete();
                     if (!empty($newfile)) {
-                        $grade = $assignment->get_user_grade($userid, true, $attemptnumber);
-                        page_editor::set_page_rotation($grade->id, $pagenumber, true, $newfile->get_pathnamehash());
+                        page_editor::set_page_rotation($grade->id, $pagenumber, true, $newfile->get_pathnamehash(), $degree);
                     }
                     return $newfile;
                 }
