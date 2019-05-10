@@ -2316,7 +2316,27 @@ class assign {
         $params['submitted'] = ASSIGN_SUBMISSION_STATUS_SUBMITTED;
         $sqlscalegrade = $this->get_instance()->grade < 0 ? ' OR g.grade = -1' : '';
 
-        $sql = 'SELECT COUNT(s.userid)
+        if ($this->get_instance()->grade == GRADE_TYPE_NONE) {
+            $sql = "SELECT COUNT(s.userid)
+                   FROM {assign_submission} s
+                   LEFT JOIN {assign_grades} g ON
+                        s.assignment = g.assignment AND
+                        s.userid = g.userid AND
+                        g.attemptnumber = s.attemptnumber
+                   LEFT JOIN {assignfeedback_comments} afc ON
+                        afc.assignment = g.assignment AND
+                        afc.grade = g.id
+                   JOIN(" . $esql . ") e ON e.id = s.userid
+                   WHERE
+                        s.latest = 1 AND
+                        s.assignment = :assignid AND
+                        s.timemodified IS NOT NULL AND
+                        s.status = :submitted AND
+                        (s.timemodified >= g.timemodified OR g.timemodified IS NULL
+                        OR afc.commenttext = '' OR afc.commenttext IS NULL "
+                . $sqlscalegrade . ')';
+        } else {
+            $sql = 'SELECT COUNT(s.userid)
                    FROM {assign_submission} s
                    LEFT JOIN {assign_grades} g ON
                         s.assignment = g.assignment AND
@@ -2329,7 +2349,8 @@ class assign {
                         s.timemodified IS NOT NULL AND
                         s.status = :submitted AND
                         (s.timemodified >= g.timemodified OR g.timemodified IS NULL OR g.grade IS NULL '
-                            . $sqlscalegrade . ')';
+                . $sqlscalegrade . ')';
+        }
 
         return $DB->count_records_sql($sql, $params);
     }

@@ -305,9 +305,20 @@ class assign_grading_table extends table_sql implements renderable {
                 $where .= ' AND (s.timemodified IS NULL OR s.status <> :submitted) ';
                 $params['submitted'] = ASSIGN_SUBMISSION_STATUS_SUBMITTED;
             } else if ($filter == ASSIGN_FILTER_REQUIRE_GRADING) {
-                $where .= ' AND (s.timemodified IS NOT NULL AND
+                if (!empty($assigninstance = $this->assignment->get_instance())
+                    && $assigninstance->grade == GRADE_TYPE_NONE) {
+                    $from .= 'LEFT JOIN {assignfeedback_comments} afc
+                              ON g.id = afc.grade
+                              AND afc.assignment = g.assignment';
+                    $where .= " AND (s.timemodified IS NOT NULL AND
+                                 s.status = :submitted AND
+                                 (s.timemodified >= g.timemodified OR g.timemodified IS NULL
+                                 OR afc.commenttext = '' OR afc.commenttext IS NULL";
+                } else {
+                    $where .= ' AND (s.timemodified IS NOT NULL AND
                                  s.status = :submitted AND
                                  (s.timemodified >= g.timemodified OR g.timemodified IS NULL OR g.grade IS NULL';
+                }
 
                 // Assignment grade is set to the negative grade scale id when scales are used.
                 if ($this->assignment->get_instance()->grade < 0) {
