@@ -144,6 +144,15 @@ abstract class scanner {
         $site = get_site();
 
         $subject = get_string('emailsubject', 'antivirus', format_string($site->fullname));
+        $notifyemail = get_config('antivirus', 'notifyemail');
+        if (!empty($notifyemail)) {
+            $user = new \stdClass();
+            $user->id = -1;
+            $user->email = $notifyemail;
+            email_to_user($user, get_admin(), $subject, $noticehtml);
+            return;
+        }
+
         $admins = get_admins();
         foreach ($admins as $admin) {
             $eventdata = new \core\message\message();
@@ -159,5 +168,40 @@ abstract class scanner {
             $eventdata->smallmessage      = '';
             message_send($eventdata);
         }
+    }
+
+    /**
+     * Return incidence details
+     *
+     * @param string $file full path to the file
+     * @param string $filename original name of the file
+     * @param string $notice notice from antivirus
+     * @return string the incidence details
+     * @throws \coding_exception
+     */
+    public function get_incidence_details($file = '', $filename = '', $notice = '') {
+        global $USER;
+        if (empty($notice)) {
+            $notice = $this->get_scanning_notice();
+        }
+        $content = new \stdClass();
+        $unknown = get_string('unknown', 'antivirus');;
+        $content->filename = !empty($filename) ? $filename : $unknown;
+        if (!empty($file)) {
+            $content->filesize = filesize($file);
+            $content->contenthash = \file_storage::hash_from_string(file_get_contents($file));
+            $content->contenttype = mime_content_type($file);
+        } else {
+            $content->filesize = $unknown;
+            $content->contenthash = $unknown;
+            $content->contenttype = $unknown;
+        }
+
+        $content->author = \core_user::is_real_user($USER->id) ? fullname($USER) . " ($USER->username)" : $unknown;
+        $content->ipaddress = getremoteaddr();
+        $content->date = userdate(time(), get_string('strftimedatetimeshort'));
+        $content->referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : $unknown;
+        $content->notice = $notice;
+        return get_string('incidencedetails', 'antivirus', $content);
     }
 }

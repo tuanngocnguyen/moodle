@@ -71,7 +71,9 @@ class manager {
         foreach ($antiviruses as $antivirus) {
             $result = $antivirus->scan_file($file, $filename);
             if ($result === $antivirus::SCAN_RESULT_FOUND) {
-                // Infection found.
+                // Infection found, send notification.
+                $notice = $antivirus->get_incidence_details($file, $filename);
+                $antivirus->message_admins($notice, FORMAT_MOODLE);
                 if ($deleteinfected) {
                     unlink($file);
                 }
@@ -83,7 +85,7 @@ class manager {
     /**
      * Scan data steam using all enabled antiviruses, throws exception in case of infected data.
      *
-     * @param string $data The varaible containing the data to scan.
+     * @param string $data The variable containing the data to scan.
      * @throws \core\antivirus\scanner_exception If data is infected.
      * @return void
      */
@@ -92,6 +94,10 @@ class manager {
         foreach ($antiviruses as $antivirus) {
             $result = $antivirus->scan_data($data);
             if ($result === $antivirus::SCAN_RESULT_FOUND) {
+                // Infection found, send notification.
+                $filename = get_string('datastream', 'antivirus');
+                $notice = $antivirus->get_incidence_details('', $filename);
+                $antivirus->message_admins($notice, FORMAT_MOODLE);
                 throw new \core\antivirus\scanner_exception('virusfound', '', array('item' => get_string('datastream', 'antivirus')));
             }
         }

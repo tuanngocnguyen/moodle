@@ -167,6 +167,15 @@ if ($hassiteconfig) {
     $ADMIN->add('modules', new admin_category('antivirussettings', new lang_string('antiviruses', 'antivirus')));
     $temp = new admin_settingpage('manageantiviruses', new lang_string('antivirussettings', 'antivirus'));
     $temp->add(new admin_setting_manageantiviruses());
+
+    // Common settings.
+    $temp->add(new admin_setting_heading('antiviruscommonsettings', new lang_string('antiviruscommonsettings', 'antivirus'), ''));
+
+    // Alert email.
+    $temp->add(new admin_setting_configtext('antivirus/notifyemail',
+            new lang_string('notifyemail', 'antivirus'),
+            new lang_string('notifyemail_help', 'antivirus'), '', PARAM_EMAIL)
+    );
     $ADMIN->add('antivirussettings', $temp);
     $plugins = core_plugin_manager::instance()->get_plugins_of_type('antivirus');
     core_collator::asort_objects_by_property($plugins, 'displayname');
