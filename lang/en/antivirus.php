@@ -24,9 +24,24 @@
 
 $string['actantivirushdr'] = 'Available antivirus plugins';
 $string['antiviruses'] = 'Antivirus plugins';
+$string['antiviruscommonsettings'] = 'Common antivirus settings';
 $string['antivirussettings'] = 'Manage antivirus plugins';
 $string['configantivirusplugins'] = 'Please choose the antivirus plugins you wish to use and arrange them in order of being applied.';
 $string['datastream'] = 'Data';
 $string['emailsubject'] = '{$a} :: Antivirus notification';
+$string['incidencedetails'] = 'Infected file detected:
+File name: {$a->filename}
+File size: {$a->filesize}
+File content hash: {$a->contenthash}
+File content type: {$a->contenttype}
+Uploaded by: {$a->author}
+IP: {$a->ipaddress}
+REFERER: {$a->referer}
+Date: {$a->date}
+{$a->notice}';
+$string['notifyemail'] = 'Antivirus alert email';
+$string['notifyemail_help'] = 'If set, then only the specified email will be notified when a virus is detected.
+If blank, then all site admins will be notified by email when a virus is detected.';
 $string['privacy:metadata'] = 'The Antivirus system does not store any personal data.';
+$string['unknown'] = 'Unknown';
 $string['virusfound'] = '{$a->item} has been scanned by a virus checker and found to be infected!';
