@@ -67,13 +67,27 @@ class manager {
      * @return void
      */
     public static function scan_file($file, $filename, $deleteinfected) {
+        global $USER;
         $antiviruses = self::get_enabled();
         foreach ($antiviruses as $antivirus) {
             $result = $antivirus->scan_file($file, $filename);
             if ($result === $antivirus::SCAN_RESULT_FOUND) {
                 // Infection found, send notification.
                 $notice = $antivirus->get_incidence_details($file, $filename);
-                $antivirus->message_admins($notice, FORMAT_MOODLE);
+                $antivirus->message_admins($notice, FORMAT_MOODLE, 'infected');
+
+                // Move to quarantine folder.
+                $zipfile = \core\antivirus\quarantine::quarantine_file($file, $filename, $notice);
+
+                // Log file infected event.
+                $params = array(
+                    'context' => \context_system::instance(),
+                    'relateduserid' => $USER->id,
+                    'other' => array('filename' => $filename, 'zipfile' => $zipfile, 'incidencedetails' => $notice),
+                );
+                $event = \core\event\antivirus_file_infected::create($params);
+                $event->trigger();
+
                 if ($deleteinfected) {
                     unlink($file);
                 }
@@ -90,6 +104,7 @@ class manager {
      * @return void
      */
     public static function scan_data($data) {
+        global $USER;
         $antiviruses = self::get_enabled();
         foreach ($antiviruses as $antivirus) {
             $result = $antivirus->scan_data($data);
@@ -97,7 +112,20 @@ class manager {
                 // Infection found, send notification.
                 $filename = get_string('datastream', 'antivirus');
                 $notice = $antivirus->get_incidence_details('', $filename);
-                $antivirus->message_admins($notice, FORMAT_MOODLE);
+                $antivirus->message_admins($notice, FORMAT_MOODLE, 'infected');
+
+                // Copy data to quarantine folder.
+                $zipfile = \core\antivirus\quarantine::quarantine_data($data, $filename, $notice);
+
+                // Log file infected event.
+                $params = array(
+                    'context' => \context_system::instance(),
+                    'relateduserid' => $USER->id,
+                    'other' => array('filename' => $filename, 'zipfile' => $zipfile, 'incidencedetails' => $notice),
+                );
+                $event = \core\event\antivirus_data_infected::create($params);
+                $event->trigger();
+
                 throw new \core\antivirus\scanner_exception('virusfound', '', array('item' => get_string('datastream', 'antivirus')));
             }
         }

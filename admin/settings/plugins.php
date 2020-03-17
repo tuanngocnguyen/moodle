@@ -176,6 +176,20 @@ if ($hassiteconfig) {
             new lang_string('notifyemail', 'antivirus'),
             new lang_string('notifyemail_help', 'antivirus'), '', PARAM_EMAIL)
     );
+
+    // Enable quarantine.
+    $temp->add(new admin_setting_configcheckbox('antivirus/enablequarantine',
+        new lang_string('enablequarantine', 'antivirus'),
+        new lang_string('enablequarantine_help', 'antivirus',
+            \core\antivirus\quarantine::DEFAULT_QUARANTINE_FOLDER), 0));
+
+    // Quarantine time.
+    $temp->add(new admin_setting_configduration('antivirus/quarantinetime',
+            new lang_string('quarantinetime', 'antivirus'),
+            new lang_string('quarantinetime_desc', 'antivirus'),
+            \core\antivirus\quarantine::DEFAULT_QUARANTINE_TIME)
+    );
+
     $ADMIN->add('antivirussettings', $temp);
     $plugins = core_plugin_manager::instance()->get_plugins_of_type('antivirus');
     core_collator::asort_objects_by_property($plugins, 'displayname');
