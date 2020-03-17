@@ -28,7 +28,10 @@ $string['antiviruscommonsettings'] = 'Common antivirus settings';
 $string['antivirussettings'] = 'Manage antivirus plugins';
 $string['configantivirusplugins'] = 'Please choose the antivirus plugins you wish to use and arrange them in order of being applied.';
 $string['datastream'] = 'Data';
+$string['datainfecteddesc'] = 'There is a virus infected data';
+$string['datainfectedname'] = 'Data infected';
 $string['emailsubject'] = '{$a} :: Antivirus notification';
+$string['fileinfectedname'] = 'File infected';
 $string['incidencedetails'] = 'Infected file detected:
 File name: {$a->filename}
 File size: {$a->filesize}
