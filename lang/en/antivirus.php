@@ -39,6 +39,7 @@ The upload into Moodle will still fail.
 If you have any file system level virus scanning in place, the quarantine folder should be excluded from the antivirus check to avoid detecting the quarantined files.';
 $string['fileinfectedname'] = 'File infected';
 $string['incidencedetails'] = 'Infected file detected:
+Report: {$a->report}
 File name: {$a->filename}
 File size: {$a->filesize}
 File content hash: {$a->contenthash}

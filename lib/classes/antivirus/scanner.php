@@ -202,6 +202,8 @@ abstract class scanner {
         $content->date = userdate(time(), get_string('strftimedatetimeshort'));
         $content->referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : $unknown;
         $content->notice = $notice;
+        $report = new \moodle_url('/report/infectedfiles/index.php');
+        $content->report = $report->out();
         return get_string('incidencedetails', 'antivirus', $content);
     }
 }
