@@ -193,4 +193,14 @@ class filter_glossary extends moodle_text_filter {
     private function sort_entries_by_length($filterobject0, $filterobject1) {
         return strlen($filterobject1->phrase) <=> strlen($filterobject0->phrase);
     }
+
+    /**
+     * Reset cache
+     */
+    public function reset_cache() {
+        if ($this->cache === null) {
+            $this->cache = cache::make_from_params(cache_store::MODE_REQUEST, 'filter', 'glossary');
+        }
+        $this->cache->purge();
+    }
 }

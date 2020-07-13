@@ -108,6 +108,9 @@ class filter_manager {
      * Unloads all filters and other cached information
      */
     protected function unload_all_filters() {
+        // Reset cache for each filter.
+        $this->reset_cache_for_globally_available_filters();
+
         $this->textfilters = array();
         $this->stringfilters = array();
         $this->stringfilternames = array();
@@ -277,6 +280,30 @@ class filter_manager {
      * @since Moodle 3.2
      */
     public function setup_page_for_globally_available_filters($page) {
+        $filters = $this->get_globally_available_filters();
+        $context = context_system::instance();
+        foreach ($filters as $filter) {
+            $filter->setup($page, $context);
+        }
+    }
+
+    /**
+     * Reset cache for each filter
+     */
+    public function reset_cache_for_globally_available_filters() {
+        $filters = $this->get_globally_available_filters();
+        foreach ($filters as $filter) {
+            $filter->reset_cache();
+        }
+    }
+
+    /**
+     * Return objects of available filters at system context
+     *
+     * @return array list of filter objects
+     */
+    private function get_globally_available_filters() {
+        $filters = [];
         $context = context_system::instance();
         $filterdata = filter_get_globally_enabled_filters_with_config();
         foreach ($filterdata as $name => $config) {
@@ -284,12 +311,13 @@ class filter_manager {
                 $filter = $this->textfilters[$context->id][$name];
             } else {
                 $filter = $this->make_filter_object($name, $context, $config);
-                if (is_null($filter)) {
-                    continue;
-                }
             }
-            $filter->setup($page, $context);
+
+            if (!empty($filter)) {
+                $filters[] = $filter;
+            }
         }
+        return $filters;
     }
 }
 
@@ -455,6 +483,13 @@ abstract class moodle_text_filter {
      * @return string the HTML content after the filtering has been applied.
      */
     public abstract function filter($text, array $options = array());
+
+    /**
+     * Reset cache
+     */
+    public function reset_cache() {
+        // Override me, if needed.
+    }
 }
 
 
