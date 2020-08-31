@@ -408,6 +408,7 @@ $string['coursecontact'] = 'Course contacts';
 $string['coursecontact_desc'] = 'This setting allows you to control who appears on the course description. Users need to have at least one of these roles in a course to be shown on the course description for that course.';
 $string['coursecontactduplicates'] = 'Display all course contact roles';
 $string['coursecontactduplicates_desc'] = 'If enabled, users with more than one of the selected course contact roles will be displayed in the course description with each of their roles. Otherwise, they will be displayed with only one role (whichever is listed highest in \'Define roles\' in the Site administration).';
+$string['coursegeneralsettings'] = 'General settings';
 $string['coursegraceperiodafter'] = 'Grace period for past courses';
 $string['coursegraceperiodbefore'] = 'Grace period for future courses';
 $string['courselistshortnames'] = 'Display extended course names';
@@ -868,6 +869,10 @@ $string['none'] = 'None';
 $string['nonewsettings'] = 'No new settings were added during this upgrade.';
 $string['nonexistentbookmark'] = 'The bookmark you requested does not exist.';
 $string['nosupportedlogstore'] = 'No supported logstore found';
+$string['maxcourseincategory'] = 'Maximum courses in a category';
+$string['maxcourseincategory_desc'] = 'This specifies the maximum number of courses in a category.
+This setting does not impose any limit on number of courses in a category, instead it is only used in course sorting.
+Please make sure this value is greater than the maximum courses in a category, otherwise there will be a a sorting performance issue';
 $string['maxtimelimit'] = 'Maximum time limit';
 $string['maxtimelimit_desc'] = 'To restrict the maximum PHP execution time that Moodle will allow without any output being displayed, enter a value in seconds here. 0 means that Moodle default restrictions are used. If you have a front-end server with its own time limit, set this value lower to receive PHP errors in logs. Does not apply to CLI scripts.';
 $string['moodleapp'] = 'Moodle app';

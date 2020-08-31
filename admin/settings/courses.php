@@ -30,6 +30,15 @@ $capabilities = array(
     'moodle/restore:restorecourse'
 );
 if ($hassiteconfig or has_any_capability($capabilities, $systemcontext)) {
+    // General settings.
+    $temp = new admin_settingpage('coursegeneralsettings', new lang_string('coursegeneralsettings', 'admin'),
+        array('moodle/category:manage', 'moodle/course:create'));
+    if ($ADMIN->fulltree) {
+        $temp->add(new admin_setting_configtext('maxcourseincategory', new lang_string('maxcourseincategory', 'admin'),
+            new lang_string('maxcourseincategory_desc', 'admin'), MAX_COURSES_IN_CATEGORY, PARAM_INT));
+    }
+    $ADMIN->add('courses', $temp);
+
     // Speedup for non-admins, add all caps used on this page.
     $ADMIN->add('courses',
         new admin_externalpage('coursemgmt', new lang_string('coursemgmt', 'admin'),

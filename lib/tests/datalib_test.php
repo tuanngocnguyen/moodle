@@ -653,4 +653,62 @@ class core_datalib_testcase extends advanced_testcase {
             $this->assertInstanceOf('coding_exception', $e);
         }
     }
+
+    /**
+     * Test max courses in category
+     */
+    public function test_max_courses_in_category() {
+        global $CFG;
+        $this->resetAfterTest();
+
+        // Default settings.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY, get_max_courses_in_category());
+
+        // Misc category.
+        $misc = core_course_category::get_default();
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY, $misc->sortorder);
+
+        $category1 = $this->getDataGenerator()->create_category();
+        $category2 = $this->getDataGenerator()->create_category();
+
+        // Category sort order.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY, core_course_category::get($misc->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2, core_course_category::get($category1->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3, core_course_category::get($category2->id)->sortorder);
+
+        $course1 = $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $course2 = $this->getDataGenerator()->create_course(['category' => $category2->id]);
+        $course3 = $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $course4 = $this->getDataGenerator()->create_course(['category' => $category2->id]);
+
+        // Course sort order.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2 + 2, get_course($course1->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3 + 2, get_course($course2->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2 + 1, get_course($course3->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3 + 1, get_course($course4->id)->sortorder);
+
+        $CFG->coursesortorderincreasestep = 50000;
+        $this->assertEquals(50000, get_max_courses_in_category());
+        fix_course_sortorder();
+
+        // Category sort order.
+        $this->assertEquals(50000, core_course_category::get($misc->id)->sortorder);
+        $this->assertEquals(50000 * 2, core_course_category::get($category1->id)->sortorder);
+        $this->assertEquals(50000 * 3, core_course_category::get($category2->id)->sortorder);
+
+        // Course sort order.
+        $this->assertEquals(50000 * 2 + 2, get_course($course1->id)->sortorder);
+        $this->assertEquals(50000 * 3 + 2, get_course($course2->id)->sortorder);
+        $this->assertEquals(50000 * 2 + 1, get_course($course3->id)->sortorder);
+        $this->assertEquals(50000 * 3 + 1, get_course($course4->id)->sortorder);
+
+        // Auto increase max courses in category.
+        $CFG->coursesortorderincreasestep = 5;
+        $this->assertEquals(5, get_max_courses_in_category());
+        $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $this->getDataGenerator()->create_course(['category' => $category1->id]);
+//        $this->assertEquals(10, get_max_courses_in_category());
+        unset($CFG->coursesortorderincreasestep);
+    }
 }
