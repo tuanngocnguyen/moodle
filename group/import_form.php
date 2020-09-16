@@ -38,6 +38,25 @@ require_once($CFG->libdir . '/csvlib.class.php');
  */
 class groups_import_form extends moodleform {
 
+    /** @var string $type import type */
+    protected $type = "importgroups";
+
+    /** @var array $requiredfields required fields
+     *  Allowed alternative headers if specify: "groupname" => ['/^groupname$/i', '/^group$/i', '/^group name$/i']
+     */
+    protected $requiredfields = ["groupname" => ''];
+
+    /** @var array $optionalfields optional fields */
+    protected $optionalfields = [
+        "coursename"      => '',
+        "idnumber"        => '',
+        "groupidnumber"   => '',
+        "description"     => '',
+        "enrolmentkey"    => '',
+        "groupingname"    => '',
+        "enablemessaging" => '',
+    ];
+
     /**
      * Form definition
      */
@@ -70,9 +89,83 @@ class groups_import_form extends moodleform {
         $choices = core_text::get_encodings();
         $mform->addElement('select', 'encoding', get_string('encoding', 'group'), $choices);
         $mform->setDefault('encoding', 'UTF-8');
-        $this->add_action_buttons(true, get_string('importgroups', 'core_group'));
+        $this->add_action_buttons(true, get_string($this->type, 'core_group'));
 
         $this->set_data($data);
     }
-}
 
+    /**
+     * Get data from csv file
+     *
+     * @return array|object|null list of group details
+     */
+    public function get_data() {
+        global $CFG, $PAGE;
+
+        $data = parent::get_data();
+        $text = $this->get_file_content('userfile');
+        if (empty($data) || empty($text)) {
+            return null;
+        }
+        require_once($CFG->libdir . '/csvlib.class.php');
+        $text = preg_replace('!\r\n?!', "\n", $text);
+        $delimiter = $data->delimiter_name;
+        $encoding = $data->encoding;
+
+        $importid = csv_import_reader::get_new_iid($this->type);
+        $csvimport = new csv_import_reader($importid, $this->type);
+        $readcount = $csvimport->load_csv_content($text, $encoding, $delimiter);
+        $rawlines = explode("\n", $text);
+
+        if ($readcount === false) {
+            print_error('csvfileerror', 'error', $PAGE->url, $csvimport->get_error());
+        } else if ($readcount == 0) {
+            print_error('csvemptyfile', 'error', $PAGE->url, $csvimport->get_error());
+        } else if ($readcount == 1) {
+            print_error('csvnodata', 'error', $PAGE->url);
+        }
+        $csvimport->init();
+        unset($text);
+
+        // Headers.
+        $header = explode($csvimport::get_delimiter($delimiter), array_shift($rawlines));
+        // Check for valid field names.
+        $requiredfields = $this->requiredfields;
+        $optionalfields = $this->optionalfields;
+        $allvalidfields = array_merge($requiredfields, $optionalfields);
+        foreach ($header as $i => $h) {
+            $header[$i] = trim($h, ' "\'');
+            foreach ($allvalidfields as $field => $pattern) {
+                // Check if there is alternative header pattern.
+                if (is_array($pattern) && !empty($pattern)) {
+                    // Accept alternative headers.
+                    $header[$i] = preg_replace($pattern, $field, $header[$i]);
+                }
+            }
+        }
+
+        // Check for invalid fields.
+        $invalidfields = array_diff($header, array_keys($allvalidfields));
+        if (!empty($invalidfields)) {
+            print_error('invalidfieldname', 'error', $PAGE->url, implode(',', $invalidfields));
+        }
+
+        // Check for missing required fields.
+        $missingrequiredfields = array_diff(array_keys($requiredfields), $header);
+        if (!empty($missingrequiredfields)) {
+            print_error('fieldrequired', 'error', $PAGE->url, implode(',', $missingrequiredfields));
+        }
+
+        $records = [];
+        while ($line = $csvimport->next()) {
+            $record = [];
+            $record['lang'] = current_language();
+            foreach ($line as $key => $value) {
+                $record[$header[$key]] = trim($value);
+            }
+            $records[] = $record;
+        }
+        $csvimport->close();
+        return $records;
+    }
+}
