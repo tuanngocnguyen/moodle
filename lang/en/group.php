@@ -96,6 +96,11 @@ $string['groupinfomembers'] = 'Info about selected members';
 $string['groupinfopeople'] = 'Info about selected people';
 $string['grouping'] = 'Grouping';
 $string['groupingaddedsuccesfully'] = 'Grouping {$a} added successfully';
+$string['groupingalreadyexists'] = 'Grouping \'{$a}\' already exists';
+$string['groupingnotaddederror'] = 'Grouping \'{$a}\' cannot be added';
+$string['groupingmembershipadded'] = 'Group \'{$a->user}\' added to grouping \'{$a->group}\'';
+$string['groupingmembershipexists'] = 'Group \'{$a->group}\' is already a member of grouping \'{$a->grouping}\'';
+$string['groupingmembershipfailed'] = 'Failed to add group \'{$a->group}\' to grouping \'{$a->grouping}\'';
 $string['grouping_help'] = 'A grouping is a collection of groups within a course. If a grouping is selected, students assigned to groups within the grouping will be able to work together.';
 $string['groupingsection'] = 'Grouping access';
 $string['groupingsection_help'] = 'A grouping is a collection of groups within a course. If a grouping is selected here, only students assigned to groups within this grouping will have access to the section.';
@@ -135,6 +140,15 @@ $string['groupsseparate'] = 'Separate groups';
 $string['groupsvisible'] = 'Visible groups';
 $string['grouptemplate'] = 'Group @';
 $string['hidepicture'] = 'Hide picture';
+$string['importgroupings'] = 'Import groupings / groups';
+$string['importgroupings_help'] = 'Groupings only, or Groupings and Groups, may be imported via text file. The format of the file should be as follows:
+
+* Each line of the file contains one record
+* Each record is a series of data separated by commas
+* The first record contains a list of fieldnames defining the format of the rest of the file
+* The only required fieldname is the Grouping
+* If you wish to have groups allocated to groupings you will need to include the Groupname
+* All other fieldnames in the file will be ignored';
 $string['importgroups'] = 'Import groups';
 $string['importgroups_help'] = 'Groups may be imported via text file. The format of the file should be as follows:
 
