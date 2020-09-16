@@ -169,3 +169,21 @@ class groups_import_form extends moodleform {
         return $records;
     }
 }
+
+/**
+ * Groupings import form class
+ *
+ * @package    core_group
+ * @copyright  2020 Catalyst IT
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class groupings_import_form extends groups_import_form {
+    /** @var string $type import type */
+    protected $type = "importgroupings";
+
+    /** @var array $requiredfields required fields */
+    protected $requiredfields = ["grouping" => 1];
+
+    /** @var array $optionalfields optional fields, allow alternative headers for groupname */
+    protected $optionalfields = ["groupname" => ['/^group$/i', '/^group name$/i']];
+}

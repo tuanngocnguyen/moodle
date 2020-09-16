@@ -46,6 +46,7 @@ $stredit         = get_string('edit');
 $srtnewgrouping  = get_string('creategrouping', 'group');
 $strgroups       = get_string('groups');
 $strgroupings    = get_string('groupings', 'group');
+$strimportgrping = get_string('importgroupings', 'group');
 $struses         = get_string('activities');
 $strparticipants = get_string('participants');
 $strmanagegrping = get_string('showgroupsingrouping', 'group');
@@ -116,6 +117,7 @@ echo html_writer::table($table);
 
 echo $OUTPUT->container_start('buttons');
 echo $OUTPUT->single_button(new moodle_url('grouping.php', array('courseid'=>$courseid)), $srtnewgrouping);
+echo $OUTPUT->single_button(new moodle_url('importgrouping.php', array('id' => $courseid)), $strimportgrping);
 echo $OUTPUT->container_end();
 
 echo $OUTPUT->footer();
