@@ -44,17 +44,20 @@ class groups_import_form extends moodleform {
     /** @var array $requiredfields required fields
      *  Allowed alternative headers if specify: "groupname" => ['/^groupname$/i', '/^group$/i', '/^group name$/i']
      */
-    protected $requiredfields = ["groupname" => ''];
+    protected $requiredfields = ["groupname" => ['/^group$/i', '/^group name$/i']];
 
     /** @var array $optionalfields optional fields */
     protected $optionalfields = [
         "coursename"      => '',
-        "idnumber"        => '',
+        "idnumber"        => ['/^id number$/i', '/^studentid$/i', '/^student id$/i', '/^user id$/i', '/^userid$/i'],
         "groupidnumber"   => '',
-        "description"     => '',
-        "enrolmentkey"    => '',
+        "description"     => ['/^desc$/i'],
+        "enrolmentkey"    => ['/^enrolment key$/i', '/^enrolkey$/i', '/^enrol key$/i'],
         "groupingname"    => '',
         "enablemessaging" => '',
+        "picture"         => '',
+        "hidepicture"     => '',
+        "member"          => ['/^user/i', '/^username$/i', '/^login$/i', '/^login name$/i'],
     ];
 
     /**

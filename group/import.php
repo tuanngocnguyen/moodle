@@ -73,36 +73,22 @@ if ($importform->is_cancelled()) {
             }
         }
 
-        // Set course id.
-        if (isset($newgroup->idnumber) && strlen($newgroup->idnumber)) {
-            // If idnumber is set, we use that.
-            // Unset invalid courseid.
-            if (!$mycourse = $DB->get_record('course', array('idnumber' => $newgroup->idnumber))) {
-                echo $OUTPUT->notification(get_string('unknowncourseidnumber', 'error', $newgroup->idnumber));
-                // Unset so doesn't get written to database.
-                unset($newgroup->courseid);
-            } else {
-                $newgroup->courseid = $mycourse->id;
-            }
-        } else if (isset($newgroup->coursename) && strlen($newgroup->coursename)) {
-            // Else use course short name to look up.
-            // Unset invalid coursename (if no id).
-            if (!$mycourse = $DB->get_record('course', array('shortname' => $newgroup->coursename))) {
-                echo $OUTPUT->notification(get_string('unknowncourse', 'error', $newgroup->coursename));
-                // Unset so 0 doesn't get written to database.
-                unset($newgroup->courseid);
-            } else {
-                $newgroup->courseid = $mycourse->id;
-            }
-        } else {
-            // Else use current id.
-            $newgroup->courseid = $id;
+        $newgroup->courseid = $id;
+
+        // If idnumber is used to store user id number,
+        if (isset($newgroup->idnumber)) {
+           $useridnumber = $newgroup->idnumber;
+           unset($newgroup->idnumber);
         }
-        unset($newgroup->idnumber);
-        unset($newgroup->coursename);
+
+        // If member is used to store user id number,
+        if (isset($newgroup->member)) {
+            $username = $newgroup->member;
+            unset($newgroup->member);
+        }
 
         // If courseid is set.
-        if (isset($newgroup->courseid)) {
+        if (!empty($newgroup->courseid)) {
             $groupname = $newgroup->name;
             $newgrpcoursecontext = context_course::instance($newgroup->courseid);
 
@@ -118,7 +104,7 @@ if ($importform->is_cancelled()) {
                     $newgroup->groupidnumber = trim($newgroup->groupidnumber);
                     if (has_capability('moodle/course:changeidnumber', $newgrpcoursecontext)) {
                         $newgroup->idnumber = $newgroup->groupidnumber;
-                        if ($existing = groups_get_group_by_idnumber($newgroup->courseid, $newgroup->idnumber)) {
+                        if ($existing = groups_get_group_by_idnumber($newgroup->courseid, $newgroup->groupidnumber)) {
                             // The idnumbers must be unique to a course but we shouldn't ignore group creation for duplicates.
                             $existing->name = s($existing->name);
                             $existing->idnumber = s($existing->idnumber);
@@ -131,16 +117,73 @@ if ($importform->is_cancelled()) {
                     unset($newgroup->groupidnumber);
                 }
                 if ($groupid = groups_get_group_by_name($newgroup->courseid, $groupname)) {
-                    echo $OUTPUT->notification("$groupname :".get_string('groupexistforcourse', 'error', $groupname));
+                    echo $OUTPUT->notification(get_string('groupalreadyexists', 'group', $groupname), 'notifysuccess');
+                    $adduser = true;
+                    $addgroupings = true;
                 } else if ($groupid = groups_create_group($newgroup)) {
                     echo $OUTPUT->notification(get_string('groupaddedsuccesfully', 'group', $groupname), 'notifysuccess');
+                    $adduser = true;
+                    $addgroupings = true;
                 } else {
                     echo $OUTPUT->notification(get_string('groupnotaddederror', 'error', $groupname));
-                    continue;
+                    $adduser = false;
+                    $addgroupings = false;
+                }
+
+                // If there is userdata, add them to the group.
+                if ($adduser && (isset($username) || isset($useridnumber))) {
+                    if (!empty($username) && !empty($useridnumber)) {
+                        $newmember = $DB->get_records('user', array('idnumber' => $useridnumber, 'username' => $username, "deleted" => 0));
+                        if (empty($newmember)) {
+                            echo $OUTPUT->notification(get_string('usernameidmismatch', 'group', array('name' => $username, 'id' => $useridnumber)));
+                        }
+                    } else if (!empty($username)) {
+                        $newmember = $DB->get_records('user', array('username' => $username, "deleted" => 0));
+                        if (empty($newmember)) {
+                            echo $OUTPUT->notification(get_string('usernotfoundskip', 'group', $username));
+                        }
+                    } else if (!empty($useridnumber)) {
+                        $newmember = $DB->get_records('user', array('idnumber' => $useridnumber, "deleted" => 0));
+                        if (empty($newmember)) {
+                            echo $OUTPUT->notification(get_string('usernotfoundskip', 'group', $useridnumber));
+                        }
+                    } else {
+                        $newmember = [];
+                    }
+
+                    if (count($newmember) == 1) {
+                        $newmember = reset($newmember);
+                        $gid = groups_get_group_by_name($newgroup->courseid, $groupname);
+
+                        if (!has_capability('moodle/course:managegroups', $context)) {
+                            echo $OUTPUT->notification(get_string('nopermission'));
+                        } else if (groups_is_member($gid, $newmember->id)) {
+                            echo $OUTPUT->notification(get_string('groupmembershipexists', 'group',
+                                array('user' => $newmember->username, 'group' => $groupname)));
+                        } else if (!groups_add_member($gid, $newmember->id)) {
+                            if (!is_enrolled(context_course::instance($newgroup->courseid), $newmember->id)) {
+                                echo $OUTPUT->notification(get_string('notenrolledincourse', 'group', $newmember->username));
+                            } else {
+                                echo $OUTPUT->notification(get_string('groupmembershipfailed', 'group',
+                                    array('user' => $newmember->username, 'group' => $groupname)));
+                            }
+                        } else {
+                            echo $OUTPUT->notification(get_string('groupmembershipadded', 'group',
+                                array('user' => $newmember->username, 'group' => $groupname)), 'notifysuccess');
+                        }
+                    } else if (count($newmember) > 1) {
+                        $arraykeys = array_keys($newmember);
+                        $notetext = "";
+                        foreach ($newmember as $member) {
+                            $notetext .= "'" . $member->username . "' ";
+                        }
+                        echo $OUTPUT->notification(get_string('multipleusersfound', 'group',
+                            array('id' => $newmember[$arraykeys[0]]->idnumber, 'names' => $notetext)));
+                    }
                 }
 
                 // Add group to grouping.
-                if (isset($newgroup->groupingname) && strlen($newgroup->groupingname)) {
+                if ($addgroupings && isset($newgroup->groupingname) && strlen($newgroup->groupingname)) {
                     $groupingname = $newgroup->groupingname;
                     if (!$groupingid = groups_get_grouping_by_name($newgroup->courseid, $groupingname)) {
                         $data = new stdClass();
