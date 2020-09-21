@@ -689,6 +689,12 @@ if ($hassiteconfig) {
     $ADMIN->add('modules', new admin_category('tools', new lang_string('tools', 'admin')));
     $ADMIN->add('tools', new admin_externalpage('managetools', new lang_string('toolsmanage', 'admin'),
                                                      $CFG->wwwroot . '/' . $CFG->admin . '/tools.php'));
+
+    $settings = new admin_settingpage('dbreplace', get_string('dbreplace', 'admin'));
+    $settings->add(new admin_setting_configtextarea('admin/additonalskiptables',
+        get_string('additonalskiptables', 'admin'),
+        get_string('additonalskiptables_desc', 'admin'), '', PARAM_RAW_TRIMMED));
+    $ADMIN->add('tools', $settings);
 }
 
 // Now add various admin tools.

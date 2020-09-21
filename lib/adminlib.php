@@ -9075,6 +9075,12 @@ function db_should_replace($table, $column = ''): bool {
     $skiptables = ['config', 'config_plugins', 'filter_config', 'sessions',
         'events_queue', 'repository_instance_config', 'block_instances', 'files'];
 
+    // Additional skip tables.
+    $additionalskiptables = get_config('admin', 'additonalskiptables');
+    if (!empty($additionalskiptables)) {
+        $skiptables = array_merge($skiptables, explode(',', str_replace(' ', '',  $additionalskiptables)));
+    }
+
     // Don't process these.
     if (in_array($table, $skiptables)) {
         return false;

@@ -34,6 +34,8 @@ $string['additionalhtmltopofbody'] = 'When BODY is opened';
 $string['additionalhtmltopofbody_desc'] = 'Content here will be added in to every page immediately after the opening body tag.';
 $string['additionalhtmlfooter'] = 'Before BODY is closed';
 $string['additionalhtmlfooter_desc'] = 'Content here will be added in to every page right before the body tag is closed.';
+$string['additonalskiptables'] = 'Additional skip tables';
+$string['additonalskiptables_desc'] = 'Please specify the additional tables (comma separated list) you want to skip while running DB search and replace.';
 $string['admincategory'] = 'Category: {$a}';
 $string['adminseesall'] = 'Admins see all';
 $string['adminseesallevents'] = 'Administrators see all events';
@@ -458,6 +460,7 @@ $string['datarootsecurityerror'] = '<p><strong>SECURITY WARNING!</strong></p><p>
 <p>You <em>must</em> move dataroot directory ({$a}) to a new location that is not within your public web directory, and update the <code>$CFG->dataroot</code> setting in your config.php accordingly.</p>';
 $string['datarootsecuritywarning'] = 'Your site configuration might not be secure. Please make sure that your dataroot directory ({$a}) is not directly accessible via web.';
 $string['dbsessions'] = 'Use database for session information';
+$string['dbreplace'] = 'DB replace';
 $string['debug'] = 'Debug messages';
 $string['debugall'] = 'ALL: Show all reasonable PHP debug messages';
 $string['debugdeveloper'] = 'DEVELOPER: extra Moodle debug messages for developers';
