@@ -771,7 +771,8 @@ class page_requirements_manager {
                                                         array('nofilesavailable', 'repository'), array('norepositoriesavailable', 'repository'),
                                                         array('fileexistsdialogheader', 'repository'), array('fileexistsdialog_editor', 'repository'),
                                                         array('fileexistsdialog_filemanager', 'repository'), array('renameto', 'repository'),
-                                                        array('referencesexist', 'repository'), array('select', 'repository')
+                                                        array('referencesexist', 'repository'),
+                                                        array('select', 'repository'), array('viewmore', 'moodle')
                                                     ));
                     break;
                 case 'core_comment':

@@ -96,9 +96,10 @@ abstract class file_info {
      *
      * @param string|array $extensions - either '*' or array of lowercase extensions, i.e. array('.gif','.jpg')
      * @param string $prefix prefix for DB table files in the query (empty by default)
+     * @param string $paramname parameter name
      * @return array of two elements: $sql - sql where clause and $params - array of parameters
      */
-    protected function build_search_files_sql($extensions, $prefix = null) {
+    protected function build_search_files_sql($extensions, $prefix = null, $paramname = 'filename') {
         global $DB;
         if (strlen($prefix)) {
             $prefix = $prefix.'.';
@@ -112,13 +113,35 @@ abstract class file_info {
             $cnt = 0;
             foreach ($extensions as $ext) {
                 $cnt++;
-                $likes[] = $DB->sql_like($prefix.'filename', ':filename'.$cnt, false);
-                $params['filename'.$cnt] = '%'.$ext;
+                $likes[] = $DB->sql_like($prefix.'filename', ":$paramname".$cnt, false);
+                $params[$paramname.$cnt] = '%'.$ext;
             }
             $sql .= ' AND (' . join(' OR ', $likes) . ')';
         }
         return array($sql, $params);
      }
+
+    /**
+     * Tells if file info can be paging.
+     *
+     * @return int
+     */
+    public function supported_paging() {
+        return false;
+    }
+
+    /**
+     * Returns list of children file info that match the extensions.
+     * Support paging.
+     *
+     * @param string|array $extensions file extensions
+     * @param int $page current page
+     * @param int $perpage number of child item per page
+     * @return array
+     */
+    public function get_non_empty_children_paging($extensions = '*', $page = 0, $perpage = 0) {
+        return [];
+    }
 
     /**
      * Returns list of children which are either files matching the specified extensions

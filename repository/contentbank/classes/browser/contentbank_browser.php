@@ -39,10 +39,12 @@ abstract class contentbank_browser {
     /**
      * Get all content nodes in the current context which can be viewed/accessed by the user.
      *
+     * @param int $page current page
+     * @param int $perpage number of items per page
      * @return array[] The array containing all nodes which can be viewed/accessed by the user in the current context
      */
-    public function get_content(): array {
-        return array_merge($this->get_context_folders(), $this->get_contentbank_content());
+    public function get_content($page = 0, $perpage = 0): array {
+        return array_merge($this->get_context_folders($page, $perpage), $this->get_contentbank_content());
     }
 
     /**
@@ -83,9 +85,11 @@ abstract class contentbank_browser {
     /**
      * Get the relevant child contexts.
      *
+     * @param int $page current page
+     * @param int $perpage number of items per page
      * @return \context[] The array containing the relevant, next-level children contexts
      */
-    protected function get_child_contexts(): array {
+    protected function get_child_contexts($page = 0, $perpage = 0): array {
         global $DB;
 
         if (empty($allowedcontextlevels = $this->allowed_child_context_levels())) {
@@ -102,8 +106,8 @@ abstract class contentbank_browser {
 
         $params['path'] = "{$this->context->path}/%";
         $params['depth'] = $this->context->depth + 1;
-
-        $childcontexts = $DB->get_records_select('context', $select, $params);
+        $startoffset = $perpage * $page;
+        $childcontexts = $DB->get_records_select('context', $select, $params, 'contextlevel', '*', $startoffset, $perpage);
 
         return array_map(function($childcontext) {
             return \context::instance_by_id($childcontext->id);
@@ -125,12 +129,14 @@ abstract class contentbank_browser {
     /**
      * Generate folder nodes for the relevant child contexts which can be accessed/viewed by the user.
      *
+     * @param int $page current page
+     * @param int $perpage number of items per page
      * @return array[] The array containing the context folder nodes where each folder node is an array with keys:
      *                 title, datemodified, datecreated, path, thumbnail, children.
      */
-    private function get_context_folders(): array {
+    private function get_context_folders($page = 0, $perpage = 0): array {
         // Get all relevant child contexts.
-        $children = $this->get_child_contexts();
+        $children = $this->get_child_contexts($page, $perpage);
         // Return all child context folder nodes which can be accessed by the user following the defined conditions
         // in can_access_content().
         return array_reduce($children, function ($list, $child) {

@@ -157,24 +157,75 @@ class file_info_context_coursecat extends file_info {
     }
 
     /**
+     * Tells if file info can be paging.
+     *
+     * @return int
+     */
+    public function supported_paging() {
+        return true;
+    }
+
+    /**
+     * Returns list of children file info that match the extensions.
+     * Support paging.
+     *
+     * @param string|array $extensions file extensions
+     * @param int $page current page
+     * @param int $perpage number of child item per page
+     * @return array
+     */
+    public function get_non_empty_children_paging($extensions = '*', $page = 0, $perpage = 0) {
+        $list = $this->get_children($extensions, $page, $perpage);
+        $nonemptylist = array();
+        foreach ($list as $fileinfo) {
+            if ($fileinfo->is_directory()) {
+                if ($fileinfo->count_non_empty_children($extensions)) {
+                    $nonemptylist[] = $fileinfo;
+                }
+            } else if ($extensions === '*') {
+                $nonemptylist[] = $fileinfo;
+            } else {
+                $filename = $fileinfo->get_visible_name();
+                $extension = core_text::strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                if (!empty($extension) && in_array('.' . $extension, $extensions)) {
+                    $nonemptylist[] = $fileinfo;
+                }
+            }
+        }
+        return $nonemptylist;
+    }
+
+    /**
      * Returns list of children.
      *
+     * @param string $extensions extension to filter child course file info
+     * @param int $page current page
+     * @param int $perpage child file info per page
      * @return array of file_info instances
      */
-    public function get_children() {
+    public function get_children($extensions = null, $page = 0, $perpage = 0) {
         $children = array();
-
-        if ($child = $this->get_area_coursecat_description(0, '/', '.')) {
-            $children[] = $child;
-        }
-
         list($coursecats, $hiddencats) = $this->get_categories();
-        foreach ($coursecats as $category) {
-            $context = context_coursecat::instance($category->id);
-            $children[] = new self($this->browser, $context, $category);
+        // Load all these items at page 0.
+        if ($page == 0) {
+            if ($child = $this->get_area_coursecat_description(0, '/', '.')) {
+                $children[] = $child;
+            }
+
+            foreach ($coursecats as $category) {
+                $context = context_coursecat::instance($category->id);
+                $children[] = new self($this->browser, $context, $category);
+            }
         }
 
-        $courses = $this->get_courses($hiddencats);
+        // Only do filtering if there is extension to check.
+        if (!empty($extensions)) {
+            $courses = $this->get_courses($hiddencats);
+            $courses = $this->get_filtered_courses($courses, $extensions, $page, $perpage);
+        } else {
+            $courses = $this->get_courses($hiddencats, $page, $perpage);
+        }
+
         foreach ($courses as $course) {
             $children[] = $this->get_child_course($course);
         }
@@ -186,9 +237,11 @@ class file_info_context_coursecat extends file_info {
      * List of courses in this category and in hidden subcategories
      *
      * @param array $hiddencats list of categories that are hidden from current user and returned by {@link get_categories()}
+     * @param int $page current page
+     * @param int $perpage number of items per page
      * @return array list of courses
      */
-    protected function get_courses($hiddencats) {
+    protected function get_courses($hiddencats, $page = 0, $perpage = 0) {
         global $DB, $CFG;
         require_once($CFG->libdir.'/modinfolib.php');
 
@@ -206,9 +259,10 @@ class file_info_context_coursecat extends file_info {
         $coursefields = array_merge(['id', 'visible'], course_modinfo::$cachedfields);
         $fields = 'c.' . join(',c.', $coursefields) . ', ' .
             context_helper::get_preload_record_columns_sql('ctx');
+        $startoffset = $perpage * $page;
         return $DB->get_records_sql('SELECT ' . $fields . ' FROM {course} c
                 JOIN {context} ctx ON (ctx.instanceid = c.id AND ctx.contextlevel = :contextlevel)
-                WHERE ('.$sql.') ORDER BY c.sortorder', $params);
+                WHERE ('.$sql.') ORDER BY c.sortorder', $params, $startoffset, $perpage);
     }
 
     /**
@@ -277,14 +331,9 @@ class file_info_context_coursecat extends file_info {
         }
 
         $courses = $this->get_courses($hiddencats);
-        foreach ($courses as $course) {
-            if ($child = $this->get_child_course($course)) {
-                $cnt += $child->count_non_empty_children($extensions) ? 1 : 0;
-                if ($cnt >= $limit) {
-                    return $cnt;
-                }
-            }
-        }
+        // Filter courses by file extension.
+        $courses = $this->get_filtered_courses($courses, $extensions, 0, $limit);
+        $cnt = count($courses);
 
         return $cnt;
     }
@@ -297,5 +346,83 @@ class file_info_context_coursecat extends file_info {
     public function get_parent() {
         $parent = $this->context->get_parent_context();
         return $this->browser->get_file_info($parent);
+    }
+
+    /**
+     * Filter children courses base on file extension
+     * Check if any of the courses in the category has files that match the extensions.
+     *
+     * @param array $courses courses to filter
+     * @param array $extensions filter by extension
+     * @param int $page current page
+     * @param int $perpage number of items per page
+     * @return array
+     */
+    public function get_filtered_courses($courses, $extensions = [], $page = 0, $perpage = 1) {
+        global $DB, $SITE;
+
+        // Check if courses are accessible.
+        $accessiblecourses = [];
+        $enrolledcourses = enrol_get_my_courses(['id']);
+        foreach ($courses as $course) {
+            $context = context_course::instance($course->id);
+            // Cannot view hidden course.
+            if (!$course->visible and !has_capability('moodle/course:viewhiddencourses', $context)) {
+                continue;
+            }
+            // It is not a enrolled course.
+            if (!is_viewing($context) and !array_key_exists($course->id, $enrolledcourses)) {
+                continue;
+            }
+            $accessiblecourses[$course->id] = $course;
+        }
+
+        if (empty($accessiblecourses)) {
+            return $accessiblecourses;
+        }
+
+        // Check course files.
+        $sql1 = "SELECT DISTINCT ctx.instanceid AS courseid
+                   FROM {files} f
+             INNER JOIN {context} ctx
+                     ON ctx.id = f.contextid
+                  WHERE f.filename <> :emptyfilename1
+                    AND ctx.contextlevel = :contextlevel1";
+        $params1 = [
+            'emptyfilename1' => '.',
+            'contextlevel1' => CONTEXT_COURSE,
+        ];
+        list($incourses1, $incourseparams1) = $DB->get_in_or_equal(array_keys($accessiblecourses), SQL_PARAMS_NAMED);
+        $insql1 = " AND ctx.instanceid $incourses1 ";
+        list($likesql1, $likeparams1) = parent::build_search_files_sql($extensions, null, 'fn1');
+        $coursefilesql = $sql1 . $insql1 . $likesql1;
+
+        // Check module files.
+        $sql2 = "SELECT DISTINCT cm.course AS courseid
+                   FROM {files} f
+             INNER JOIN {context} ctx ON ctx.id = f.contextid
+             INNER JOIN {course_modules} cm ON cm.id = ctx.instanceid
+                  WHERE f.filename <> :emptyfilename2
+                    AND ctx.contextlevel = :contextlevel2";
+        $params2 = [
+            'emptyfilename2' => '.',
+            'contextlevel2' => CONTEXT_MODULE,
+        ];
+        list($incourses2, $incourseparams2) = $DB->get_in_or_equal(array_keys($accessiblecourses), SQL_PARAMS_NAMED);
+        $insql2 = " AND cm.course $incourses2";
+        list($likesql2, $likeparams2) = parent::build_search_files_sql($extensions, null, 'fn2');
+        $modulefilesql = $sql2 . $insql2 . $likesql2;
+
+        // Get courses with file matching the extension.
+        $filtersql = "SELECT DISTINCT filtercourse.courseid
+                        FROM (($coursefilesql) UNION ($modulefilesql))
+                          AS filtercourse
+                    ORDER BY courseid";
+        $startoffset = $perpage * $page;
+        $filteredcourses = $DB->get_records_sql($filtersql,
+            array_merge($params1, $params2, $likeparams1, $likeparams2, $incourseparams1, $incourseparams2),
+            $startoffset, $perpage);
+        // Return array of course objects.
+        return array_intersect_key($accessiblecourses, $filteredcourses);
     }
 }

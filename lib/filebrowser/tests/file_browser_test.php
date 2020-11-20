@@ -46,6 +46,10 @@ class file_browser_testcase extends advanced_testcase {
     /** @var stdClass */
     protected $course2;
     /** @var stdClass */
+    protected $course3;
+    /** @var stdClass */
+    protected $course4;
+    /** @var stdClass */
     protected $module1;
     /** @var stdClass */
     protected $module2;
@@ -79,8 +83,9 @@ class file_browser_testcase extends advanced_testcase {
 
         $this->getDataGenerator()->create_category(); // Empty category.
         $this->course1 = $this->getDataGenerator()->create_course(); // Empty course.
-
         $this->course2 = $this->getDataGenerator()->create_course();
+        $this->course3 = $this->getDataGenerator()->create_course();
+        $this->course4 = $this->getDataGenerator()->create_course();
 
         // Add a file to course1 summary.
         $coursecontext1 = context_course::instance($this->course1->id);
@@ -95,6 +100,8 @@ class file_browser_testcase extends advanced_testcase {
 
         $this->module1 = $this->getDataGenerator()->create_module('resource', ['course' => $this->course2->id]); // Contains 1 file.
         $this->module2 = $this->getDataGenerator()->create_module('assign', ['course' => $this->course2->id]); // Contains no files.
+        $this->getDataGenerator()->create_module('resource', ['course' => $this->course3->id]); // Contains 1 file.
+        $this->getDataGenerator()->create_module('resource', ['course' => $this->course4->id]); // Contains 1 file.
 
         $this->teacher = $this->getDataGenerator()->create_user();
         $this->teacherrole = $DB->get_record('role', array('shortname' => 'editingteacher'));
@@ -167,6 +174,38 @@ class file_browser_testcase extends advanced_testcase {
             return $a instanceof file_info_context_course;
         });
         $this->assertEquals($this->initialcourses + 2, count($coursechildren));
+    }
+
+    /**
+     * Test "Server files" from the course category paging
+     */
+    public function test_file_info_context_coursecat_paging() {
+        $browser = get_file_browser();
+        $fileinfo = $browser->get_file_info(context_coursecat::instance($this->course2->category));
+        $this->getDataGenerator()->enrol_user($this->teacher->id, $this->course3->id, $this->teacherrole->id);
+        $this->getDataGenerator()->enrol_user($this->teacher->id, $this->course4->id, $this->teacherrole->id);
+
+        // Four courses.
+        $this->assertEquals(4, count($fileinfo->get_non_empty_children('*', 0, 0)));
+
+        // Page 0, and 2 items per page.
+        $this->assertEquals(2, count($fileinfo->get_non_empty_children_paging('*', 0, 2)));
+        // Page 1, and 2 items per page.
+        $this->assertEquals(2, count($fileinfo->get_non_empty_children_paging('*', 1, 2)));
+
+        // Page 0, and 3 items per page.
+        $this->assertEquals(3, count($fileinfo->get_non_empty_children_paging('*', 0, 3)));
+        // Page 1, and 3 items per page.
+        $this->assertEquals(1, count($fileinfo->get_non_empty_children_paging('*', 1, 3)));
+
+        // No h5p file.
+        $this->assertEmpty($fileinfo->count_non_empty_children(['.h5p']));
+        $this->assertEquals(0, count($fileinfo->get_non_empty_children_paging(['.h5p'], 0, 3)));
+
+        // JPG file.
+        $this->assertNotEmpty($fileinfo->count_non_empty_children(['.jpg']));
+        $this->assertEquals(1, count($fileinfo->get_non_empty_children_paging(['.jpg'], 0, 3)));
+
     }
 
     /**

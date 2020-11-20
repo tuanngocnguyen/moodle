@@ -472,6 +472,44 @@ class repository_contentbank_browser_testcase extends advanced_testcase {
     }
 
     /**
+     * Test paging support.
+     */
+    public function test_get_content_paging() {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        // Create a category.
+        $category = $this->getDataGenerator()->create_category(['name' => 'category']);
+        $categorycontext = \context_coursecat::instance($category->id);
+        // Create a course.
+        $categorycourse = $this->getDataGenerator()->create_course(['category' => $category->id]);
+
+        // Check category content.
+        $browser = new \repository_contentbank\browser\contentbank_browser_context_coursecat($categorycontext);
+        $repositorycontents = $browser->get_content();
+        // Two nodes: category and the first course.
+        $this->assertCount(1, $repositorycontents);
+
+        // Create 20 courses.
+        for ($i = 0; $i < 6; ++$i) {
+            $this->getDataGenerator()->create_course(['category' => $category->id]);
+        }
+
+        // Check category content without paging.
+        $browser = new \repository_contentbank\browser\contentbank_browser_context_coursecat($categorycontext);
+        $repositorycontents = $browser->get_content();
+        // Total: seven courses.
+        $this->assertCount(7, $repositorycontents);
+
+        // Check category content with paging.
+        $repositorycontents = $browser->get_content(0, 5);
+        // First page: 5 courses.
+        $this->assertCount(5, $repositorycontents);
+        $repositorycontents = $browser->get_content(1, 5);
+        // Second page: 2 courses.
+        $this->assertCount(2, $repositorycontents);
+    }
+
+    /**
      * Generate the expected array of content bank nodes.
      *
      * @param array $contextfolders The array containing the expected folder nodes

@@ -34,6 +34,8 @@ require_once($CFG->dirroot . '/repository/lib.php');
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class repository_contentbank extends repository {
+    /** @var int $ITEMS_PER_PAGE number of items per page. */
+    const ITEMS_PER_PAGE = 20;
 
     /**
      * Get file listing.
@@ -49,6 +51,16 @@ class repository_contentbank extends repository {
         $ret['dynload'] = true;
         $ret['nosearch'] = false;
         $ret['nologin'] = true;
+
+        $page = (int) $page;
+        // Repos list page start from 1.
+        // While DB offset page start from 0.
+        if ($page < 1) {
+            $ret['page'] = 1;
+        } else {
+            $ret['page'] = $page;
+            $page -= 1;
+        }
 
         // Return the parameters from the encoded path if the encoded path is not empty.
         if (!empty($encodedpath)) {
@@ -82,8 +94,14 @@ class repository_contentbank extends repository {
             $manageurl = new moodle_url('/contentbank/index.php', ['contextid' => $context->id]);
             $canaccesscontent = has_capability('moodle/contentbank:access', $context);
             $ret['manage'] = $canaccesscontent ? $manageurl->out() : '';
-            $ret['list'] = $browser->get_content();
+            $ret['list'] = $browser->get_content($page, self::ITEMS_PER_PAGE);
             $ret['path'] = $browser->get_navigation();
+
+            if (!empty($ret['list']) && count($ret['list']) == self::ITEMS_PER_PAGE) {
+                $ret['pages'] = -1;
+            } else {
+                $ret['pages'] = 0;
+            }
         }
 
         return $ret;

@@ -34,11 +34,14 @@ require_once($CFG->dirroot . '/repository/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class repository_local extends repository {
+    /** @var int $ITEMS_PER_PAGE number of items per page. */
+    const ITEMS_PER_PAGE = 20;
+
     /**
      * Get file listing
      *
      * @param string $encodedpath
-     * @param string $page no paging is used in repository_local
+     * @param string $page
      * @return mixed
      */
     public function get_listing($encodedpath = '', $page = '') {
@@ -91,7 +94,27 @@ class repository_local extends repository {
             // if file doesn't exist, build path nodes root of current context
             $fileinfo = $browser->get_file_info($context, null, null, null, null, null);
         }
-        $ret['list'] = $this->get_non_empty_children($fileinfo, $extensions);
+
+        if ($fileinfo->supported_paging()) {
+            // Paging.
+            $page = (int) $page;
+            // Repos list page start from 1.
+            // While DB offset page start from 0.
+            if ($page < 1) {
+                $ret['page'] = 1;
+            } else {
+                $ret['page'] = $page;
+                $page -= 1;
+            }
+            $ret['list'] = $this->get_non_empty_children($fileinfo, $extensions, $page, self::ITEMS_PER_PAGE);
+            if (!empty($ret['list']) && count($ret['list']) >= self::ITEMS_PER_PAGE) {
+                $ret['pages'] = -1;
+            } else {
+                $ret['pages'] = 0;
+            }
+        } else {
+            $ret['list'] = $this->get_non_empty_children($fileinfo, $extensions);
+        }
 
         // build path navigation
         $path = array();
@@ -105,6 +128,7 @@ class repository_local extends repository {
                 $ret['path'][] = $this->get_node_path($path[$i]);
             }
         }
+
         return $ret;
     }
 
@@ -136,8 +160,12 @@ class repository_local extends repository {
      * @param string|array $extensions, for example '*' or array('.gif','.jpg')
      * @return array array of file_info elements
      */
-    private function get_non_empty_children(file_info $fileinfo, $extensions) {
-        $nonemptychildren = $fileinfo->get_non_empty_children($extensions);
+    private function get_non_empty_children(file_info $fileinfo, $extensions, $page = 0, $perpage = 0) {
+        if ($fileinfo->supported_paging()) {
+            $nonemptychildren = $fileinfo->get_non_empty_children_paging($extensions, $page, $perpage);
+        } else {
+            $nonemptychildren = $fileinfo->get_non_empty_children($extensions);
+        }
         $list = array();
         foreach ($nonemptychildren as $child) {
             if ($this->can_skip($child, $extensions, $fileinfo)) {

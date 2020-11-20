@@ -890,8 +890,13 @@ M.core_filepicker.init = function(Y, options) {
                     this.fpnode.one('.fp-content .fp-nextpage').addClass('loading');
                     this.request_next_page();
                 }, this);
+
+                // Pass current request info to new 'show more' node.
+                var obj = {'page': this.active_repo.page, 'pages': this.active_repo.pages, 'path': this.filepath};
+                this.addShowMore(obj);
             }
-            if (!this.active_repo.hasmorepages && this.fpnode.one('.fp-content .fp-nextpage')) {
+
+            if ((!this.active_repo.hasmorepages || this.viewmode == 2) && this.fpnode.one('.fp-content .fp-nextpage')) {
                 this.fpnode.one('.fp-content .fp-nextpage').remove();
             }
             if (this.fpnode.one('.fp-content .fp-nextpage')) {
@@ -932,6 +937,21 @@ M.core_filepicker.init = function(Y, options) {
                 this.processingimages = false;
             }, this), 200)
         },
+
+        addShowMore: function(obj) {
+            if (obj.pages && obj.page && (obj.page < obj.pages || obj.pages == -1) && this.viewmode == 2) {
+                // Highlight parent to make sure the node is added to its parent.
+                var treeview = this.fpnode.one('.fp-content').treeview;
+                var currentpath = obj.path[obj.path.length - 1].path;
+                var parent = treeview.getNodeByProperty('path', currentpath);
+                parent.highlight(true);
+                // Add 'showmore' node.
+                var showmore = [{'title': M.util.get_string('viewmore', 'moodle'),
+                    'origpath': obj.path, 'page': obj.page, 'pages': obj.pages}];
+                this.view_as_list(showmore);
+             }
+        },
+
         treeview_dynload: function(node, cb) {
             var retrieved_children = {};
             if (node.children) {
@@ -960,6 +980,7 @@ M.core_filepicker.init = function(Y, options) {
                     node.highlight(false);
                     node.origlist = obj.list ? obj.list : null;
                     node.origpath = obj.path ? obj.path : null;
+                    node.manage = obj.manage ? obj.manage : null;
                     node.children = [];
                     for(k in list) {
                         if (list[k].children && retrieved_children[list[k].path]) {
@@ -970,6 +991,9 @@ M.core_filepicker.init = function(Y, options) {
                             scope.view_as_list([list[k]]);
                         }
                     }
+
+                    scope.addShowMore(obj);
+
                     if (cb == null) {
                         node.refresh();
                     } else {
@@ -997,7 +1021,12 @@ M.core_filepicker.init = function(Y, options) {
             if (node.originalmissing) {
                 classname = classname + ' fp-originalmissing';
             }
-            return Y.Lang.trim(classname);
+
+           if (node.page) {
+               classname = classname + ' fp-showmore';
+           }
+
+           return Y.Lang.trim(classname);
         },
         /** displays list of files in tree (list) view mode. If param appenditems is specified,
          * appends those items to the end of the list. Otherwise (default behaviour)
@@ -1017,8 +1046,40 @@ M.core_filepicker.init = function(Y, options) {
                 filenode : element_template,
                 callbackcontext : this,
                 callback : function(e, node) {
+                    if (node.page) {
+                        // Add values for next page request.
+                        this.active_repo.hasmorepages = true;
+                        this.active_repo.nextpagerequested = false;
+                        this.active_repo.page = node.page;
+                        this.active_repo.pages = node.pages;
+                        this.currentpath = node.origpath[node.origpath.length - 1].path;
+                        this.filepath = node.origpath;
+
+                        // Highlight parent node so new items are added to its parent.
+                        var parent = e.node.parent;
+                        parent.highlight(true);
+
+                        // Request next page.
+                        this.request_next_page();
+                        var tree = e.node.tree;
+
+                        // Remove current 'show more' node.
+                        var treeview = this.fpnode.one('.fp-content').treeview;
+                        treeview.popNode(e.node);
+
+                        // To avoid error of click event on the deleted node.
+                        e.node.tree = tree;
+
+                        // Save current file list.
+                        this.filepath = parent.origpath;
+                        this.filelist = parent.origlist;
+                        this.currentpath = parent.path;
+                        this.print_path();
+                        this.content_scrolled();
+                        return;
+                    }
                     // TODO MDL-32736 e is not an event here but an object with properties 'event' and 'node'
-                    if (!node.children) {
+                    if (!node.children && !node.page) {
                         if (e.node.parent && e.node.parent.origpath) {
                             // set the current path
                             this.filepath = e.node.parent.origpath;
@@ -1033,6 +1094,11 @@ M.core_filepicker.init = function(Y, options) {
                         this.currentpath = e.node.path;
                         this.print_path();
                         this.content_scrolled();
+                    }
+                    // Update manage link.
+                    if (e.node.manage) {
+                        this.active_repo.manage = e.node.manage;
+                        Y.one('#fp-tb-manage-' + this.options.client_id + '-link').set('href', e.node.manage);
                     }
                 },
                 classnamecallback : this.classnamecallback,
@@ -1148,7 +1214,9 @@ M.core_filepicker.init = function(Y, options) {
                             obj.repo_id == scope.active_repo.id &&
                             obj.page == scope.active_repo.page+1 && samepage) {
                         scope.parse_repository_options(obj, true);
-                        scope.view_files(obj.list)
+                        scope.view_files(obj.list);
+                        // Add new show more node.
+                        scope.addShowMore(obj);
                     }
                 }
             }, false);
