@@ -931,13 +931,9 @@ class file_storage {
      * @param string $component the component owning the file
      */
     public function delete_component_files($component) {
-        global $DB;
-
-        $filerecords = $DB->get_recordset('files', array('component' => $component));
-        foreach ($filerecords as $filerecord) {
-            $this->get_file_instance($filerecord)->delete();
-        }
-        $filerecords->close();
+        $filedeletion = new \core\task\delete_component_file_task();
+        $filedeletion->set_custom_data(['component' => $component]);
+        \core\task\manager::queue_adhoc_task($filedeletion, true);
     }
 
     /**

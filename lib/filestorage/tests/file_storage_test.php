@@ -1044,14 +1044,32 @@ class core_files_file_storage_testcase extends advanced_testcase {
      * @covers ::delete_component_files
      */
     public function test_delete_component_files() {
+        global $CFG;
         $user = $this->setup_three_private_files();
         $fs = get_file_storage();
+
+        // Max number of workers.
+        $CFG->componentfiledeletionworker = 3;
 
         $areafiles = $fs->get_area_files($user->ctxid, 'user', 'private');
         $this->assertEquals(4, count($areafiles));
         $fs->delete_component_files('user');
+
+        // Execute adhoc task for the first time.
+        $this->runAdhocTasks('\core\task\delete_component_file_task');
+        $this->expectOutputRegex("/Finished creating adhoc tasks for deleting files belong to user/");
+        // This create 2 more adhoc tasks, each handle 2 file deletion.
+        $tasks = \core\task\manager::get_adhoc_tasks('core\task\delete_component_file_task');
+        $this->assertEquals(2, count($tasks));
+        // No files has been delete yet.
+        $areafiles = $fs->get_area_files($user->ctxid, 'user', 'private');
+        $this->assertEquals(4, count($areafiles));
+
+        // Execute all adhoc tasks.
+        $this->runAdhocTasks('\core\task\delete_component_file_task');
         $areafiles = $fs->get_area_files($user->ctxid, 'user', 'private');
         $this->assertEquals(0, count($areafiles));
+        $this->expectOutputRegex("/Finish deleting files belong to user with ids from/");
     }
 
     /**
