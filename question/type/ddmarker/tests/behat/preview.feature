@@ -28,10 +28,10 @@ Feature: Preview a drag-drop marker question
   Scenario: Preview a question using the mouse.
     When I choose "Preview" action for "Drag markers" in the question bank
     # Odd, but the <br>s go to nothing, not a space.
-    And I drag "OU" to "345,230" in the drag and drop markers question
-    And I drag "Railway station" to "262,197" in the drag and drop markers question
-    And I drag "Railway station" to "334,319" in the drag and drop markers question
-    And I drag "Railway station" to "211,101" in the drag and drop markers question
+    And I drag "OU" to "322,213" in the drag and drop markers question
+    And I drag "Railway station" to "144,84" in the drag and drop markers question
+    And I drag "Railway station" to "195,180" in the drag and drop markers question
+    And I drag "Railway station" to "267,302" in the drag and drop markers question
     And I press "Submit and finish"
     Then the state of "Please place the markers on the map of Milton Keynes" question is shown as "Correct"
     And I should see "Mark 1.00 out of 1.00"
@@ -50,10 +50,12 @@ Feature: Preview a drag-drop marker question
   @javascript
   Scenario: Preview a question in responsive mode.
     When I choose "Preview" action for "Drag markers" in the question bank
-    And I drag "OU" to "345,230" in the drag and drop markers question
-    And I drag "Railway station" to "262,197" in the drag and drop markers question
-    And I drag "Railway station" to "334,319" in the drag and drop markers question
-    And I drag "Railway station" to "210,105" in the drag and drop markers question
+    And I change viewport size to "large"
+    And I drag "OU" to "322,213" in the drag and drop markers question
+    And I drag "Railway station" to "144,84" in the drag and drop markers question
+    And I drag "Railway station" to "195,180" in the drag and drop markers question
+    And I change viewport size to "small"
+    And I drag "Railway station" to "267,302" in the drag and drop markers question
     And I press "Submit and finish"
     Then the state of "Please place the markers on the map of Milton Keynes" question is shown as "Correct"
     And I should see "Mark 1.00 out of 1.00"

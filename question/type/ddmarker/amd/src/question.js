@@ -141,6 +141,9 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
                 for (var i = 0; i < coords.length; i++) {
                     var dragInDrop = drag.clone();
                     dragInDrop.data('pagex', coords[i].x).data('pagey', coords[i].y);
+                    // Script reload so we lost windowSize value.
+                    dragInDrop.data('windowSize', 'unknown');
+                    dragInDrop.data('scaleRatio', 'unknown');
                     thisQ.sendDragToDrop(dragInDrop, false);
                 }
                 thisQ.getDragClone(drag).addClass('active');
@@ -296,16 +299,13 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
         var coords = [],
             items = this.getRoot().find('div.droparea span.marker.choice' + choiceNo),
             thiQ = this,
-            bgRatio = this.bgRatio();
+            bgRatio = this.bgRatio(),
+            windowSize = this.windowSize();
 
         if (items.length) {
             items.each(function() {
                 var drag = $(this);
                 if (!drag.hasClass('beingdragged')) {
-                    if (drag.data('scaleRatio') !== bgRatio) {
-                        // The scale ratio for the draggable item was changed. We need to update that.
-                        drag.data('pagex', drag.offset().left).data('pagey', drag.offset().top);
-                    }
                     var dragXY = new Shapes.Point(drag.data('pagex'), drag.data('pagey'));
                     if (thiQ.coordsInBgImg(dragXY)) {
                         var bgImgXY = thiQ.convertToBgImgXY(dragXY);
@@ -434,7 +434,8 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
      */
     DragDropMarkersQuestion.prototype.handleResize = function() {
         var thisQ = this,
-            bgRatio = this.bgRatio();
+            bgRatio = this.bgRatio(),
+            windowSize = this.windowSize();
         if (this.isPrinting) {
             bgRatio = 1;
         }
@@ -444,7 +445,24 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
                 .css('left', parseFloat($(drag).data('originX')) * parseFloat(bgRatio))
                 .css('top', parseFloat($(drag).data('originY')) * parseFloat(bgRatio));
             thisQ.handleElementScale(drag, 'left top');
+
+			let adrag = $(drag);
+            if (adrag.data('windowSize') != windowSize || adrag.data('scaleRatio') !== bgRatio) {
+                // The scale ratio for the draggable item was changed.
+                // Or the offset of the image position was changed.
+                // We need to update that.
+                adrag.data('pagex', adrag.offset().left).data('pagey', adrag.offset().top);
+                // Update windowSize.
+                adrag.data('windowSize', windowSize);
+                adrag.data('scaleRatio', bgRatio);
+				console.log(windowSize);
+				console.log(adrag);
+				console.log(bgRatio);
+
+            }
         });
+
+
 
         this.getRoot().find('div.droparea svg.dropzones')
             .width(this.bgImage().width())
@@ -557,9 +575,20 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
      */
     DragDropMarkersQuestion.prototype.sendDragToDrop = function(drag, isScaling) {
         var dropArea = this.dropArea(),
-            bgRatio = this.bgRatio();
+            bgRatio = this.bgRatio(),
+            windowSize = this.windowSize();
         drag.removeClass('beingdragged').removeClass('unneeded');
         var dragXY = this.convertToBgImgXY(new Shapes.Point(drag.data('pagex'), drag.data('pagey')));
+        // Drag position is calculated against current window size (using offset value).
+        // Changes in windows size will cause changes in bgRatio or offset of the background image.
+        // We need to save the windows size to detect if there is any changes in windows size.
+        // Only set value on new marker.
+        if (!drag.data('windowSize')) {
+            drag.data('windowSize', windowSize);
+        }
+        if (!drag.data('scaleRatio')) {
+            drag.data('scaleRatio', bgRatio);
+        }
         if (isScaling) {
             drag.data('originX', dragXY.x / bgRatio).data('originY', dragXY.y / bgRatio);
             drag.css('left', dragXY.x).css('top', dragXY.y);
@@ -567,8 +596,6 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
             drag.data('originX', dragXY.x).data('originY', dragXY.y);
             drag.css('left', dragXY.x * bgRatio).css('top', dragXY.y * bgRatio);
         }
-        // We need to save the original scale ratio for each draggable item.
-        drag.data('scaleRatio', bgRatio);
         dropArea.append(drag);
         this.handleElementScale(drag, 'left top');
     };
@@ -637,6 +664,18 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
         var bgImgClientWidth = bgImg.width();
 
         return bgImgClientWidth / bgImgNaturalWidth;
+    };
+
+    /**
+     * Return current windows size.
+     *
+     * @returns {string} windows size: width,height
+     */
+    DragDropMarkersQuestion.prototype.windowSize = function() {
+        let width = $(window).width();
+        let height = $(window).height();
+		var bgImg = this.bgImage();
+        return bgImg.offset().left.toString() + ',' + bgImg.offset().top.toString();
     };
 
     /**
