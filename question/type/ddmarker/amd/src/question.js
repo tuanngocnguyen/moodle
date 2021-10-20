@@ -141,6 +141,8 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
                 for (var i = 0; i < coords.length; i++) {
                     var dragInDrop = drag.clone();
                     dragInDrop.data('pagex', coords[i].x).data('pagey', coords[i].y);
+                    // Script reloads so we lose bgImgCoordinates value.
+                    dragInDrop.data('bgImgCoordinates', 'unknown');
                     thisQ.sendDragToDrop(dragInDrop, false);
                 }
                 thisQ.getDragClone(drag).addClass('active');
@@ -296,20 +298,19 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
         var coords = [],
             items = this.getRoot().find('div.droparea span.marker.choice' + choiceNo),
             thiQ = this,
-            bgRatio = this.bgRatio();
+            bgImgCoordinates = this.bgImgCoordinates();
 
         if (items.length) {
             items.each(function() {
                 var drag = $(this);
                 if (!drag.hasClass('beingdragged')) {
-                    if (drag.data('scaleRatio') !== bgRatio) {
-                        // The scale ratio for the draggable item was changed. We need to update that.
+                    if (drag.data('bgImgCoordinates') != bgImgCoordinates) {
+                        // Scale ratio or image coordinate changes, we need to update markers' positions.
                         drag.data('pagex', drag.offset().left).data('pagey', drag.offset().top);
                     }
                     var dragXY = new Shapes.Point(drag.data('pagex'), drag.data('pagey'));
                     if (thiQ.coordsInBgImg(dragXY)) {
-                        var bgImgXY = thiQ.convertToBgImgXY(dragXY);
-                        bgImgXY = new Shapes.Point(bgImgXY.x / bgRatio, bgImgXY.y / bgRatio);
+                        var bgImgXY = new Shapes.Point(drag.data('originX'), drag.data('originY'));
                         coords[coords.length] = bgImgXY;
                     }
                 }
@@ -557,18 +558,22 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
      */
     DragDropMarkersQuestion.prototype.sendDragToDrop = function(drag, isScaling) {
         var dropArea = this.dropArea(),
-            bgRatio = this.bgRatio();
+            bgRatio = this.bgRatio(),
+            bgImgCoordinates = this.bgImgCoordinates();
         drag.removeClass('beingdragged').removeClass('unneeded');
         var dragXY = this.convertToBgImgXY(new Shapes.Point(drag.data('pagex'), drag.data('pagey')));
+        // Save original image coordinates to detect any changes in ratio or position.
+        if (!drag.data('bgImgCoordinates')) {
+            drag.data('bgImgCoordinates', bgImgCoordinates);
+        }
         if (isScaling) {
             drag.data('originX', dragXY.x / bgRatio).data('originY', dragXY.y / bgRatio);
             drag.css('left', dragXY.x).css('top', dragXY.y);
         } else {
             drag.data('originX', dragXY.x).data('originY', dragXY.y);
             drag.css('left', dragXY.x * bgRatio).css('top', dragXY.y * bgRatio);
+
         }
-        // We need to save the original scale ratio for each draggable item.
-        drag.data('scaleRatio', bgRatio);
         dropArea.append(drag);
         this.handleElementScale(drag, 'left top');
     };
@@ -637,6 +642,21 @@ define(['jquery', 'core/dragdrop', 'qtype_ddmarker/shapes', 'core/key_codes'], f
         var bgImgClientWidth = bgImg.width();
 
         return bgImgClientWidth / bgImgNaturalWidth;
+    };
+
+    /**
+     * Return current background coordinates.
+     *
+     * @returns {string} coordinates: left, top, right, bottom
+     */
+    DragDropMarkersQuestion.prototype.bgImgCoordinates = function() {
+        let bgImg = this.bgImage();
+        let offset = bgImg.offset();
+
+        return offset.left.toString()
+                + ',' + offset.top.toString()
+                + ',' + (offset.left + bgImg.outerWidth())
+                + ',' + (offset.top + bgImg.outerHeight());
     };
 
     /**
