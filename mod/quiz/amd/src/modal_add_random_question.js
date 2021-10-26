@@ -44,15 +44,14 @@ function(
     var registered = false;
     var SELECTORS = {
         EXISTING_CATEGORY_CONTAINER: '[data-region="existing-category-container"]',
-        EXISTING_CATEGORY_FORM_ELEMENT: '#id_existingcategoryheader',
+        EXISTING_CATEGORY_TAB: '#id_existingcategoryheader',
         NEW_CATEGORY_CONTAINER: '[data-region="new-category-container"]',
-        NEW_CATEGORY_FORM_ELEMENT: '#id_newcategoryheader',
+        NEW_CATEGORY_TAB: '#id_newcategoryheader',
         TAB_CONTENT: '[data-region="tab-content"]',
         ADD_ON_PAGE_FORM_ELEMENT: '[name="addonpage"]',
-        SUBMIT_BUTTON_ELEMENT: 'input[type="submit"]',
-        CANCEL_BUTTON_ELEMENT: 'input[type="submit"][name="cancel"]',
+        SUBMIT_BUTTON_ELEMENT: 'input[type="submit"][name="addrandom"], input[type="submit"][name="newcategory"]',
         FORM_HEADER: 'legend',
-        BUTTON_CONTAINER: '.fitem'
+        SELECT_NUMBER_TO_ADD: '#menurandomcount'
     };
 
     /**
@@ -187,24 +186,16 @@ function(
      * Moves the submit button into a footer element at the bottom of the form
      * element for styling purposes.
      *
-     * @method moveFormElementIntoTab
-     * @param  {jquery} formElement The form element to move into the tab.
+     * @method moveContentIntoTab
+     * @param  {jquery} tabContent The form element to move into the tab.
      * @param  {jquey} tabElement The tab element for the form element to move into.
      */
-    ModalAddRandomQuestion.prototype.moveFormElementIntoTab = function(formElement, tabElement) {
-        var submitButtons = formElement.find(SELECTORS.SUBMIT_BUTTON_ELEMENT);
-        var footer = $('<div class="modal-footer mt-1" data-region="footer"></div>');
+    ModalAddRandomQuestion.prototype.moveContentIntoTab = function(tabContent, tabElement) {
         // Hide the header because the tabs show us which part of the form we're
         // looking at.
-        formElement.find(SELECTORS.FORM_HEADER).addClass('hidden');
+        tabContent.find(SELECTORS.FORM_HEADER).addClass('hidden');
         // Move the element inside a tab.
-        formElement.wrap(tabElement);
-        // Remove the buttons container element.
-        submitButtons.closest(SELECTORS.BUTTON_CONTAINER).remove();
-        // Put the button inside a footer.
-        submitButtons.appendTo(footer);
-        // Add the footer to the end of the category form element.
-        footer.appendTo(formElement);
+        tabContent.wrap(tabElement);
     };
 
     /**
@@ -222,33 +213,20 @@ function(
     };
 
     /**
-     * Make sure all of the tabs have a cancel button in their fotter to sit along
-     * side the submit button.
-     *
-     * @method moveCancelButtonToTabs
-     * @param  {jquey} form The form element.
-     */
-    ModalAddRandomQuestion.prototype.moveCancelButtonToTabs = function(form) {
-        var cancelButton = form.find(SELECTORS.CANCEL_BUTTON_ELEMENT).addClass('ml-1');
-        var tabFooters = form.find('[data-region="footer"]');
-        // Remove the buttons container element.
-        cancelButton.closest(SELECTORS.BUTTON_CONTAINER).remove();
-        cancelButton.clone().appendTo(tabFooters);
-    };
-
-    /**
      * Load the add random question form in a fragement and perform some transformation
      * on the HTML to convert it into tabs for rendering in the modal.
      *
      * @method loadForm
+     * @param {string} queryString URL encoded string.
      * @return {promise} Resolved with form HTML and JS.
      */
-    ModalAddRandomQuestion.prototype.loadForm = function() {
+    ModalAddRandomQuestion.prototype.loadForm = function(queryString) {
         return Fragment.loadFragment(
             'mod_quiz',
             'add_random_question_form',
             this.getContextId(),
             {
+                querystring: queryString,
                 addonpage: this.getAddOnPageId(),
                 cat: this.getCategory(),
                 returnurl: this.getReturnUrl(),
@@ -257,16 +235,15 @@ function(
         )
         .then(function(html, js) {
             var form = $(html);
-            var existingCategoryFormElement = form.find(SELECTORS.EXISTING_CATEGORY_FORM_ELEMENT);
+            var existingCategoryTabContent = form.find(SELECTORS.EXISTING_CATEGORY_TAB);
             var existingCategoryTab = this.getBody().find(SELECTORS.EXISTING_CATEGORY_CONTAINER);
-            var newCategoryFormElement = form.find(SELECTORS.NEW_CATEGORY_FORM_ELEMENT);
+            var newCategoryTabContent = form.find(SELECTORS.NEW_CATEGORY_TAB);
             var newCategoryTab = this.getBody().find(SELECTORS.NEW_CATEGORY_CONTAINER);
 
             // Transform the form into tabs for better rendering in the modal.
-            this.moveFormElementIntoTab(existingCategoryFormElement, existingCategoryTab);
-            this.moveFormElementIntoTab(newCategoryFormElement, newCategoryTab);
+            this.moveContentIntoTab(existingCategoryTabContent, existingCategoryTab);
+            this.moveContentIntoTab(newCategoryTabContent, newCategoryTab);
             this.moveTabsIntoTabContent(form);
-            this.moveCancelButtonToTabs(form);
 
             Templates.replaceNode(this.getBody().find(SELECTORS.TAB_CONTENT), form, js);
             return;
@@ -275,7 +252,26 @@ function(
             // Make sure the form change checker is disabled otherwise it'll stop the user from navigating away from the
             // page once the modal is hidden.
             FormChangeChecker.disableAllChecks();
-            return;
+
+            // Select 'menunumbertoadd' element.
+            const numbertoadd = document.querySelector(SELECTORS.SELECT_NUMBER_TO_ADD);
+            // Submit buttons.
+            const submitbuttons = document.querySelectorAll(SELECTORS.SUBMIT_BUTTON_ELEMENT);
+
+            // Toogle submit button.
+            numbertoadd.addEventListener('change', (e) => {
+                if (e.target.value != 0) {
+                    // Enable submit button.
+                    submitbuttons.forEach((button) => {
+                        button.disabled = false;
+                    });
+                } else {
+                    // Disable submit button.
+                    submitbuttons.forEach((button) => {
+                        button.disabled = true;
+                    });
+                }
+            });
         })
         .fail(Notification.exception);
     };
@@ -290,7 +286,7 @@ function(
         Modal.prototype.show.call(this);
 
         if (!this.loadedForm) {
-            this.loadForm();
+            this.loadForm(window.location.search);
             this.loadedForm = true;
         }
     };

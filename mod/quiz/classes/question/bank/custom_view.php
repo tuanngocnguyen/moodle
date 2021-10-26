@@ -39,11 +39,10 @@ class custom_view extends \core_question\local\bank\view {
     /** @var bool $quizhasattempts whether the quiz this is used by has been attemptd. */
     protected $quizhasattempts = false;
 
-    /** @var \stdClass $quiz the quiz settings. */
-    protected $quiz = false;
-
-    /** @var int The maximum displayed length of the category info. */
-    const MAX_TEXT_LENGTH = 200;
+    /**
+     * @var string $component the component the api is used from.
+     */
+    public $component = 'mod_quiz';
 
     /**
      * Constructor.
@@ -54,16 +53,18 @@ class custom_view extends \core_question\local\bank\view {
      * @param \stdClass $quiz quiz settings.
      */
     public function __construct($contexts, $pageurl, $course, $cm, $params, $extraparams) {
+        $this->init_required_columns();
         parent::__construct($contexts, $pageurl, $course, $cm, $params, $extraparams);
-        $this->quiz = $extraparams[0];
+        list($quiz, ) = get_module_from_cmid($extraparams['cmid']);
+        $this->set_quiz_has_attempts(quiz_has_attempts($quiz->id));
     }
 
     /**
-     * Get class for each question bank columns.
+     * Init required columns.
      *
-     * @return array
+     * @return void
      */
-    protected function get_class_for_columns(): array {
+    protected function init_required_columns(): void {
         // override core columns.
         $this->corequestionbankcolumns = [
             'add_action_column',
@@ -72,6 +73,14 @@ class custom_view extends \core_question\local\bank\view {
             'question_name_text_column',
             'preview_action_column'
         ];
+    }
+
+    /**
+     * Get class for each question bank columns.
+     *
+     * @return array
+     */
+    protected function get_class_for_columns(): array {
         $questionbankclasscolumns = [];
         foreach ($this->corequestionbankcolumns as $fullname) {
             $shortname = $fullname;
@@ -119,7 +128,7 @@ class custom_view extends \core_question\local\bank\view {
      *
      * @param bool $quizhasattempts whether the quiz has attempts.
      */
-    public function set_quiz_has_attempts($quizhasattempts): void {
+    private function set_quiz_has_attempts($quizhasattempts): void {
         $this->quizhasattempts = $quizhasattempts;
         if ($quizhasattempts && isset($this->visiblecolumns['addtoquizaction'])) {
             unset($this->visiblecolumns['addtoquizaction']);
@@ -196,70 +205,6 @@ class custom_view extends \core_question\local\bank\view {
      * for the modal.
      */
     protected function display_question_bank_header(): void {
-    }
-
-    protected function build_query(): void {
-        // Get the required tables and fields.
-        $joins = [];
-        $fields = ['qv.status', 'qc.id as categoryid', 'qv.version', 'qv.id as versionid', 'qbe.id as questionbankentryid'];
-        if (!empty($this->requiredcolumns)) {
-            foreach ($this->requiredcolumns as $column) {
-                $extrajoins = $column->get_extra_joins();
-                foreach ($extrajoins as $prefix => $join) {
-                    if (isset($joins[$prefix]) && $joins[$prefix] != $join) {
-                        throw new \coding_exception('Join ' . $join . ' conflicts with previous join ' . $joins[$prefix]);
-                    }
-                    $joins[$prefix] = $join;
-                }
-                $fields = array_merge($fields, $column->get_required_fields());
-            }
-        }
-        $fields = array_unique($fields);
-
-        // Build the order by clause.
-        $sorts = [];
-        foreach ($this->sort as $sort => $order) {
-            list($colname, $subsort) = $this->parse_subsort($sort);
-            $sorts[] = $this->requiredcolumns[$colname]->sort_expression($order < 0, $subsort);
-        }
-
-        // Build the where clause.
-        $latestversion = 'qv.version = (SELECT MAX(v.version)
-                                          FROM {question_versions} v
-                                          JOIN {question_bank_entries} be
-                                            ON be.id = v.questionbankentryid
-                                         WHERE be.id = qbe.id)';
-        $readyonly = "qv.status = '" . question_version_status::QUESTION_STATUS_READY . "' ";
-        $tests = ['q.parent = 0', $latestversion, $readyonly];
-        $this->sqlparams = [];
-        foreach ($this->searchconditions as $searchcondition) {
-            if ($searchcondition->where()) {
-                $tests[] = '((' . $searchcondition->where() .'))';
-            }
-            if ($searchcondition->params()) {
-                $this->sqlparams = array_merge($this->sqlparams, $searchcondition->params());
-            }
-        }
-        // Build the SQL.
-        $sql = ' FROM {question} q ' . implode(' ', $joins);
-        $sql .= ' WHERE ' . implode(' AND ', $tests);
-        $this->countsql = 'SELECT count(1)' . $sql;
-        $this->loadsql = 'SELECT ' . implode(', ', $fields) . $sql . ' ORDER BY ' . implode(', ', $sorts);
-    }
-
-    public function add_standard_searchcondition(): void {
-        foreach ($this->plugins as $componentname => $plugin) {
-            if (\core\plugininfo\qbank::is_plugin_enabled($componentname)) {
-                $pluginentrypointobject = new $plugin();
-                if ($componentname === 'qbank_managecategories') {
-                    $pluginentrypointobject = new quiz_managecategories_feature();
-                }
-                $pluginobjects = $pluginentrypointobject->get_question_filters($this);
-                foreach ($pluginobjects as $pluginobject) {
-                    $this->add_searchcondition($pluginobject, $pluginobject->get_condition_key());
-                }
-            }
-        }
     }
 
 }

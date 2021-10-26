@@ -1121,7 +1121,7 @@ class view {
      *
      * @param array $questions
      */
-    public function display_questions($questions, $page = 1, $perpage = DEFAULT_QUESTIONS_PER_PAGE): void {
+    public function display_questions($questions, $page = 0, $perpage = DEFAULT_QUESTIONS_PER_PAGE): void {
         global $OUTPUT;
         $pageingurl = new \moodle_url($this->base_url());
         $pagingbar = new \paging_bar($this->totalcount, $page, $perpage, $pageingurl);

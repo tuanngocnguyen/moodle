@@ -262,6 +262,9 @@ function question_build_edit_resources($edittab, $baseurl, $params) {
         'category' => PARAM_SEQUENCE,
         'qperpage' => PARAM_INT,
         'cpage' => PARAM_INT,
+        'qbs1' => PARAM_TEXT,
+        'qbs2' => PARAM_TEXT,
+        'qbs3' => PARAM_TEXT,
     ];
 
     foreach ($paramtypes as $name => $type) {
@@ -285,6 +288,9 @@ function question_build_edit_resources($edittab, $baseurl, $params) {
     $cpage = $cleanparams['cpage'] ?: 1;
     $qsorts = $cleanparams['qsorts'];
     $qtagids = $cleanparams['qtagids'];
+    $qbs1 = $cleanparams['qbs1'];
+    $qbs2 = $cleanparams['qbs2'];
+    $qbs3 = $cleanparams['qbs3'];
 
     if (is_null($cmid) && is_null($courseid)) {
         throw new \moodle_exception('Must provide a cmid or courseid');
@@ -385,6 +391,11 @@ function question_build_edit_resources($edittab, $baseurl, $params) {
         $thispageurl->param("qtagids[{$index}]", $qtagid);
     }
     $pagevars['tabname'] = $edittab;
+
+    // Sort parameters.
+    $pagevars['qbs1'] = $qbs1 ?? '';
+    $pagevars['qbs2'] = $qbs2 ?? '';
+    $pagevars['qbs3'] = $qbs3 ?? '';
 
     return array($thispageurl, $contexts, $cmid, $cm, $module, $pagevars);
 }
