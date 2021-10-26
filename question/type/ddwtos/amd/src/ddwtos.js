@@ -203,6 +203,35 @@ define(['jquery', 'core/dragdrop', 'core/key_codes'], function($, dragDrop, keys
             return;
         }
 
+        // Detect if the event has multiple clicks.
+        // Do not process third click or beyond.
+        if (e.detail > 2) {
+            return;
+        }
+        // Process second click.
+        if (e.detail === 2) {
+            // Check if the first click has been completed.
+            // Run every 0.1 second until the first click completes or 1 second timeout passes.
+            const myInterval = setInterval(() => {
+                if (!drag.hasClass('beingdragged')) {
+                    clearInterval(myInterval);
+                    let currentPlace = this.getClassnameNumericSuffix(drag, 'inplace');
+                    if (currentPlace) {
+                        let drop = thisQ.getDrop(drag, currentPlace);
+                        // Evict the drag out of this drop.
+                        this.sendDragToDrop(null, drop);
+                    }
+                }
+            }, 100);
+
+            // Stop the interval after 1 second.
+            setTimeout(() => {
+                clearInterval(myInterval);
+            }, 1000);
+            return;
+        }
+
+        // Otherwise, process first click.
         drag.addClass('beingdragged');
         var currentPlace = this.getClassnameNumericSuffix(drag, 'inplace');
         if (currentPlace !== null) {
@@ -334,7 +363,7 @@ define(['jquery', 'core/dragdrop', 'core/key_codes'], function($, dragDrop, keys
             this.sendDragHome(oldDrag);
         }
 
-        if (drag.length === 0) {
+        if (drag === null || drag.length === 0) {
             this.setInputValue(this.getPlace(drop), 0);
             if (drop.data('isfocus')) {
                 drop.focus();
