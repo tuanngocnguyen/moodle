@@ -203,7 +203,7 @@ class mod_quiz_attempt_walkthrough_testcase extends advanced_testcase {
         $numq = $questiongenerator->create_question('numerical', null, array('category' => $cat->id));
 
         // Add random question to the quiz.
-        quiz_add_random_questions($quiz, 0, $cat->id, 1, false);
+        quiz_add_random_questions($quiz, 0, $cat->id, 1);
 
         // Make another category.
         $cat2 = $questiongenerator->create_question_category();

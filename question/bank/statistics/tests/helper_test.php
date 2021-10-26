@@ -94,7 +94,7 @@ class helper_test extends \advanced_testcase {
         $this->assertContains($quiz2->id, $question2quizzes);
 
         // Add random question to quiz3.
-        quiz_add_random_questions($quiz3, 0, $cat->id, 1, false);
+        quiz_add_random_questions($quiz3, 0, $cat->id, 1);
         $this->submit_quiz($quiz3, $attempt);
         // Quiz 3 will be in one of these arrays.
         $question1quizzes = helper::get_quizzes($question1->id);

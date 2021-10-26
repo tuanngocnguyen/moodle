@@ -25,3 +25,4 @@
 
 $string['pluginname'] = 'Manage categories';
 $string['privacy:metadata'] = 'The Manage categories question bank plugin does not store any personal data.';
+$string['filterdescription'] =  '{$a->jointype} categories in the following "{$a->categories}" ';

@@ -29,6 +29,7 @@ define([
     'core/fragment',
     'core/templates',
     'core_form/changechecker',
+    'core/ajax',
 ],
 function(
     $,
@@ -39,20 +40,27 @@ function(
     Fragment,
     Templates,
     FormChangeChecker,
+    ajax,
 ) {
 
     var registered = false;
     var SELECTORS = {
         EXISTING_CATEGORY_CONTAINER: '[data-region="existing-category-container"]',
-        EXISTING_CATEGORY_FORM_ELEMENT: '#id_existingcategoryheader',
+        EXISTING_CATEGORY_TAB: '#id_existingcategoryheader',
         NEW_CATEGORY_CONTAINER: '[data-region="new-category-container"]',
-        NEW_CATEGORY_FORM_ELEMENT: '#id_newcategoryheader',
+        NEW_CATEGORY_TAB: '#id_newcategoryheader',
         TAB_CONTENT: '[data-region="tab-content"]',
         ADD_ON_PAGE_FORM_ELEMENT: '[name="addonpage"]',
-        SUBMIT_BUTTON_ELEMENT: 'input[type="submit"]',
-        CANCEL_BUTTON_ELEMENT: 'input[type="submit"][name="cancel"]',
+        ADD_RANDOM_BUTTON: 'input[type="submit"][name="addrandom"]',
+        ADD_NEW_CATEGORY_BUTTON: 'input[type="submit"][name="newcategory"]',
+        SUBMIT_BUTTON_ELEMENT: 'input[type="submit"][name="addrandom"], input[type="submit"][name="newcategory"]',
         FORM_HEADER: 'legend',
-        BUTTON_CONTAINER: '.fitem'
+        SELECT_NUMBER_TO_ADD: '#menurandomcount',
+        NEW_CATEGORY_ELEMENT: '#categoryname',
+        PARENT_CATEGORY_ELEMENT: '#parentcategory',
+        FILTER_CONDITION_ELEMENT: '[data-filtercondition]',
+        FORM_ELEMENT: '#add_random_question_form',
+        MESSAGE_INPUT: '[name="message"]',
     };
 
     /**
@@ -187,24 +195,16 @@ function(
      * Moves the submit button into a footer element at the bottom of the form
      * element for styling purposes.
      *
-     * @method moveFormElementIntoTab
-     * @param  {jquery} formElement The form element to move into the tab.
+     * @method moveContentIntoTab
+     * @param  {jquery} tabContent The form element to move into the tab.
      * @param  {jquey} tabElement The tab element for the form element to move into.
      */
-    ModalAddRandomQuestion.prototype.moveFormElementIntoTab = function(formElement, tabElement) {
-        var submitButtons = formElement.find(SELECTORS.SUBMIT_BUTTON_ELEMENT);
-        var footer = $('<div class="modal-footer mt-1" data-region="footer"></div>');
+    ModalAddRandomQuestion.prototype.moveContentIntoTab = function(tabContent, tabElement) {
         // Hide the header because the tabs show us which part of the form we're
         // looking at.
-        formElement.find(SELECTORS.FORM_HEADER).addClass('hidden');
+        tabContent.find(SELECTORS.FORM_HEADER).addClass('hidden');
         // Move the element inside a tab.
-        formElement.wrap(tabElement);
-        // Remove the buttons container element.
-        submitButtons.closest(SELECTORS.BUTTON_CONTAINER).remove();
-        // Put the button inside a footer.
-        submitButtons.appendTo(footer);
-        // Add the footer to the end of the category form element.
-        footer.appendTo(formElement);
+        tabContent.wrap(tabElement);
     };
 
     /**
@@ -222,21 +222,6 @@ function(
     };
 
     /**
-     * Make sure all of the tabs have a cancel button in their fotter to sit along
-     * side the submit button.
-     *
-     * @method moveCancelButtonToTabs
-     * @param  {jquey} form The form element.
-     */
-    ModalAddRandomQuestion.prototype.moveCancelButtonToTabs = function(form) {
-        var cancelButton = form.find(SELECTORS.CANCEL_BUTTON_ELEMENT).addClass('ml-1');
-        var tabFooters = form.find('[data-region="footer"]');
-        // Remove the buttons container element.
-        cancelButton.closest(SELECTORS.BUTTON_CONTAINER).remove();
-        cancelButton.clone().appendTo(tabFooters);
-    };
-
-    /**
      * Load the add random question form in a fragement and perform some transformation
      * on the HTML to convert it into tabs for rendering in the modal.
      *
@@ -244,29 +229,34 @@ function(
      * @return {promise} Resolved with form HTML and JS.
      */
     ModalAddRandomQuestion.prototype.loadForm = function() {
+        const cmid = this.getCMID();
+        const cat = this.getCategory();
+        const addonpage = this.getAddOnPageId();
+        const returnurl = this.getReturnUrl();
+
         return Fragment.loadFragment(
             'mod_quiz',
             'add_random_question_form',
             this.getContextId(),
             {
-                addonpage: this.getAddOnPageId(),
-                cat: this.getCategory(),
-                returnurl: this.getReturnUrl(),
-                cmid: this.getCMID()
+                // querystring: queryString,
+                addonpage: addonpage,
+                cat: cat,
+                returnurl: returnurl,
+                cmid: cmid
             }
         )
         .then(function(html, js) {
             var form = $(html);
-            var existingCategoryFormElement = form.find(SELECTORS.EXISTING_CATEGORY_FORM_ELEMENT);
+            var existingCategoryTabContent = form.find(SELECTORS.EXISTING_CATEGORY_TAB);
             var existingCategoryTab = this.getBody().find(SELECTORS.EXISTING_CATEGORY_CONTAINER);
-            var newCategoryFormElement = form.find(SELECTORS.NEW_CATEGORY_FORM_ELEMENT);
+            var newCategoryTabContent = form.find(SELECTORS.NEW_CATEGORY_TAB);
             var newCategoryTab = this.getBody().find(SELECTORS.NEW_CATEGORY_CONTAINER);
 
             // Transform the form into tabs for better rendering in the modal.
-            this.moveFormElementIntoTab(existingCategoryFormElement, existingCategoryTab);
-            this.moveFormElementIntoTab(newCategoryFormElement, newCategoryTab);
+            this.moveContentIntoTab(existingCategoryTabContent, existingCategoryTab);
+            this.moveContentIntoTab(newCategoryTabContent, newCategoryTab);
             this.moveTabsIntoTabContent(form);
-            this.moveCancelButtonToTabs(form);
 
             Templates.replaceNode(this.getBody().find(SELECTORS.TAB_CONTENT), form, js);
             return;
@@ -275,9 +265,91 @@ function(
             // Make sure the form change checker is disabled otherwise it'll stop the user from navigating away from the
             // page once the modal is hidden.
             FormChangeChecker.disableAllChecks();
-            return;
-        })
+
+            // Select 'menunumbertoadd' element.
+            const numbertoadd = document.querySelector(SELECTORS.SELECT_NUMBER_TO_ADD);
+            // Submit buttons.
+            const submitbuttons = document.querySelectorAll(SELECTORS.SUBMIT_BUTTON_ELEMENT);
+
+            // Enable/Disable submit button.
+            numbertoadd.addEventListener('change', (e) => {
+                if (e.target.value != 0) {
+                    // Enable submit button.
+                    submitbuttons.forEach((button) => {
+                        button.disabled = false;
+                    });
+                } else {
+                    // Disable submit button.
+                    submitbuttons.forEach((button) => {
+                        button.disabled = true;
+                    });
+                }
+            });
+
+            // Add question to quiz.
+            const modal = this;
+            submitbuttons.forEach((button) => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+
+                    const categoryid = cat.split(',')[0];
+                    const randomcount = document.querySelector(SELECTORS.SELECT_NUMBER_TO_ADD).value;
+                    const filtercondition = document.querySelector(SELECTORS.FILTER_CONDITION_ELEMENT).dataset?.filtercondition;
+
+                    // Add Random questions.
+                    let target = e.target.closest(SELECTORS.ADD_RANDOM_BUTTON);
+                    if (target) {
+                        modal.addQuestions(cmid, categoryid, addonpage, randomcount, filtercondition, '', '');
+                        return;
+                    }
+                    // Add new category if required.
+                    target = e.target.closest(SELECTORS.ADD_NEW_CATEGORY_BUTTON);
+                    if (target) {
+                        let newcategory = document.querySelector(SELECTORS.NEW_CATEGORY_ELEMENT).value;
+                        let parentcategory = document.querySelector(SELECTORS.PARENT_CATEGORY_ELEMENT).value;
+                        modal.addQuestions(cmid, categoryid, addonpage, randomcount, filtercondition,
+                            newcategory, parentcategory);
+                        return;
+                    }
+                });
+            });
+        }.bind(this))
         .fail(Notification.exception);
+    };
+
+    /**
+     * Call web service function to add random questions
+     *
+     * @param {number} cmid course module id
+     * @param {number} categoryid Question category
+     * @param {number} addonpage the page where random questions will be added to
+     * @param {number} randomcount Number of random questions
+     * @param {string} filtercondition Filter condition
+     * @param {string} newcategory add new category
+     * @param {string} parentcategory parent category of new category
+     */
+    ModalAddRandomQuestion.prototype.addQuestions = function(cmid, categoryid, addonpage, randomcount, filtercondition,
+                                                             newcategory, parentcategory) {
+        const call = {
+            methodname: 'mod_quiz_add_random_question',
+            args: {
+                cmid: cmid,
+                categoryid: categoryid,
+                addonpage: addonpage,
+                randomcount: randomcount,
+                filtercondition: filtercondition,
+                newcategory: newcategory,
+                parentcategory: parentcategory,
+            }
+        };
+        ajax.call([call])[0]
+            .then((response) => {
+                const form = document.querySelector(SELECTORS.FORM_ELEMENT);
+                const messageInput = form.querySelector(SELECTORS.MESSAGE_INPUT);
+                messageInput.value = response.message;
+                form.submit();
+            })
+            .catch(Notification.exception);
     };
 
     /**
@@ -290,7 +362,7 @@ function(
         Modal.prototype.show.call(this);
 
         if (!this.loadedForm) {
-            this.loadForm();
+            this.loadForm(window.location.search);
             this.loadedForm = true;
         }
     };

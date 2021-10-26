@@ -43,7 +43,6 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-require_once($CFG->dirroot . '/mod/quiz/addrandomform.php');
 require_once($CFG->dirroot . '/question/editlib.php');
 
 // These params are only passed from page request to request while we stay on
@@ -51,7 +50,7 @@ require_once($CFG->dirroot . '/question/editlib.php');
 $scrollpos = optional_param('scrollpos', '', PARAM_INT);
 
 list($thispageurl, $contexts, $cmid, $cm, $quiz, $pagevars) =
-        question_edit_setup('editq', '/mod/quiz/edit.php', true);
+    question_edit_setup('editq', '/mod/quiz/edit.php', true);
 
 $defaultcategoryobj = question_make_default_categories($contexts->all());
 $defaultcategory = $defaultcategoryobj->id . ',' . $defaultcategoryobj->contextid;
@@ -73,7 +72,7 @@ require_capability('mod/quiz:manage', $contexts->lowest());
 
 // Get the list of question ids had their check-boxes ticked.
 $selectedslots = array();
-$params = (array) data_submitted();
+$params = (array)data_submitted();
 foreach ($params as $key => $value) {
     if (preg_match('!^s([0-9]+)$!', $key, $matches)) {
         $selectedslots[] = $matches[1];
@@ -89,7 +88,7 @@ if (optional_param('repaginate', false, PARAM_BOOL) && confirm_sesskey()) {
     // Re-paginate the quiz.
     $structure->check_can_be_edited();
     $questionsperpage = optional_param('questionsperpage', $quiz->questionsperpage, PARAM_INT);
-    quiz_repaginate_questions($quiz->id, $questionsperpage );
+    quiz_repaginate_questions($quiz->id, $questionsperpage);
     quiz_delete_previews($quiz);
     redirect($afteractionurl);
 }
@@ -110,7 +109,7 @@ if (optional_param('add', false, PARAM_BOOL) && confirm_sesskey()) {
     $structure->check_can_be_edited();
     $addonpage = optional_param('addonpage', 0, PARAM_INT);
     // Add selected questions to the current quiz.
-    $rawdata = (array) data_submitted();
+    $rawdata = (array)data_submitted();
     foreach ($rawdata as $key => $value) { // Parse input for question ids.
         if (preg_match('!^q([0-9]+)$!', $key, $matches)) {
             $key = $matches[1];
@@ -128,20 +127,6 @@ if ($addsectionatpage = optional_param('addsectionatpage', false, PARAM_INT)) {
     $structure->check_can_be_edited();
     $structure->add_section_heading($addsectionatpage);
     quiz_delete_previews($quiz);
-    redirect($afteractionurl);
-}
-
-if ((optional_param('addrandom', false, PARAM_BOOL)) && confirm_sesskey()) {
-    // Add random questions to the quiz.
-    $structure->check_can_be_edited();
-    $recurse = optional_param('recurse', 0, PARAM_BOOL);
-    $addonpage = optional_param('addonpage', 0, PARAM_INT);
-    $categoryid = required_param('categoryid', PARAM_INT);
-    $randomcount = required_param('randomcount', PARAM_INT);
-    quiz_add_random_questions($quiz, $addonpage, $categoryid, $randomcount, $recurse);
-
-    quiz_delete_previews($quiz);
-    quiz_update_sumgrades($quiz);
     redirect($afteractionurl);
 }
 
@@ -168,10 +153,6 @@ $event = \mod_quiz\event\edit_page_viewed::create([
 ]);
 $event->trigger();
 
-// Get the question bank view.
-$questionbank = new mod_quiz\question\bank\custom_view($contexts, $thispageurl, $course, $cm, $quiz);
-$questionbank->set_quiz_has_attempts($quizhasattempts);
-
 // End of process commands =====================================================.
 
 $PAGE->set_pagelayout('incourse');
@@ -188,6 +169,12 @@ if ($node) {
     $node->make_active();
 }
 echo $OUTPUT->header();
+
+if ($message = optional_param('message', '', PARAM_TEXT)) {
+    echo $output->box_start('generalbox');
+    echo $OUTPUT->notification($message, 'success');
+    echo $OUTPUT->box_end();
+}
 
 // Initialise the JavaScript.
 $quizeditconfig = new stdClass();

@@ -33,7 +33,7 @@
         "rownumber": 1
     }
 }}
-<div data-filterregion="filter">
+<div data-filterregion="filter" data-filter-type="">
     <fieldset>
         <legend class="sr-only">{{#str}}filterrowlegend, core, {{rownumber}}{{/str}}</legend>
         <div class="border-radius my-2 p-2 bg-white border d-flex flex-column flex-md-row align-items-md-start">
@@ -54,6 +54,7 @@
                 {{/filtertypes}}
             </select>
 
+            <div data-filterregion="range" class="d-md-block flex-column align-items-start flex-lg-row"></div>
             <div data-filterregion="value" class="d-md-block flex-column align-items-start flex-lg-row"></div>
 
             <button data-filteraction="remove" class="ml-auto icon-no-margin icon-size-4 btn text-reset" aria-label="{{#str}}clearfilterrow{{/str}}">

@@ -1862,7 +1862,7 @@ class external_test extends externallib_advanced_testcase {
         $question = $questiongenerator->create_question('truefalse', null, array('category' => $cat->id));
         $question = $questiongenerator->create_question('essay', null, array('category' => $cat->id));
 
-        quiz_add_random_questions($quiz, 0, $cat->id, 1, false);
+        quiz_add_random_questions($quiz, 0, $cat->id, 1);
 
         $quizobj = quiz::create($quiz->id, $this->student->id);
 

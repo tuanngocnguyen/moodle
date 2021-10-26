@@ -136,7 +136,7 @@ class mod_quiz_attempt_walkthrough_from_csv_testcase extends advanced_testcase {
             if ($slotquestion['type'] !== 'random') {
                 quiz_add_quiz_question($slotquestion['id'], $this->quiz, 0, $slotquestion['mark']);
             } else {
-                quiz_add_random_questions($this->quiz, 0, $slotquestion['catid'], 1, 0);
+                quiz_add_random_questions($this->quiz, 0, $slotquestion['catid'], 1);
                 $this->randqids[$slotno] = $qidsbycat[$slotquestion['catid']];
             }
         }
