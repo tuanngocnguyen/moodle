@@ -221,10 +221,29 @@ class question_category_object {
         }
         $menu = new action_menu();
         $menu->set_menu_trigger(get_string('edit'));
+        $menu->prioritise = true;
+
+        // Don't allow movement if only subcat.
+        if (has_capability('moodle/question:managecategory', $context)) {
+            if (!helper::question_is_only_child_of_top_category_in_context($category->id)) {
+                $menu->add(new action_menu_link(
+                    new \moodle_url('#'),
+                    new pix_icon('i/dragdrop', get_string('move'), 'moodle',
+                        array('class' => 'iconsmall', 'title' => '')),
+                    get_string('move'),
+                    true,
+                    [
+                        'data-categoryid' => $category->id,
+                        'data-actiontype' => 'move',
+                        'data-contextid' => (int) $category->contextid,
+                    ]
+                ));
+            }
+        }
 
         // Sets up edit link.
         if (has_capability('moodle/question:managecategory', $context)) {
-            $thiscontext = (int)$category->contextid;
+            $thiscontext = (int) $category->contextid;
             $editurl = new moodle_url('#');
             $menu->add(new action_menu_link(
                 $editurl,
@@ -279,15 +298,6 @@ class question_category_object {
 
         // Menu to string/html.
         $menu = $OUTPUT->render($menu);
-        // Don't allow movement if only subcat.
-        $handle = false;
-        if (has_capability('moodle/question:managecategory', $context)) {
-            if (!helper::question_is_only_child_of_top_category_in_context($category->id)) {
-                $handle = true;
-            } else {
-                $handle = false;
-            }
-        }
 
         $children = [];
         if (!empty($category->children)) {
@@ -307,7 +317,6 @@ class question_category_object {
                 'questioncount' => $category->questioncount,
                 'categorydesc' => $categorydesc,
                 'editactionmenu' => $menu,
-                'handle' => $handle,
                 'iconleft' => $iconleft,
                 'iconright' => $iconright,
                 'children' => $children
