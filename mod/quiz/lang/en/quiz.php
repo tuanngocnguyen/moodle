@@ -32,6 +32,7 @@ $string['addaquestion'] = 'a new question';
 $string['addasection'] = 'a new section heading';
 $string['addarandomquestion'] = 'a random question';
 $string['addarandomquestion_help'] = 'When a random question is added, it results in a randomly-chosen question from the category being inserted into the quiz. This means that different students are likely to get a different selection of questions, and when a quiz allows multiple attempts then each attempt is likely to contain a new selection of questions.';
+$string['addarandomquestion_success'] = 'Ramdom questions has been added';
 $string['addarandomselectedquestion'] = 'Add a random selected question ...';
 $string['adddescriptionlabel'] = 'Add a description item';
 $string['addingquestion'] = 'Adding a question';

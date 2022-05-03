@@ -1123,12 +1123,18 @@ class view {
      */
     public function display_questions($questions, $page = 0, $perpage = DEFAULT_QUESTIONS_PER_PAGE): void {
         global $OUTPUT;
+        // Pagination.
         $pageingurl = new \moodle_url($this->base_url());
         $pagingbar = new \paging_bar($this->totalcount, $page, $perpage, $pageingurl);
         $pagingbar->pagevar = 'qpage';
         echo $OUTPUT->render($pagingbar);
+
+        // Table of questions.
+        // Embeded filterconditon into the div.
+        $filtercondition = json_encode($this->get_pagevars());
+
         echo \html_writer::start_tag('div',
-            ['class' => 'categoryquestionscontainer', 'id' => 'questionscontainer']);
+            ['class' => 'question_table', 'id' => 'question_table', 'data-filtercondition' => $filtercondition]);
         $this->print_table($questions);
         echo \html_writer::end_tag('div');
         echo $OUTPUT->render($pagingbar);

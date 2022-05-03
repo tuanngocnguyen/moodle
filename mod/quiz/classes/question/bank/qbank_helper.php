@@ -110,6 +110,7 @@ class qbank_helper {
                        slot.maxmark,
                        slot.requireprevious,
                        qsr.filtercondition,
+                       qsr.usingcontextid,
                        qv.status,
                        qv.id AS versionid,
                        qv.version,
@@ -169,11 +170,8 @@ class qbank_helper {
 
             if ($slot->filtercondition) {
                 // Unpack the information about a random question.
-                $filtercondition = json_decode($slot->filtercondition);
                 $slot->questionid = 's' . $slot->id; // Sometimes this is used as an array key, so needs to be unique.
-                $slot->category = $filtercondition->questioncategoryid;
-                $slot->randomrecurse = (bool) $filtercondition->includingsubcategories;
-                $slot->randomtags = isset($filtercondition->tags) ? (array) $filtercondition->tags : [];
+                $slot->filtercondition = json_decode($slot->filtercondition);
                 $slot->qtype = 'random';
                 $slot->name = get_string('random', 'quiz');
                 $slot->length = 1;
@@ -220,10 +218,7 @@ class qbank_helper {
      * @return string that can be used to display the random slot.
      */
     public static function describe_random_question(\stdClass $slotdata): string {
-        global $DB;
-        $category = $DB->get_record('question_categories', ['id' => $slotdata->category]);
-        return \question_bank::get_qtype('random')->question_name(
-               $category, $slotdata->randomrecurse, $slotdata->randomtags);
+        return \question_bank::get_qtype('random')->question_name($slotdata);
     }
 
     /**

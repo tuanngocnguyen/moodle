@@ -108,6 +108,7 @@ export const init = (filterRegionId, defaultcourseid, defaultcategoryid,
             for (const [key, value] of Object.entries(filterdata)) {
                 let filter = {
                     'filtertype': key,
+                    'conditionclass': value.conditionclass,
                     'jointype': value.jointype,
                     'rangetype': value.rangetype,
                     'values': value.values.toString()
@@ -161,7 +162,7 @@ export const init = (filterRegionId, defaultcourseid, defaultcategoryid,
      */
     const renderQuestiondata = (filtercondition) => {
         // eslint-disable-next-line no-console
-        console.log(extraparams);
+        console.log(filtercondition);
         const viewData = {
             component: component,
             callback: callback,

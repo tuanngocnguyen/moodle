@@ -23,13 +23,6 @@
     {}
 }}
 <div class="mt-2 position-relative" data-region="add_random_question_form-container">
-
-    <form id="addrandomquestionform" method="post" action="#">
-        <!-- Hidden input -->
-        <input type="hidden" name="sesskey" value="{{sesskey}}">
-        <input type="hidden" name="addonpage" value="{{addonpage}}">
-        <input type="hidden" name="categoryid" value="{{categoryid}}">
-
         <header id="id_existingcategoryheader" value="{{#str}} randomfromexistingcategory, mod_quiz {{/str}}">
             <!-- Question bank -->
             {{{questionbank}}}
@@ -73,5 +66,4 @@
             </div>
         </header>
 
-    </form>
 </div>

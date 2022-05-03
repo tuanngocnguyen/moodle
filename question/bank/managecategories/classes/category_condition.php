@@ -261,6 +261,7 @@ class category_condition extends condition {
             'title' => get_string('category', 'core_question'),
             'custom' => false,
             'multiple' => false,
+            'conditionclass' => '\\core_question\\local\\bank\\condition\\category_condition',
             'filterclass' => null,
             'values' => $values,
             'allowempty' => false,

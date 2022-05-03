@@ -2485,11 +2485,10 @@ function quiz_update_section_firstslots($quizid, $direction, $afterslot, $before
  * @param int $addonpage the page on which to add the question.
  * @param int $categoryid the question category to add the question from.
  * @param int $number the number of random questions to add.
- * @param bool $includesubcategories whether to include questoins from subcategories.
- * @param int[] $tagids Array of tagids. The question that will be picked randomly should be tagged with all these tags.
+ * @param string $filtercondition the filter condition
  */
-function quiz_add_random_questions($quiz, $addonpage, $categoryid, $number,
-        $includesubcategories, $tagids = []) {
+function quiz_add_random_questions(stdClass $quiz, int $addonpage, int $categoryid, int $number,
+        string $filtercondition = ''): void {
     global $DB;
 
     $category = $DB->get_record('question_categories', ['id' => $categoryid]);
@@ -2500,22 +2499,8 @@ function quiz_add_random_questions($quiz, $addonpage, $categoryid, $number,
     $catcontext = context::instance_by_id($category->contextid);
     require_capability('moodle/question:useall', $catcontext);
 
-    // Tags for filter condition.
-    $tags = \core_tag_tag::get_bulk($tagids, 'id, name');
-    $tagstrings = [];
-    foreach ($tags as $tag) {
-        $tagstrings[] = "{$tag->id},{$tag->name}";
-    }
     // Create the selected number of random questions.
     for ($i = 0; $i < $number; $i++) {
-        // Set the filter conditions.
-        $filtercondition = new stdClass();
-        $filtercondition->questioncategoryid = $categoryid;
-        $filtercondition->includingsubcategories = $includesubcategories ? 1 : 0;
-        if (!empty($tagstrings)) {
-            $filtercondition->tags = $tagstrings;
-        }
-
         if (!isset($quiz->cmid)) {
             $cm = get_coursemodule_from_instance('quiz', $quiz->id, $quiz->course);
             $quiz->cmid = $cm->id;

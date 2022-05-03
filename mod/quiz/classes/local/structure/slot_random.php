@@ -132,14 +132,10 @@ class slot_random {
     /**
      * Set filter condition.
      *
-     * @param \stdClass $filters
+     * @param \string $filters
      */
     public function set_filter_condition($filters) {
-        if (!empty($this->tags)) {
-            $filters->tags = $this->tags;
-        }
-
-        $this->filtercondition = json_encode($filters);
+        $this->filtercondition = $filters;
     }
 
     /**

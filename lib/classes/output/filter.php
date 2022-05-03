@@ -69,6 +69,7 @@ abstract class filter implements renderable, templatable {
      * @param string $title
      * @param bool $custom
      * @param bool $multiple
+     * @param string|null $conditionclass
      * @param string|null $filterclass
      * @param array $values
      * @param bool $allowempty
@@ -79,6 +80,7 @@ abstract class filter implements renderable, templatable {
         string $title,
         bool $custom,
         bool $multiple,
+        ?string $conditionclass,
         ?string $filterclass,
         array $values,
         bool $allowempty = false
@@ -94,6 +96,7 @@ abstract class filter implements renderable, templatable {
             'title' => $title,
             'allowcustom' => $custom,
             'allowmultiple' => $multiple,
+            'conditionclass' => $conditionclass,
             'filtertypeclass' => $filterclass,
             'values' => $values,
         ];

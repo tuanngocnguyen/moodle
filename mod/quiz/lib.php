@@ -2381,6 +2381,9 @@ function mod_quiz_output_fragment_quiz_question_bank($args): string {
     $querystring = parse_url($args['querystring'], PHP_URL_QUERY);
     parse_str($querystring, $params);
 
+    $viewclass = 'mod_quiz\\question\\bank\\custom_view';
+    $extraparams['view'] = $viewclass;
+
     // Build required parameters.
     list($contexts, $thispageurl, $course, $cm, $pagevars, $extraparams) =
         build_required_parameters_for_custom_view($params, $extraparams);
@@ -2418,7 +2421,8 @@ function mod_quiz_output_fragment_add_random_question_form($args) {
         build_required_parameters_for_custom_view($params, $extraparams);
 
     // Additional param to differentiate with question bank view
-    $extraparams['view'] = 'random_question_view';
+    $viewclass = 'mod_quiz\\question\\bank\\random_question_view';
+    $extraparams['view'] = $viewclass;
 
     // Custom View.
     $questionbank = new mod_quiz\question\bank\random_question_view($contexts, $thispageurl, $course, $cm, $pagevars, $extraparams);
@@ -2450,9 +2454,6 @@ function mod_quiz_output_fragment_add_random_question_form($args) {
     $data = [
         'questionbank' => $questionbankoutput,
         'randomoptions' => $randomcount,
-        'sesskey' => sesskey(),
-        'addonpage' => $params['addonpage'],
-        'categoryid' =>  $params['cat'],
         'questioncategoryoptions' => $catoptions,
     ];
 
@@ -2528,12 +2529,8 @@ function mod_quiz_output_fragment_question_data($args) {
     $course = get_course($params['courseid']);
     list(, $cm) = get_module_from_cmid($cmid);
 
-    // Custom View.
-    if (!isset($extraparams['view'])) {
-        // Default custom view.
-        $extraparams['view'] = 'custom_view';
-    }
-    $viewclass = 'mod_quiz\\question\\bank\\' . $extraparams['view'];
+    // Custom question bank View.
+    $viewclass = $extraparams['view'];
     $questionbank = new $viewclass($contexts, $thispageurl, $course, $cm, $params, $extraparams);
 
     // Question table.
