@@ -137,75 +137,20 @@ class qtype_random extends question_type {
     public function question_name($slotdata) {
         $filtercondition = $slotdata->filtercondition;
 
-        // Describe filter condition.
-        $joinlist = [
-            condition::JOINTYPE_NONE => get_string('none'),
-            condition::JOINTYPE_ANY => get_string('any'),
-            condition::JOINTYPE_ALL => get_string('all'),
-        ];
+        // Top join type.
+        $joinlist = condition::get_join_list();
+        $description = $joinlist[$filtercondition->filterverb] . PHP_EOL;
 
-        // Filter verb.
-        $name = $joinlist[$filtercondition->filterverb] . PHP_EOL;
-
-        // Go through each filter condition.
-//        $plugins = \core_component::get_plugin_list_with_class('qbank', 'plugin_feature', 'plugin_feature.php');
-//        foreach ($plugins as $componentname => $plugin) {
-//            if (\core\plugininfo\qbank::is_plugin_enabled($componentname)) {
-//                $pluginentrypointobject = new $plugin();
-//                $pluginobjects = $pluginentrypointobject->get_question_filters($this);
-//                foreach ($pluginobjects as $pluginobject) {
-//                    $this->add_searchcondition($pluginobject, $pluginobject->get_condition_key());
-//                }
-//            }
-//        }
-
-//        $categoryname = '';
-//        if ($category->parent && $includesubcategories) {
-//            $stringid = 'randomqplusname';
-//            $categoryname = shorten_text($category->name, 100);
-//        } else if ($category->parent) {
-//            $stringid = 'randomqname';
-//            $categoryname = shorten_text($category->name, 100);
-//        } else if ($includesubcategories) {
-//            $context = context::instance_by_id($category->contextid);
-//
-//            switch ($context->contextlevel) {
-//                case CONTEXT_MODULE:
-//                    $stringid = 'randomqplusnamemodule';
-//                    break;
-//                case CONTEXT_COURSE:
-//                    $stringid = 'randomqplusnamecourse';
-//                    break;
-//                case CONTEXT_COURSECAT:
-//                    $stringid = 'randomqplusnamecoursecat';
-//                    $categoryname = shorten_text($context->get_context_name(false), 100);
-//                    break;
-//                case CONTEXT_SYSTEM:
-//                    $stringid = 'randomqplusnamesystem';
-//                    break;
-//                default: // Impossible.
-//            }
-//        } else {
-//            // No question will ever be selected. So, let's warn the teacher.
-//            $stringid = 'randomqnamefromtop';
-//        }
-//
-//        if ($tagnames) {
-//            $stringid .= 'tags';
-//            $a = new stdClass();
-//            if ($categoryname) {
-//                $a->category = $categoryname;
-//            }
-//            $a->tags = implode(', ', array_map(function($tagname) {
-//                return explode(',', $tagname)[1];
-//            }, $tagnames));
-//        } else {
-//            $a = $categoryname ? : null;
-//        }
-//
-//        $name = get_string($stringid, 'qtype_random', $a);
-
-        return shorten_text($name, 255);
+        // Describe each filter.
+        foreach ($filtercondition->filters as $filter) {
+            $conditionclass = $filter->conditionclass;
+            $method = "describe_filter";
+            if (!is_null($conditionclass) && method_exists($conditionclass, $method)) {
+                $description .= $conditionclass::{$method}($filter);
+            }
+        }
+        $description = get_string('randomqname', 'qtype_random', $description);
+        return shorten_text($description, 255);
     }
 
     protected function set_selected_question_name($question, $randomname) {

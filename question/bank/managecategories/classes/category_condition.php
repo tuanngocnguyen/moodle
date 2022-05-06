@@ -261,11 +261,28 @@ class category_condition extends condition {
             'title' => get_string('category', 'core_question'),
             'custom' => false,
             'multiple' => false,
-            'conditionclass' => '\\core_question\\local\\bank\\condition\\category_condition',
+            'conditionclass' => '\\qbank_managecategories\\category_condition',
             'filterclass' => null,
             'values' => $values,
             'allowempty' => false,
         ];
         return $filteroptions;
+    }
+
+    /**
+     * Describe the filter
+     *
+     * @param \stdClass $filter the filter that need to describe
+     * @return string filter description
+     */
+    public static function describe_filter(\stdClass $filter): string {
+        global $DB;
+        $joinlist = self::get_join_list();
+        list($insql, $inparams) = $DB->get_in_or_equal($filter->values);
+        $categories = $DB->get_fieldset_select('question_categories', "name", "id $insql", $inparams);
+        $description = new \stdClass();
+        $description->jointype = $joinlist[$filter->jointype];
+        $description->categories = implode($categories, ', ');
+        return get_string('filterdescription', 'qbank_managecategories', $description);
     }
 }
