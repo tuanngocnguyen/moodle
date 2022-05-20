@@ -15,9 +15,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Unit tests for the quiz's own question bank view class.
+ * Unit tests for the question bank view class.
  *
- * @package    mod_quiz
+ * @package    core_question
  * @category   test
  * @copyright  2018 the Open University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -30,12 +30,12 @@ require_once($CFG->dirroot . '/question/editlib.php');
 
 
 /**
- * Unit tests for the quiz's own question bank view class.
+ * Unit tests for the question bank view class.
  *
  * @copyright  2018 the Open University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class quiz_question_bank_view_testcase extends advanced_testcase {
+class core_question_bank_view_testcase extends advanced_testcase {
 
     public function test_viewing_question_bank_should_not_load_individual_questions() {
         $this->resetAfterTest();
@@ -44,11 +44,9 @@ class quiz_question_bank_view_testcase extends advanced_testcase {
         /** @var core_question_generator $questiongenerator */
         $questiongenerator = $generator->get_plugin_generator('core_question');
 
-        // Create a course and a quiz.
+        // Create a course.
         $course = $generator->create_course();
-        $quiz = $this->getDataGenerator()->create_module('quiz', array('course' => $course->id));
-        $context = context_module::instance($quiz->cmid);
-        $cm = get_coursemodule_from_instance('quiz', $quiz->id);
+        $context = context_course::instance($course->id);
 
         // Create a question in the default category.
         $contexts = new core_question\local\bank\question_edit_contexts($context);
@@ -61,15 +59,16 @@ class quiz_question_bank_view_testcase extends advanced_testcase {
         $cache->delete($questiondata->id);
 
         // Generate the view.
-        $view = new mod_quiz\question\bank\custom_view($contexts, new moodle_url('/'), $course, $cm, $quiz);
+        $view = new core_question\local\bank\view($contexts, new moodle_url('/'), $course);
         ob_start();
         $pagevars = [
             'qpage' => 0,
-            'qperpage' => 20,
+            'qperpage' => DEFAULT_QUESTIONS_PER_PAGE,
             'cat' => $cat->id . ',' . $context->id,
             'recurse' => false,
             'showhidden' => false,
             'qbshowtext' => false
+
         ];
         $view->display($pagevars, 'editq');
         $html = ob_get_clean();
@@ -79,5 +78,45 @@ class quiz_question_bank_view_testcase extends advanced_testcase {
 
         // Verify the question has not been loaded into the cache.
         $this->assertFalse($cache->has($questiondata->id));
+    }
+
+    public function test_unknown_qtype_does_not_break_view() {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $generator = $this->getDataGenerator();
+        /** @var core_question_generator $questiongenerator */
+        $questiongenerator = $generator->get_plugin_generator('core_question');
+
+        // Create a course.
+        $course = $generator->create_course();
+        $context = context_course::instance($course->id);
+
+        // Create a question in the default category.
+        $contexts = new core_question\local\bank\question_edit_contexts($context);
+        $cat = question_make_default_categories($contexts->all());
+        $questiondata = $questiongenerator->create_question('numerical', null,
+                ['name' => 'Example question', 'category' => $cat->id]);
+        $DB->set_field('question', 'qtype', 'unknownqtype', ['id' => $questiondata->id]);
+
+        // Generate the view.
+        $view = new core_question\local\bank\view($contexts, new moodle_url('/'), $course);
+        ob_start();
+        $pagevars = [
+            'qpage' => 0,
+            'qperpage' => DEFAULT_QUESTIONS_PER_PAGE,
+            'cat' => $cat->id . ',' . $context->id,
+            'recurse' => false,
+            'showhidden' => false,
+            'qbshowtext' => false
+
+        ];
+        $view->display($pagevars, 'editq');
+        $html = ob_get_clean();
+
+        // Mainly we are verifying that there was no fatal error.
+
+        // Verify the output includes the expected question.
+        $this->assertStringContainsString('Example question', $html);
     }
 }

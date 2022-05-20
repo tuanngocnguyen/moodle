@@ -35,11 +35,7 @@ Feature: The questions in the question bank can be filtered by tags
 
   @javascript
   Scenario: The questions can be filtered by tag
-    When I click on "Add condition" "button"
-    And I set the field "Match" to "All"
-    And I set the field "Match" in the "Filter 2" "fieldset" to "Any"
-    And I set the field "type" in the "Filter 2" "fieldset" to "Tag"
-    And I set the field "Type or select..." in the "Filter 2" "fieldset" to "foo"
-    And I click on "Apply filters" "button"
+    When I set the field "Filter by tags..." to "foo"
+    And I press the enter key
     Then I should see "question 1 name" in the "categoryquestions" "table"
     And I should not see "question 2 name" in the "categoryquestions" "table"

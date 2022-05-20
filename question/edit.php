@@ -39,7 +39,7 @@ if ($PAGE->course->id == $SITE->id) {
     $PAGE->set_primary_active_tab('home');
 }
 
-$questionbank = new core_question\local\bank\view($contexts, $thispageurl, $COURSE, $cm, $pagevars);
+$questionbank = new core_question\local\bank\view($contexts, $thispageurl, $COURSE, $cm);
 
 $context = $contexts->lowest();
 $streditingquestions = get_string('editquestions', 'question');
@@ -57,7 +57,7 @@ $qbankaction = new \core_question\output\qbank_action_menu($url);
 echo $renderer->render($qbankaction);
 
 // Print the question area.
-$questionbank->display();
+$questionbank->display($pagevars, 'questions');
 
 // Log the view of this category.
 list($categoryid, $contextid) = explode(',', $pagevars['cat']);

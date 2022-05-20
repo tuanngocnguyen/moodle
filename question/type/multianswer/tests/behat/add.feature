@@ -1,4 +1,4 @@
-@qtype @qtype_multianswer @javascript
+@qtype @qtype_multianswer
 Feature: Test creating a Multianswer (Cloze) question
   As a teacher
   In order to test my students
@@ -15,7 +15,6 @@ Feature: Test creating a Multianswer (Cloze) question
       | user    | course | role           |
       | teacher | C1     | editingteacher |
 
-  @javascript
   Scenario: Create a Cloze question
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Embedded answers (Cloze)" question filling the form with:
@@ -24,12 +23,11 @@ Feature: Test creating a Multianswer (Cloze) question
       | General feedback     | The capital of Germany is Berlin.                   |
     Then I should see "multianswer-001" in the "categoryquestions" "table"
 
-  @javascript
   Scenario: Create a broken Cloze question and correct it
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I press "Create a new question ..."
     And I set the field "Embedded answers (Cloze)" to "1"
-    And I press "submitbutton"
+    And I press "Add"
     And I set the field "Question name" to "multianswer-002"
     And I set the field "Question text" to "Please select the fruits {1:MULTICHOICE:=Apple#Correct}"
     And I set the field "General feedback" to "Apple are delicious."
@@ -40,12 +38,11 @@ Feature: Test creating a Multianswer (Cloze) question
     And I press "id_submitbutton"
     And I should see "multianswer-002" in the "categoryquestions" "table"
 
-  @javascript
   Scenario: Try to create a Cloze question that has no answer
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I press "Create a new question ..."
     And I set the field "Embedded answers (Cloze)" to "1"
-    And I press "submitbutton"
+    And I press "Add"
     And I set the following fields to these values:
       | Question name | multianswer-003                                |
       | Question text | {1:SHORTANSWER:=  } is the capital of Germany. |

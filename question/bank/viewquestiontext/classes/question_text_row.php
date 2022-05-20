@@ -49,18 +49,15 @@ class question_text_row extends row_base {
     }
 
     protected function display_content($question, $rowclasses): void {
-        $display = $this->qbank->get_pagevars('filters')['showtext'] ?? null;
-        if (isset($display) && (int)$display['values'][0] === 0) {
-            $text = question_rewrite_question_preview_urls($question->questiontext, $question->id,
-                    $question->contextid, 'question', 'questiontext', $question->id,
-                    $question->contextid, 'core_question');
-            $text = format_text($text, $question->questiontextformat,
-                    $this->formatoptions);
-            if ($text == '') {
-                $text = '&#160;';
-            }
-            echo $text;
+        $text = question_rewrite_question_preview_urls($question->questiontext, $question->id,
+                $question->contextid, 'question', 'questiontext', $question->id,
+                $question->contextid, 'core_question');
+        $text = format_text($text, $question->questiontextformat,
+                $this->formatoptions);
+        if ($text == '') {
+            $text = '&#160;';
         }
+        echo $text;
     }
 
     public function get_required_fields(): array {
@@ -68,10 +65,14 @@ class question_text_row extends row_base {
     }
 
     public function has_preference(): bool {
-        return false;
+        return true;
     }
 
     public function get_preference_key(): string {
         return 'qbshowtext';
+    }
+
+    public function get_preference(): bool {
+        return question_get_display_preference($this->get_preference_key(), 0, PARAM_BOOL, new \moodle_url(''));
     }
 }

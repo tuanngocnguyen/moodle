@@ -1,4 +1,4 @@
-@qtype @qtype_multichoice @javascript
+@qtype @qtype_multichoice
 Feature: Test creating a Multiple choice question
   As a teacher
   In order to test my students
@@ -15,7 +15,6 @@ Feature: Test creating a Multiple choice question
       | user    | course | role           |
       | teacher | C1     | editingteacher |
 
-  @javascript
   Scenario: Create a Multiple choice question with multiple response
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Multiple choice" question filling the form with:

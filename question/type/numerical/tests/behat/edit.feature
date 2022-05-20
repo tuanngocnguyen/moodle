@@ -1,4 +1,4 @@
-@qtype @qtype_numerical @javascript
+@qtype @qtype_numerical
 Feature: Test editing a Numerical question
   As a teacher
   In order to be able to update my Numerical question
@@ -21,7 +21,6 @@ Feature: Test editing a Numerical question
       | questioncategory | qtype     | name                  | template |
       | Test questions   | numerical | Numerical for editing | pi       |
 
-  @javascript
   Scenario: Edit a Numerical question when using a custom decimal separator
     Given the following "language customisations" exist:
       | component       | stringid | value |
@@ -46,7 +45,6 @@ Feature: Test editing a Numerical question
     And I press "id_submitbutton"
     And I should see "Edited Numerical name"
 
-  @javascript
   Scenario: Edit a Numerical question with very small answer
     When I am on the "Numerical for editing" "core_question > edit" page logged in as teacher
     And I set the following fields to these values:

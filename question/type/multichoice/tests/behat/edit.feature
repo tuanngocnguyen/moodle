@@ -1,4 +1,4 @@
-@qtype @qtype_multichoice @javascript
+@qtype @qtype_multichoice
 Feature: Test editing a Multiple choice question
   As a teacher
   In order to be able to update my Multiple choice question
@@ -22,7 +22,6 @@ Feature: Test editing a Multiple choice question
       | Test questions   | multichoice | Multiple choice for editing | two_of_four |
       | Test questions   | multichoice | Single choice for editing   | one_of_four |
 
-  @javascript
   Scenario: Edit a Multiple choice question with multiple response (checkboxes)
     When I am on the "Multiple choice for editing" "core_question > edit" page logged in as teacher
     And I set the following fields to these values:
@@ -34,7 +33,6 @@ Feature: Test editing a Multiple choice question
     And I press "id_submitbutton"
     Then I should see "Edited Multiple choice name"
 
-  @javascript
   Scenario: Edit a Multiple choice question with single response (radio buttons)
     When I am on the "Single choice for editing" "core_question > edit" page logged in as teacher
     And I set the following fields to these values:

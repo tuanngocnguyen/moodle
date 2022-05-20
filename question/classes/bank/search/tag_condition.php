@@ -14,15 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace qbank_tagquestion;
+/**
+ * A condition for adding filtering by tag to the question bank.
+ *
+ * @package   core_question
+ * @copyright 2018 Ryan Wyllie <ryan@moodle.com>
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
-use core_question\local\bank\condition;
+namespace core_question\bank\search;
 
 /**
  * Question bank search class to allow searching/filtering by tags on a question.
  *
  * @copyright 2018 Ryan Wyllie <ryan@moodle.com>
- * @author    2021 Safat Shahin <safatshahin@catalyst-au.net>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class tag_condition extends condition {
@@ -30,39 +35,25 @@ class tag_condition extends condition {
     /** @var string SQL fragment to add to the where clause. */
     protected $where;
 
-    /** @var array Contexts to be used. */
-    protected $contexts = [];
+    /** @var string SQL fragment to add to the where clause. */
+    protected $contexts;
 
     /** @var array List of IDs for tags that have been selected in the form. */
     protected $selectedtagids;
 
-    /** @var array named params for the where clause. */
-    protected $params;
-
     /**
-     * Tag condition constructor. It uses the qbank object and initialises all the its required information
-     * to be passed as a part of condition to get the questions.
+     * Constructor.
      *
+     * @param array $contexts List of contexts to show tags from
+     * @param int[] $selectedtagids List of IDs for tags to filter by.
+     * @throws \coding_exception
+     * @throws \dml_exception
      */
-    public function __construct($qbank) {
+    public function __construct(array $contexts, array $selectedtagids = []) {
         global $DB;
-        $cat = $qbank->get_pagevars('cat');
-        if (is_array($cat)) {
-            foreach ($cat as $value) {
-                list($category, $contextid) = explode(',', $value);
-                $catcontext = \context::instance_by_id($contextid);
-                $this->contexts[] = $catcontext;
-            }
-        } else {
-            list($category, $contextid) = explode(',', $qbank->get_pagevars('cat'));
-            $catcontext = \context::instance_by_id($contextid);
-            $this->contexts[] = $catcontext;
-        }
-        $thiscontext = $qbank->get_most_specific_context();
-        $this->contexts[] = $thiscontext;
-        $filters = $qbank->get_pagevars('filters');
-        $selectedtagids = $filters['qtagids']['values'] ?? [];
-        $filterverb = $filters['qtagids']['jointype'] ?? self::JOINTYPE_DEFAULT;
+
+        $this->contexts = $contexts;
+
         // If some tags have been selected then we need to filter
         // the question list by the selected tags.
         if ($selectedtagids) {
@@ -73,8 +64,7 @@ class tag_condition extends condition {
             // we reduce the question list to questions that are tagged with both
             // "foo" AND "bar". Any question that does not have ALL of the specified
             // tags will be omitted.
-            $equal = !($filterverb === self::JOINTYPE_NONE);
-            list($tagsql, $tagparams) = $DB->get_in_or_equal($selectedtagids, SQL_PARAMS_NAMED, 'param', $equal);
+            list($tagsql, $tagparams) = $DB->get_in_or_equal($selectedtagids, SQL_PARAMS_NAMED);
             $tagparams['tagcount'] = count($selectedtagids);
             $tagparams['questionitemtype'] = 'question';
             $tagparams['questioncomponent'] = 'core_question';
@@ -85,11 +75,8 @@ class tag_condition extends condition {
                                       WHERE ti.itemtype = :questionitemtype
                                             AND ti.component = :questioncomponent
                                             AND ti.tagid {$tagsql}
-                                   GROUP BY ti.itemid ";
-            if ($filterverb === self::JOINTYPE_ALL) {
-                $this->where .= "HAVING COUNT(itemid) = :tagcount ";
-            }
-            $this->where .= ") ";
+                                   GROUP BY ti.itemid
+                                     HAVING COUNT(itemid) = :tagcount)";
 
         } else {
             $this->selectedtagids = [];
@@ -98,10 +85,13 @@ class tag_condition extends condition {
         }
     }
 
-    public function get_condition_key() {
-        return 'tag';
-    }
-
+    /**
+     * Get the SQL WHERE snippet to be used in the SQL to retrieve the
+     * list of questions. This SQL snippet will add the logic for the
+     * tag condition.
+     *
+     * @return string
+     */
     public function where() {
         return $this->where;
     }
@@ -119,7 +109,7 @@ class tag_condition extends condition {
      * Print HTML to display the list of tags to filter by.
      */
     public function display_options() {
-        global $PAGE;
+        global $OUTPUT;
 
         $tags = \core_tag_tag::get_tags_by_area_in_contexts('core_question', 'question', $this->contexts);
         $tagoptions = array_map(function($tag) {
@@ -133,33 +123,6 @@ class tag_condition extends condition {
             'tagoptions' => $tagoptions
         ];
 
-        return $PAGE->get_renderer('qbank_tagquestion')->render_tag_condition($context);
-    }
-
-    /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        $tags = \core_tag_tag::get_tags_by_area_in_contexts('core_question', 'question', $this->contexts);
-        $values = [];
-        foreach ($tags as $tag) {
-            $values[] = [
-                'value' => $tag->id,
-                'title' => html_entity_decode($tag->name),
-                'selected' => in_array($tag->id, $this->selectedtagids)
-            ];
-        }
-        $filteroptions = [
-            'name' => 'qtagids',
-            'title' => get_string('tag', 'tag'),
-            'custom' => false,
-            'multiple' => true,
-            'filterclass' => null,
-            'values' => $values,
-            'allowempty' => true,
-        ];
-        return $filteroptions;
+        return $OUTPUT->render_from_template('core_question/tag_condition', $context);
     }
 }

@@ -1,4 +1,4 @@
-@qtype @qtype_essay @javascript
+@qtype @qtype_essay
 Feature: Test creating an Essay question
   As a teacher
   In order to test my students
@@ -15,7 +15,6 @@ Feature: Test creating an Essay question
       | user    | course | role           |
       | teacher | C1     | editingteacher |
 
-  @javascript
   Scenario: Create an Essay question with Response format set to 'HTML editor'
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Essay" question filling the form with:
@@ -25,7 +24,6 @@ Feature: Test creating an Essay question
       | Response format          | HTML editor                    |
     Then I should see "essay-001"
 
-  @javascript
   Scenario: Create an Essay question with Response format set to 'HTML editor with the file picker'
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Essay" question filling the form with:

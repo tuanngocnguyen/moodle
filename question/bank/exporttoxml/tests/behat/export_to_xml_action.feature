@@ -1,4 +1,4 @@
-@qbank @qbank_exporttoxml @javascript
+@qbank @qbank_exporttoxml
 Feature: Use the qbank plugin manager page for exporttoxml
   In order to check the plugin behaviour with enable and disable
 

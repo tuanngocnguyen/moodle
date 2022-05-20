@@ -1,4 +1,4 @@
-@qbank @qbank_previewquestion @javascript
+@qbank @qbank_previewquestion
 Feature: Use the qbank plugin manager page for previewquestion
   In order to check the plugin behaviour with enable and disable
 
@@ -16,6 +16,7 @@ Feature: Use the qbank plugin manager page for previewquestion
       | questioncategory | qtype     | name           | questiontext              |
       | Test questions   | truefalse | First question | Answer the first question |
 
+  @javascript
   Scenario: Enable/disable previewquestion column from the base view
     Given I log in as "admin"
     When I navigate to "Plugins > Question bank plugins > Manage question bank plugins" in site administration

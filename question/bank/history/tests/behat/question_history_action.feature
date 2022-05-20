@@ -33,17 +33,13 @@ Feature: Use the qbank plugin manager page for question history
     And I click on ".dropdown-toggle" "css_element" in the "First question" "table_row"
     And I should see "History" in the "region-main" "region"
 
-  @javascript
   Scenario: History page shows only the specified features and questions
     Given I log in as "admin"
     And I am on the "Test quiz" "quiz activity" page
     When I navigate to "Question bank" in current page administration
-    And I press "Clear filters"
-    And I set the field "Match" in the "Filter 1" "fieldset" to "Any"
-    And I set the field "type" in the "Filter 1" "fieldset" to "Category"
-    And I set the field "Type or select..." in the "Filter 1" "fieldset" to "Test questions"
-    And I click on "Apply filters" "button"
     And I choose "History" action for "First question" in the question bank
+    Then I should not see "Select a category"
+    And I should see "No tag filters applied"
     And I should see "Question"
     And I should see "Actions"
     And I should see "Status"
@@ -51,6 +47,7 @@ Feature: Use the qbank plugin manager page for question history
     And I should see "Created by"
     And I should see "First question"
     And I click on ".dropdown-toggle" "css_element" in the "First question" "table_row"
+    But I should not see "History"
     And I click on "#qbank-history-close" "css_element"
     And I click on ".dropdown-toggle" "css_element" in the "First question" "table_row"
     And I should see "History" in the "region-main" "region"

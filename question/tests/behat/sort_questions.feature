@@ -70,10 +70,7 @@ Feature: The questions in the question bank can be sorted in various ways
 
   @javascript
   Scenario: The question text can be shown in the list of questions
-    When I click on "Clear filters" "button"
-    And I set the field "type" in the "Filter 1" "fieldset" to "Show question text"
-    And I set the field "showtext" in the "Filter 1" "fieldset" to "Yes"
-    And I click on "Apply filters" "button"
+    When I click on "Show question text in the question list" "checkbox"
     Then I should see "Question 1 text"
     And I should see "Question 2 text"
     And I should see "Question 3 text"

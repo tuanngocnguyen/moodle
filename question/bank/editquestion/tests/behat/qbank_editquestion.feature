@@ -1,4 +1,4 @@
-@qbank @qbank_editquestion @javascript
+@qbank @qbank_editquestion
 Feature: Use the qbank plugin manager page for editquestion
   In order to check the plugin behaviour with enable and disable
 
@@ -34,5 +34,6 @@ Feature: Use the qbank plugin manager page for editquestion
     And I navigate to "Question bank" in current page administration
     And I click on ".dropdown-toggle" "css_element" in the "First question" "table_row"
     Then I should see "Status"
+    And I click on ".dropdown-toggle" "css_element" in the "First question" "table_row"
     And I should see "Edit question" in the "region-main" "region"
     And I should see "Duplicate" in the "region-main" "region"

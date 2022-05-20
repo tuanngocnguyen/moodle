@@ -1,4 +1,4 @@
-@qtype @qtype_description @javascript
+@qtype @qtype_description
 Feature: Test editing a Description question
   As a teacher
   In order to be able to update my Description question
@@ -21,7 +21,6 @@ Feature: Test editing a Description question
       | questioncategory | qtype       | name            | template |
       | Test questions   | description | description-001 | info     |
 
-  @javascript
   Scenario: Edit a Description question
     When I am on the "description-001" "core_question > edit" page logged in as teacher
     And I set the following fields to these values:

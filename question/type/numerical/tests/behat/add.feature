@@ -1,4 +1,4 @@
-@qtype @qtype_numerical @javascript
+@qtype @qtype_numerical
 Feature: Test creating a Numerical question
   As a teacher
   In order to test my students
@@ -18,7 +18,6 @@ Feature: Test creating a Numerical question
       | component       | stringid | value |
       | core_langconfig | decsep   | #     |
 
-  @javascript
   Scenario: Create a Numerical question
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Numerical" question filling the form with:

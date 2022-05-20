@@ -1,4 +1,4 @@
-@qbank @qbank_statistics @javascript
+@qbank @qbank_statistics
 Feature: Use the qbank plugin manager page for statistics
   In order to check the plugin behaviour with enable and disable
 

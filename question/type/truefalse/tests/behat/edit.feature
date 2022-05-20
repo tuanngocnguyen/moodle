@@ -1,4 +1,4 @@
-@qtype @qtype_truefalse @javascript
+@qtype @qtype_truefalse
 Feature: Test editing a True/False question
   As a teacher
   In order to be able to update my True/False question
@@ -21,7 +21,6 @@ Feature: Test editing a True/False question
       | questioncategory | qtype     | name           | template |
       | Test questions   | truefalse | true-false-001 | true     |
 
-  @javascript
   Scenario: Edit a True/False question
     When I am on the "true-false-001" "core_question > edit" page logged in as teacher
     And I set the following fields to these values:

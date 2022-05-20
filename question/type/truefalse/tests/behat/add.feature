@@ -1,4 +1,4 @@
-@qtype @qtype_truefalse @javascript
+@qtype @qtype_truefalse
 Feature: Test creating a True/False question
   As a teacher
   In order to test my students
@@ -15,7 +15,6 @@ Feature: Test creating a True/False question
       | user    | course | role           |
       | teacher | C1     | editingteacher |
 
-  @javascript
   Scenario: Create a True/False question with Correct answer as False
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "True/False" question filling the form with:
@@ -28,7 +27,6 @@ Feature: Test creating a True/False question
       | Feedback for the response 'False'. | Read more about England.                   |
     Then I should see "true-false-001"
 
-  @javascript
   Scenario: Create a True/False question with Correct answer as True
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "True/False" question filling the form with:
