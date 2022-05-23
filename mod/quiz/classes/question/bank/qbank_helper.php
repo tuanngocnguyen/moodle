@@ -18,6 +18,7 @@ namespace mod_quiz\question\bank;
 
 use core_question\local\bank\question_version_status;
 use core_question\local\bank\random_question_loader;
+use qbank_tagquestion\tag_condition;
 use qubaid_condition;
 
 defined('MOODLE_INTERNAL') || die();
@@ -238,8 +239,11 @@ class qbank_helper {
      * @return array list of tag ids.
      */
     public static function get_tag_ids_for_slot(\stdClass $slotdata): array {
-        $filters = $slotdata->filtercondition->filters;
         $tagids = [];
+        if (!isset($slotdata->filtercondition->filters)) {
+            return $tagids;
+        }
+        $filters = $slotdata->filtercondition->filters;
         if (isset($filters->qtagids)) {
             $tagids = $filters->qtagids->values;
         }
@@ -253,7 +257,18 @@ class qbank_helper {
      * @return string that can be used to display the random slot.
      */
     public static function describe_random_question(\stdClass $slotdata): string {
-        $description = get_string('randomqname', 'mod_quiz');
+        $qtagids = self::get_tag_ids_for_slot($slotdata);
+
+        if ($qtagids) {
+            $tagnames = [];
+            $tags = \core_tag_tag::get_bulk($qtagids, 'id, name');
+            foreach ($tags as $tag) {
+                $tagnames[] = $tag->name;
+            }
+            $description = get_string('randomqnametags', 'mod_quiz', implode(",", $tagnames));
+        } else {
+            $description = get_string('randomqname', 'mod_quiz');
+        }
         return shorten_text($description, 255);
     }
 
@@ -286,5 +301,45 @@ class qbank_helper {
             throw new \moodle_exception('notenoughrandomquestions', 'quiz');
         }
         return $newqusetionid;
+    }
+
+    public static function filter_query_to_array(string $query): array {
+        if (empty($query)) {
+            return [];
+        }
+
+        $filters = [];
+
+        // Filters are join by '&'.
+        $encodedfilters = explode('&', $query);
+
+        foreach ($encodedfilters as $encodedfilter) {
+            // Filter key and data are separate by '=';
+            $encodedfilter = explode('=', $encodedfilter);
+            $key = $encodedfilter[0];
+            $filters[$key] = [];
+            $params = explode('&', urldecode($encodedfilter[1]));
+            foreach ($params as $param) {
+                $param = explode('=', $param);
+                $name = $param[0];
+                $values = urldecode($param[1]);
+                if ($name == 'values') {
+                    if (strpos($values, '=') !== false) {
+                        // This containes multiple values.
+                        $values = explode('&', $values);
+                        foreach ($values as $value) {
+                            list($index, $avalue) = explode('=', $value);
+                            $filters[$key][$name][$index] = $avalue;
+                        }
+                    } else {
+                        $filters[$key][$name] = [$values];
+                    }
+                } else {
+                    // This container only one value.
+                    $filters[$key][$name] = $values;
+                }
+            }
+        }
+        return $filters;
     }
 }

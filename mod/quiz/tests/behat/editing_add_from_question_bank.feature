@@ -43,9 +43,13 @@ Feature: Adding questions to a quiz from the question bank
     Then I should see "foo" in the "question 01 name" "table_row"
     And I should see "bar" in the "question 02 name" "table_row"
     And I should see "qidnum" in the "question 02 name" "table_row"
-    And I set the field "Filter by tags..." to "foo"
-    And I press the enter key
+    And I press "Clear filters"
+    And I set the field "Match" in the "Filter 1" "fieldset" to "Any"
+    And I set the field "type" in the "Filter 1" "fieldset" to "Tag"
+    And I set the field "Type or select..." in the "Filter 1" "fieldset" to "foo"
+    And I click on "Apply filters" "button"
     And I should see "question 01 name" in the "categoryquestions" "table"
+    And I wait "5" seconds
     And I should not see "question 02 name" in the "categoryquestions" "table"
 
   Scenario: The question modal can be paginated

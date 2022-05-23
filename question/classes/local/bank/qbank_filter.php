@@ -83,7 +83,7 @@ class qbank_filter extends \core\output\filter {
      * @return stdClass Data in a format compatible with a mustache template.
      */
     public function export_for_template(renderer_base $output): stdClass {
-        $defaultcategory = $this->searchconditions['category']->get_default_category();
+        $defaultcategory = question_get_default_category($this->context->id);
         $courseid = $this->context->instanceid;
         if ($courseid === 0) {
             $courseid = $this->searchconditions['category']->get_course_id();

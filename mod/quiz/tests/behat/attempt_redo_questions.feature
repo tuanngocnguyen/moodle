@@ -146,6 +146,7 @@ Feature: Allow students to redo questions in a practice quiz, without starting a
     And I am on the "Quiz 2" "mod_quiz > Edit" page logged in as "admin"
     And I open the "last" add to quiz menu
     And I follow "a random question"
+    And I select "1" from the "randomcount" singleselect
     And I press "Add random question"
     And user "student" has started an attempt at quiz "Quiz 2" randomised as follows:
       | slot | actualquestion |

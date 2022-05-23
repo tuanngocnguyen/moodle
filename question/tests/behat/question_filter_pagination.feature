@@ -17,28 +17,11 @@ Feature: A teacher can pagimate through question bank questions
     And the following "question categories" exist:
       | contextlevel | reference | questioncategory | name           |
       | Course       | C1        | Top              | Used category  |
+    Given 100 "questions" exist with the following data:
+      | questioncategory | qtype | name                        | questiontext                  |
+      | Used category    | essay | Tests question [count]      | Write about whatever you want |
     And the following "questions" exist:
-      | questioncategory | qtype | name                        | questiontext       |
-      | Used category    | essay | Tests question 1 | Write about whatever you want |
-      | Used category    | essay | Tests question 2 | Write about whatever you want |
-      | Used category    | essay | Tests question 3 | Write about whatever you want |
-      | Used category    | essay | Tests question 4 | Write about whatever you want |
-      | Used category    | essay | Tests question 5 | Write about whatever you want |
-      | Used category    | essay | Tests question 6 | Write about whatever you want |
-      | Used category    | essay | Tests question 7 | Write about whatever you want |
-      | Used category    | essay | Tests question 8 | Write about whatever you want |
-      | Used category    | essay | Tests question 9 | Write about whatever you want |
-      | Used category    | essay | Tests question 10 | Write about whatever you want |
-      | Used category    | essay | Tests question 11 | Write about whatever you want |
-      | Used category    | essay | Tests question 12 | Write about whatever you want |
-      | Used category    | essay | Tests question 13 | Write about whatever you want |
-      | Used category    | essay | Tests question 14 | Write about whatever you want |
-      | Used category    | essay | Tests question 15 | Write about whatever you want |
-      | Used category    | essay | Tests question 16 | Write about whatever you want |
-      | Used category    | essay | Tests question 17 | Write about whatever you want |
-      | Used category    | essay | Tests question 18 | Write about whatever you want |
-      | Used category    | essay | Tests question 19 | Write about whatever you want |
-      | Used category    | essay | Tests question 20 | Write about whatever you want |
+      | questioncategory | qtype | name              | questiontext                  |
       | Used category    | essay | Not on first page | Write about whatever you want |
     And I log in as "teacher1"
     And I am on "Course 1" course homepage

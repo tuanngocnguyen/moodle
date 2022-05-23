@@ -41,6 +41,9 @@ Feature: Adding random questions to a quiz based on category and tags
     Given I am on the "Quiz 1" "mod_quiz > Edit" page logged in as "teacher1"
     When I open the "last" add to quiz menu
     And I follow "a random question"
+    And I press "Clear filters"
+    And I set the field "Match" in the "Filter 1" "fieldset" to "Any"
+    And I set the field "type" in the "Filter 1" "fieldset" to "Tag"
     And I open the autocomplete suggestions list
     Then "foo" "autocomplete_suggestions" should exist
     And "bar" "autocomplete_suggestions" should exist

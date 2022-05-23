@@ -320,14 +320,17 @@ export const init = (filterRegionId, defaultcourseid, defaultcategoryid,
         }
 
         // Add fitlers.
+        let rowcount = 0;
         for (const urlFilter in initialFilters) {
             if (urlFilter !== 'courseid') {
                 // Add each filter row.
+                rowcount += 1 ;
                 const filterdata = {
                     filtertype: urlFilter,
                     values:  initialFilters[urlFilter].values,
                     jointype: initialFilters[urlFilter].jointype,
-                    rangetype: initialFilters[urlFilter].rangetypes
+                    rangetype: initialFilters[urlFilter].rangetypes,
+                    rownum: rowcount
                 };
                 coreFilter.addFilterRow(filterdata);
             }

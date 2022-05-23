@@ -805,6 +805,7 @@ $string['randomfromunavailabletag'] = '{$a} (unavailable)';
 $string['randomnumber'] = 'Number of random questions';
 $string['randomnosubcat'] = 'Questions from this category only, not its subcategories.';
 $string['randomqname'] = 'Random question based on filter condition';
+$string['randomqnametags'] = 'Random question based on filter condition with tags: {$a}';
 $string['randomquestion'] = 'Random question';
 $string['randomquestion_help'] = 'A random question is a way of inserting a randomly-chosen question from a specified category or by a specified tag into an activity.';
 $string['randomquestiontags'] = 'Tags';

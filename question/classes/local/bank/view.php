@@ -212,7 +212,6 @@ class view {
             $filters = [
                 'category' => [
                     'jointype' => category_condition::JOINTYPE_DEFAULT,
-                    'rangetype' => null,
                     'conditionclass' => category_condition::class,
                     'values' => [$category->id],
                 ]

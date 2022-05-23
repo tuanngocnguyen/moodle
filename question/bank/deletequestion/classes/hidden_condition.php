@@ -41,12 +41,12 @@ class hidden_condition extends condition {
     public function __construct($qbank) {
         $filters = $qbank->get_pagevars('filters');
         if (isset($filters['hidden'])) {
-            $filter = (object) $filters['hidden'];
-            if (isset($filter->values[0])) {
+            $this->filter = (object) $filters['hidden'];
+            if (isset($this->filter->values[0])) {
                 $this->hide = (int) $this->filter->values[0];
             }
         }
-        self::build_query_from_filters($filters);
+        list($this->where, $this->params) = self::build_query_from_filters($filters);
     }
 
     public function get_condition_key() {
@@ -87,17 +87,21 @@ class hidden_condition extends condition {
      * @return array where sql and params
      */
     public static function build_query_from_filters(array $filters): array {
-        if (isset($filters['hidden'])) {
-            $filter = (object) $filters['hidden'];
+        if (!isset($filters['hidden'])) {
             $where = "qv.status <> '" . question_version_status::QUESTION_STATUS_HIDDEN . "'";
-            $hide = (int) $filter->values[0];
-            if ($hide === 0) {
-                $where = "qv.status = '" . question_version_status::QUESTION_STATUS_READY .
-                    "' OR qv.status = '" . question_version_status::QUESTION_STATUS_HIDDEN .
-                    "' OR qv.status = '" . question_version_status::QUESTION_STATUS_DRAFT . "'";
-            }
             return [$where, []];
         }
-        return ['', []];
+
+        $filter = (object) $filters['hidden'];
+        $where = "qv.status <> '" . question_version_status::QUESTION_STATUS_HIDDEN . "'";
+        $hide = (int) $filter->values[0];
+        // Show old question 'Yes' is '1'.
+        if ($hide === 1) {
+            $where = "qv.status = '" . question_version_status::QUESTION_STATUS_READY .
+                "' OR qv.status = '" . question_version_status::QUESTION_STATUS_HIDDEN .
+                "' OR qv.status = '" . question_version_status::QUESTION_STATUS_DRAFT . "'";
+        }
+        return [$where, []];
+
     }
 }

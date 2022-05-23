@@ -26,8 +26,16 @@
 require_once(__DIR__ . '/../config.php');
 require_once($CFG->dirroot . '/question/editlib.php');
 
+$filters = optional_param('filter', '', PARAM_TEXT);
+
+$filters = \mod_quiz\question\bank\qbank_helper::filter_query_to_array($filters);
+
 list($thispageurl, $contexts, $cmid, $cm, $module, $pagevars) =
         question_edit_setup('questions', '/question/edit.php');
+
+if (!empty($filters)) {
+    $pagevars['filters'] = $filters;
+}
 
 $url = new moodle_url($thispageurl);
 if (($lastchanged = optional_param('lastchanged', 0, PARAM_INT)) !== 0) {
@@ -39,7 +47,12 @@ if ($PAGE->course->id == $SITE->id) {
     $PAGE->set_primary_active_tab('home');
 }
 
-$questionbank = new core_question\local\bank\view($contexts, $thispageurl, $COURSE, $cm, $pagevars);
+$extraparams = [];
+if ($cm) {
+    $extraparams['cmid'] = $cm->id;
+}
+
+$questionbank = new core_question\local\bank\view($contexts, $thispageurl, $COURSE, $cm, $pagevars, $extraparams);
 
 $context = $contexts->lowest();
 $streditingquestions = get_string('editquestions', 'question');

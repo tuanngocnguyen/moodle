@@ -61,7 +61,6 @@ class custom_view extends \core_question\local\bank\view {
             $filters = [
                 'category' => [
                     'jointype' => custom_category_condition::JOINTYPE_DEFAULT,
-                    'rangetype' => null,
                     'conditionclass' => custom_category_condition::class,
                     'values' => [$category->id],
                 ]

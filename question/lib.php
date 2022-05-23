@@ -116,19 +116,32 @@ function core_question_output_fragment_question_data($args) {
     }
 
     $params = \core_question\local\bank\helper::convert_object_array($filtercondition);
-    $extraparams = \core_question\local\bank\helper::convert_object_array(json_decode($param->extraparams));
-
-    $nodeparent = $PAGE->settingsnav->find('questionbank', \navigation_node::TYPE_CONTAINER);
-    $thispageurl = new \moodle_url($nodeparent->action->get_path());
-    $thispageurl->param('courseid', $params['courseid']);
+    $extraparams = json_decode($param->extraparams);
+    if (!empty($extraparams)) {
+        $extraparams = \core_question\local\bank\helper::convert_object_array($extraparams);
+    } else {
+        $extraparams = [];
+    }
     $thiscontext = \context_course::instance($params['courseid']);
     $contexts = new \core_question\local\bank\question_edit_contexts($thiscontext);
     $contexts->require_one_edit_tab_cap($params['tabname']);
     $course = get_course($params['courseid']);
 
     $viewclass = $extraparams['view'] ?? \core_question\local\bank\view::class;
+    $cm = null;
+    if (isset($extraparams["cmid"])) {
+        list(, $cm) = get_module_from_cmid($extraparams["cmid"]);
+    }
 
-    $questionbank = new $viewclass($contexts, $thispageurl, $course, null, $params, $extraparams);
+    $nodeparent = $PAGE->settingsnav->find('questionbank', \navigation_node::TYPE_CONTAINER);
+    $thispageurl = new \moodle_url($nodeparent->action->get_path());
+    if ($cm) {
+        $thispageurl->param('cmid', $cm->id);
+    } else {
+        $thispageurl->param('courseid', $params['courseid']);
+    }
+
+    $questionbank = new $viewclass($contexts, $thispageurl, $course, $cm, $params, $extraparams);
     list($questionhtml, $jsfooter) = $questionbank->display_questions_table();
     return [$questionhtml, $jsfooter];
 }
