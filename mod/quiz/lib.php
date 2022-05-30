@@ -29,9 +29,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 use mod_quiz\question\bank\custom_view;
+use core_question\statistics\questions\all_calculated_for_qubaid_condition;
 
 require_once($CFG->dirroot . '/calendar/lib.php');
-
 
 /**#@+
  * Option controlling what options are offered on the quiz settings form.
@@ -2484,4 +2484,26 @@ function quiz_delete_references($quizid): void {
         // Delete any references.
         $DB->delete_records('question_references', $params);
     }
+}
+
+/**
+ * Load question stats from a quiz
+ *
+ * @param \stdClass $usage question usage
+ * @return all_calculated_for_qubaid_condition|null question stats
+ */
+function quiz_statistics_calculate_question_stats(\stdClass $usage): ?all_calculated_for_qubaid_condition {
+    global $CFG;
+
+    // Get attempted quiz.
+    $context = context::instance_by_id($usage->contextid);
+    if (!$context) {
+        return null;
+    }
+    $cm = get_coursemodule_from_id('quiz', $context->instanceid);
+
+    // Calculate stats.
+    require_once($CFG->dirroot . '/mod/quiz/report/statistics/report.php');
+    $report = new quiz_statistics_report();
+    return $report->calculate_questions_stats_for_question_bank($cm->instance);
 }
