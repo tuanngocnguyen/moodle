@@ -34,6 +34,49 @@ use quiz_attempt;
 class helper_test extends \advanced_testcase {
 
     /**
+     * Retrieve quizzes from question usage
+     *
+     * @param array $usages question usage
+     * @return array quiz ids
+     */
+    private function get_quizzes_from_contexts(array $usages): array {
+        global $DB;
+        // Get attempted quiz.
+        list($insql, $inparams) = $DB->get_in_or_equal(array_keys($usages),  SQL_PARAMS_NAMED);
+        $quizids = $DB->get_fieldset_sql("
+        SELECT DISTINCT qa.quiz
+                   FROM {quiz_attempts} qa
+                   JOIN {question_usages} qu ON qu.id = qa.uniqueid
+                  WHERE qu.contextid $insql
+                    AND qu.component = 'mod_quiz'",
+            $inparams
+        );
+        return $quizids;
+    }
+
+    /**
+     * Retrieve questions usage in a quiz
+     *
+     * @param int $quizid quiz id
+     * @param int $questionid question id
+     * @return stdClass question usage
+     */
+    private function get_question_usage_in_a_quiz(int $quizid, int $questionid): \stdClass {
+        global $DB;
+        $usage = $DB->get_record_sql("
+        SELECT DISTINCT qu.contextid, qu.component
+                   FROM {question_usages} qu
+                   JOIN {quiz_attempts} qa ON qu.id = qa.uniqueid
+                   JOIN {question_attempts} qatt ON qatt.questionusageid = qu.id
+                  WHERE qatt.questionid = :questionid
+                    AND qa.quiz = :quizid
+                    AND qu.component = 'mod_quiz'",
+            ['quizid' => $quizid, 'questionid' => $questionid]
+        );
+        return $usage;
+    }
+
+    /**
      * Test quizzes that contain a specified question.
      *
      * @throws \coding_exception
@@ -83,23 +126,27 @@ class helper_test extends \advanced_testcase {
         $this->submit_quiz($quiz2, $attempt);
 
         // Checking quizzes that use question 1.
-        $question1quizzes = helper::get_quizzes($question1->id);
-        $this->assertCount(2, $question1quizzes);
-        $this->assertContains($quiz1->id, $question1quizzes);
-        $this->assertContains($quiz2->id, $question1quizzes);
+        $q1contexts = helper::get_using_contexts($question1->id);
+        $q1quizzes = $this->get_quizzes_from_contexts($q1contexts);
+        $this->assertCount(2, $q1quizzes);
+        $this->assertContains($quiz1->id, $q1quizzes);
+        $this->assertContains($quiz2->id, $q1quizzes);
 
         // Checking quizzes that contain question 2.
-        $question2quizzes = helper::get_quizzes($question2->id);
-        $this->assertCount(1, $question2quizzes);
-        $this->assertContains($quiz2->id, $question2quizzes);
+        $q2contexts = helper::get_using_contexts($question2->id);
+        $q2quizzes = $this->get_quizzes_from_contexts($q2contexts);
+        $this->assertCount(1, $q2quizzes);
+        $this->assertContains($quiz2->id, $q2quizzes);
 
         // Add random question to quiz3.
         quiz_add_random_questions($quiz3, 0, $cat->id, 1, false);
         $this->submit_quiz($quiz3, $attempt);
         // Quiz 3 will be in one of these arrays.
-        $question1quizzes = helper::get_quizzes($question1->id);
-        $question2quizzes = helper::get_quizzes($question2->id);
-        $this->assertContains($quiz3->id, array_merge($question1quizzes, $question2quizzes));
+        $q1contexts = helper::get_using_contexts($question1->id);
+        $q1quizzes = $this->get_quizzes_from_contexts($q1contexts);
+        $q2contexts = helper::get_using_contexts($question2->id);
+        $q2quizzes = $this->get_quizzes_from_contexts($q2contexts);
+        $this->assertContains($quiz3->id, array_merge($q1quizzes, $q2quizzes));
     }
 
     /**
@@ -110,7 +157,8 @@ class helper_test extends \advanced_testcase {
      * @return float|int
      */
     private function load_question_facility(object $quiz, int $questionid): ?float {
-        return helper::load_question_stats_item($quiz->id, $questionid, 'facility');
+        $usage = $this->get_question_usage_in_a_quiz($quiz->id, $questionid);
+        return helper::load_question_stats_item($usage, $questionid, 'facility');
     }
 
     /**
@@ -121,7 +169,8 @@ class helper_test extends \advanced_testcase {
      * @return float|int
      */
     private function load_question_discriminative_efficiency(object $quiz, int $questionid): ?float {
-        return helper::load_question_stats_item($quiz->id, $questionid, 'discriminativeefficiency');
+        $usage = $this->get_question_usage_in_a_quiz($quiz->id, $questionid);
+        return helper::load_question_stats_item($usage, $questionid, 'discriminativeefficiency');
     }
 
     /**
@@ -132,7 +181,8 @@ class helper_test extends \advanced_testcase {
      * @return float|int
      */
     private function load_question_discrimination_index(object $quiz, int $questionid): ?float {
-        return helper::load_question_stats_item($quiz->id, $questionid, 'discriminationindex');
+        $usage = $this->get_question_usage_in_a_quiz($quiz->id, $questionid);
+        return helper::load_question_stats_item($usage, $questionid, 'discriminationindex');
     }
 
     /**
