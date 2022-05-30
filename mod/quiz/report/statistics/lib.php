@@ -24,6 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use core_question\statistics\questions\all_calculated_for_qubaid_condition;
 /**
  * Serve questiontext files in the question text when they are displayed in this report.
  *
@@ -58,4 +59,19 @@ function quiz_statistics_question_preview_pluginfile($previewcontext, $questioni
     }
 
     send_stored_file($file, 0, 0, $forcedownload, $options);
+}
+
+/**
+ * Load question stats from a quiz
+ *
+ * @param int $contextid context id of the quiz
+ * @return all_calculated_for_qubaid_condition|null question stats
+ */
+function quiz_statistics_calculate_question_stats(int $contextid): ?all_calculated_for_qubaid_condition {
+    global $CFG;
+    require_once($CFG->dirroot . '/mod/quiz/report/statistics/report.php');
+    $context = context::instance_by_id($contextid);
+    $cm = get_coursemodule_from_id('quiz', $context->instanceid);
+    $report = new quiz_statistics_report();
+    return $report->calculate_questions_stats_for_question_bank($cm->instance);
 }
