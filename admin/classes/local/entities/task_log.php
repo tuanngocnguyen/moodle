@@ -20,6 +20,7 @@ use core_reportbuilder\local\filters\date;
 use core_reportbuilder\local\filters\duration;
 use core_reportbuilder\local\filters\select;
 use core_reportbuilder\local\filters\text;
+use core_reportbuilder\local\filters\text_with_options;
 use core_reportbuilder\local\helpers\format;
 use lang_string;
 use core_reportbuilder\local\entities\base;
@@ -241,13 +242,14 @@ class task_log extends base {
 
         // Name filter (Filter by classname).
         $filters[] = (new filter(
-            text::class,
+            text_with_options::class,
             'name',
             new lang_string('classname', 'tool_task'),
             $this->get_entity_name(),
             "{$tablealias}.classname"
         ))
-            ->add_joins($this->get_joins());
+            ->add_joins($this->get_joins())
+            ->set_options($this->get_all_classnames());
 
         // Type filter.
         $filters[] = (new filter(
@@ -314,5 +316,20 @@ class task_log extends base {
             ->add_joins($this->get_joins());
 
         return $filters;
+    }
+
+    /**
+     * Get task class name in the task log table
+     *
+     * @return array list of task class name
+     */
+    private function get_all_classnames(): array {
+        global $DB;
+        $classnames = $DB->get_fieldset_sql('SELECT DISTINCT classname FROM {task_log} ORDER BY classname ASC');
+        if (!empty($classnames)) {
+            // Make key the same as value (we have unique value).
+            $classnames = array_combine($classnames, $classnames);
+        }
+        return $classnames;
     }
 }

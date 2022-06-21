@@ -32,6 +32,29 @@ Feature: View task logs report and use its filters
       | task\\pickup_task  | Incoming email pickup        | Cleanup event monitor events |
 
   @javascript
+  Scenario Outline: Filter task logs by name with class name select
+    Given I log in as "admin"
+    And I change window size to "large"
+    And I navigate to "Server > Tasks > Task logs" in site administration
+    When I click on "Filters" "button"
+    And I set the following fields in the "Class name" "core_reportbuilder > Filter" to these values:
+      | Class name operator | Is equal to |
+    And I select "<name>" from the "task_log:name_selector" singleselect
+    And I click on "Apply" "button" in the "[data-region='report-filters']" "css_element"
+    Then I should see "Filters applied"
+    And I should see "Filters (1)" in the "#dropdownFiltersButton" "css_element"
+    And the following should exist in the "reportbuilder-table" table:
+      | Type      | Name    |
+      | Scheduled | <match> |
+    And the following should not exist in the "reportbuilder-table" table:
+      | Type      | Name       |
+      | Scheduled | <nonmatch> |
+    Examples:
+      | name                                  | match                        | nonmatch                     |
+      | tool_monitor\task\clean_events        | Cleanup event monitor events | Incoming email pickup        |
+      | tool_messageinbound\task\pickup_task  | Incoming email pickup        | Cleanup event monitor events |
+
+  @javascript
   # Task duration is dependent on many factors, we are asserting here that no task has a duration >2 minutes.
   Scenario Outline: Filter task logs by duration
     Given I log in as "admin"

@@ -135,6 +135,7 @@ $string['filterendswith'] = 'Ends with';
 $string['filterequalorgreaterthan'] = 'Greater than or equal';
 $string['filterequalorlessthan'] = 'Less than or equal';
 $string['filterfieldoperator'] = '{$a} operator';
+$string['filterfieldselector'] = '{$a} selector';
 $string['filterfieldvalue'] = '{$a} value';
 $string['filtergreaterthan'] = 'Greater than';
 $string['filterinvalid'] = 'Invalid filter';
