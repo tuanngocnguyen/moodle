@@ -20,6 +20,7 @@ use core_reportbuilder\local\filters\date;
 use core_reportbuilder\local\filters\duration;
 use core_reportbuilder\local\filters\select;
 use core_reportbuilder\local\filters\text;
+use core_reportbuilder\local\filters\text_with_options;
 use core_reportbuilder\local\helpers\format;
 use lang_string;
 use core_reportbuilder\local\entities\base;
@@ -241,13 +242,17 @@ class task_log extends base {
 
         // Name filter (Filter by classname).
         $filters[] = (new filter(
-            text::class,
+            text_with_options::class,
             'name',
             new lang_string('classname', 'tool_task'),
             $this->get_entity_name(),
             "{$tablealias}.classname"
         ))
-            ->add_joins($this->get_joins());
+            ->add_joins($this->get_joins())
+            ->set_options([
+                \core\task\database_logger::TYPE_ADHOC => new lang_string('task_type:adhoc', 'admin'),
+                \core\task\database_logger::TYPE_SCHEDULED => new lang_string('task_type:scheduled', 'admin'),
+            ]);
 
         // Type filter.
         $filters[] = (new filter(
