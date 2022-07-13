@@ -34,14 +34,25 @@
     {{#str}}qbanksortdescription, qbank_columnsortorder{{/str}}
 </div>
 <br>
-<div class="list list-group" id="qbank_columnsortorder-{{uniqid}}">
-    {{#names}}
-        <div class="column item list-group-item list-group-item-action" data-pluginname={{class}}>
-            {{>core/drag_handle}}
-            {{name}} {{colname}}
-        </div>
-    {{/names}}
-</div>
+
+<table class="generaltable table-responsive" id="qbank_columnsortorder-{{uniqid}}">
+    <thead>
+        <tr class="column item list-group-item list-group-item-action">
+            {{#names}}
+                <th class="border-left header" data-pluginname={{colname}}>
+                    {{>qbank_columnsortorder/column_cell}}
+                </th>
+                <th class="p-0 align-middle border-left border-right" data-action="resize" data-pluginname={{colname}}>
+                    <div class="icon-no-margin" style="margin-left: -8px; margin-right: -8px">
+                        {{#pix}}i/twoway, core{{/pix}}
+                    </div>
+                </th>
+            {{/names}}
+
+        </tr>
+    </thead>
+</table>
+
 <br>
 <div>
     {{#columnsdisabled}}
@@ -58,6 +69,11 @@
     require(['qbank_columnsortorder/sort_columns'], function(SortColumns) {
         SortColumns.init("qbank_columnsortorder-{{uniqid}}");
     });
+
+    require(['qbank_columnsortorder/resize_columns'], function(ResizeColumns) {
+        ResizeColumns.init("qbank_columnsortorder-{{uniqid}}");
+    });
+
 {{/js}}
 <br>
 <div>

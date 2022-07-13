@@ -1,0 +1,49 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template qbank_columnsortorder/column_cell
+
+    This template renders the header of the columns
+
+    Example context (json):
+    {
+        "name": "Question",
+        "colname": "question_name_idnumber_tags_column",
+    }
+}}
+<div class="d-flex justify-content-start">
+    <div>
+        {{>core/drag_handle}}
+    </div>
+    <div>
+        <span class="text-nowrap">
+            <button class="btn btn-link p-0"
+                    data-action="hide-column"
+                    type="button"
+                    title="{{#str}}hidecolumn, qbank_columnsortorder, {{{name}}}{{/str}}"
+                    aria-label="{{#str}}hidecolumn, qbank_columnsortorder, {{{name}}}{{/str}}">
+            </button>
+            {{#pix}}i/hide, core{{/pix}}
+        </span>
+    </div>
+    <div class="w-100">
+        <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted text-nowrap text-uppercase">{{name}}</small>
+        </div>
+<!--        <div>{{{colname}}}</div>-->
+    </div>
+</div>

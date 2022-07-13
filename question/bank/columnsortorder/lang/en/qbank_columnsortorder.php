@@ -23,11 +23,12 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['hidecolumn'] = 'Hide column';
 $string['pluginname'] = 'Column sort order';
 $string['privacy:metadata'] = 'The Column sort order question bank plugin does not store any personal data.';
 $string['qbankcolumnsortorder'] = 'Column sort order';
 $string['qbankgotocolumnsort'] = 'You can change the order of the columns in the question bank on the page {$a}.';
 $string['qbankcolumnsdisabled'] = 'Currently disabled question bank plugins:';
 $string['qbankgotomanageqbanks'] = 'You can remove a column by disabling the plugin in <a href=\'{$a}\'>Manage question bank plugins</a>.';
-$string['qbankcolumnname'] = '({$a})';
+$string['qbankcolumnname'] = '{$a}';
 $string['qbanksortdescription'] = 'The order in which plugins are listed below determines the order of the columns in the question bank.';
