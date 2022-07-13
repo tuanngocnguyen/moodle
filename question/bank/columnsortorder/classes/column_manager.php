@@ -246,6 +246,15 @@ class column_manager {
                 unset($properorder['checkbox_column']);
                 $properorder = array_merge(['checkbox_column' => $checkboxfirstelement], $properorder);
             }
+
+            // Visibility.
+            foreach ($properorder as $column) {
+                if ($column->get_column_name() === "version_number_column" || $column->get_column_name() === "edit_menu_column") {
+                    $column->isvisible = false;
+                }
+            }
+
+
             return $properorder;
         }
         return $ordertosort;

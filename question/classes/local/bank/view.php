@@ -387,7 +387,11 @@ class view {
             if ($column->is_extra_row()) {
                 $this->extrarows[$column->get_column_name()] = $column;
             } else {
-                $this->visiblecolumns[$column->get_column_name()] = $column;
+                // Only add columns which are visible.
+                global $PAGE;
+                if ($PAGE->user_is_editing() || $column->isvisible) {
+                    $this->visiblecolumns[$column->get_column_name()] = $column;
+                }
             }
         }
 

@@ -41,6 +41,9 @@ abstract class column_base {
     /** @var bool determine whether the column is td or th. */
     protected $isheading = false;
 
+    /** @var bool determine whether the column is visible */
+    public $isvisible = true;
+
     /**
      * Constructor.
      * @param view $qbank the question bank view we are helping to render.
@@ -245,6 +248,9 @@ abstract class column_base {
     protected function get_classes(): string {
         $classes = $this->get_extra_classes();
         $classes[] = $this->get_name();
+        if (!$this->isvisible) {
+            $classes[] = " text-secondary";
+        }
         return implode(' ', $classes);
     }
 
