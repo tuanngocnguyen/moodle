@@ -39,13 +39,8 @@
     <thead>
         <tr class="column item list-group-item list-group-item-action">
             {{#names}}
-                <th class="border-left header" data-pluginname={{colname}}>
+                <th class="border-left border-right header" data-pluginname={{colname}}>
                     {{>qbank_columnsortorder/column_cell}}
-                </th>
-                <th class="p-0 align-middle border-left border-right" data-action="resize" data-pluginname={{colname}}>
-                    <div class="icon-no-margin" style="margin-left: -8px; margin-right: -8px">
-                        {{#pix}}i/twoway, core{{/pix}}
-                    </div>
                 </th>
             {{/names}}
 
@@ -70,8 +65,8 @@
         SortColumns.init("qbank_columnsortorder-{{uniqid}}");
     });
 
-    require(['qbank_columnsortorder/resize_columns'], function(ResizeColumns) {
-        ResizeColumns.init("qbank_columnsortorder-{{uniqid}}");
+    require(['core/table_resize_column'], function(ResizeColumns) {
+        ResizeColumns.init("qbank_columnsortorder-{{uniqid}}", "pluginname", ".resize-place-holder");
     });
 
 {{/js}}
