@@ -43,7 +43,6 @@
                     {{>qbank_columnsortorder/column_cell}}
                 </th>
             {{/names}}
-
         </tr>
     </thead>
 </table>
@@ -66,7 +65,7 @@
     });
 
     require(['core/table_resize_column'], function(ResizeColumns) {
-        ResizeColumns.init("qbank_columnsortorder-{{uniqid}}", "pluginname", ".resize-place-holder");
+        ResizeColumns.init("qbank_columnsortorder-{{uniqid}}", "pluginname", ".resize-placeholder");
     });
 
 {{/js}}

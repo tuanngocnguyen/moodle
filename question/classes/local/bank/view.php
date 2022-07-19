@@ -1112,6 +1112,7 @@ class view {
      * @param array $questions
      */
     protected function print_table($questions): void {
+        global $PAGE;
         // Start of the table.
         echo \html_writer::start_tag('table', ['id' => 'categoryquestions', 'class' => 'table-responsive']);
 
@@ -1133,6 +1134,11 @@ class view {
 
         // End of the table.
         echo \html_writer::end_tag('table');
+
+        // Add Resize column script.
+        if ($PAGE->user_is_editing()) {
+            $PAGE->requires->js_call_amd('core/table_resize_column', 'init', ['categoryquestions', 'pluginname', '.resize-placeholder']);
+        }
     }
 
     /**
