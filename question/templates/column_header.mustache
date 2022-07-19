@@ -49,25 +49,31 @@
         "tip": "Select questions for bulk actions"
     }
 }}
-<th class="header {{extraclasses}}" scope="col">
-    {{#title}}
-        <div class="title">{{title}}</div>
-    {{/title}}
-    {{^sortable}}
-        {{^sorttip}}
-            {{tiptitle}}
-        {{/sorttip}}
-        {{#sorttip}}
-            <span title="{{tip}}">{{{tiptitle}}}</span>
-        {{/sorttip}}
-    {{/sortable}}
-    {{#sortable}}
-        <div class="sorters">
-            {{{sortlinks}}}
+<th class="header {{extraclasses}}" scope="col" data-pluginname={{colname}}>
+    <div class="d-flex justify-content-start">
+        <div class="w-100">
+            {{#title}}
+                <div class="title">{{title}}</div>
+            {{/title}}
+            {{^sortable}}
+                {{^sorttip}}
+                    {{tiptitle}}
+                {{/sorttip}}
+                {{#sorttip}}
+                    <span title="{{tip}}">{{{tiptitle}}}</span>
+                {{/sorttip}}
+            {{/sortable}}
+            {{#sortable}}
+                <div class="sorters">
+                    {{{sortlinks}}}
+                </div>
+            {{/sortable}}
+            {{#help}}
+                {{>core/help_icon}}
+            {{/help}}
         </div>
-    {{/sortable}}
-    {{#help}}
-        {{>core/help_icon}}
-    {{/help}}
+        <div class="icon-no-margin resize-placeholder" style="margin-left: 5px; margin-right: 0px">
+        </div>
+    </div>
 </th>
 
