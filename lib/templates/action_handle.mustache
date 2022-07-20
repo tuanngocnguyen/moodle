@@ -15,7 +15,7 @@
     along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 }}
 {{!
-    @template core/resize_handle
+    @template core/action_handle
 
     This template renders the header of the columns
 
@@ -26,8 +26,10 @@
     }
 }}
 <span tabindex="0" role="button" aria-haspopup="true"
-      data-action="resize"
+      data-action="{{action}}"
       data-target="{{target}}"
-      title="{{resizetitle}}">
-    {{#pix}}i/twoway, core{{/pix}}
+      title="{{title}}">
+        {{#pixicon}}
+            {{#pix}}{{pixicon}}, {{pixcomponent}}{{/pix}}
+        {{/pixicon}}
 </span>
