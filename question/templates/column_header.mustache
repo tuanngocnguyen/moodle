@@ -51,6 +51,14 @@
 }}
 <th class="header {{extraclasses}}" scope="col" data-pluginname={{colname}}>
     <div class="d-flex justify-content-start">
+
+        <div>
+            {{>core/drag_handle}}
+        </div>
+
+        <div class="hide-placeholder">
+        </div>
+
         <div class="w-100">
             {{#title}}
                 <div class="title">{{title}}</div>

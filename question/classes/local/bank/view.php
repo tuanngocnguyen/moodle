@@ -1135,9 +1135,14 @@ class view {
         // End of the table.
         echo \html_writer::end_tag('table');
 
-        // Add Resize column script.
+        // 'Resize column' script.
         if ($PAGE->user_is_editing()) {
             $PAGE->requires->js_call_amd('core/table_resize_column', 'init', ['categoryquestions', 'pluginname', '.resize-placeholder']);
+        }
+
+        // 'Hide column' script.
+        if ($PAGE->user_is_editing()) {
+            $PAGE->requires->js_call_amd('core/table_hide_column', 'init', ['categoryquestions', 'pluginname', '.hide-placeholder']);
         }
     }
 

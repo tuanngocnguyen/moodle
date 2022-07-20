@@ -68,6 +68,10 @@
         ResizeColumns.init("qbank_columnsortorder-{{uniqid}}", "pluginname", ".resize-placeholder");
     });
 
+    require(['core/table_hide_column'], function(HideColumns) {
+        HideColumns.init("qbank_columnsortorder-{{uniqid}}", "pluginname", ".hide-placeholder");
+    });
+
 {{/js}}
 <br>
 <div>
