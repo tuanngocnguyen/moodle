@@ -1137,13 +1137,9 @@ class view {
 
         // 'Resize column' script.
         if ($PAGE->user_is_editing()) {
-            $PAGE->requires->js_call_amd('core/table_resize_column', 'init', ['categoryquestions', 'pluginname', '.resize-placeholder']);
+            $PAGE->requires->js_call_amd('core_question/question_bank_table', 'init');
         }
 
-        // 'Hide column' script.
-        if ($PAGE->user_is_editing()) {
-            $PAGE->requires->js_call_amd('core/table_hide_column', 'init', ['categoryquestions', 'pluginname', '.hide-placeholder']);
-        }
     }
 
     /**
