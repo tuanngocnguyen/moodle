@@ -1113,6 +1113,11 @@ class view {
      */
     protected function print_table($questions): void {
         global $PAGE;
+        // Show/hide colum dropdown.
+        if ($PAGE->user_is_editing()) {
+            echo \html_writer::div('', '', ['id' => "show-hide-dropdown"]);
+        }
+
         // Start of the table.
         echo \html_writer::start_tag('table', ['id' => 'categoryquestions', 'class' => 'table-responsive']);
 

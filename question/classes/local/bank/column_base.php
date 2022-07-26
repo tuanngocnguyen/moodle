@@ -107,7 +107,6 @@ abstract class column_base {
         $data['extraclasses'] = $this->get_classes();
         $sortable = $this->is_sortable();
         $name = get_class($this);
-        $data['colname'] = $this->get_column_name();
         $title = $this->get_title();
         $tip = $this->get_title_tip();
         $links = [];
@@ -134,6 +133,9 @@ abstract class column_base {
         if ($help) {
             $data['help'] = $help->export_for_template($renderer);
         }
+
+        $data['colname'] = $this->get_column_name();
+        $data['name'] = $title;
 
         echo $renderer->render_column_header($data);
     }
