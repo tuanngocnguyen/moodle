@@ -22,14 +22,16 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import {setUpTable, setUpMoveHandle, setUpPinHandle, setUpResizeHandle} from 'core/table_column_action';
+import {setUpTable, setUpMoveHandle, setUpPinHandle, setUpResizeHandle, setUpHideShowDropdown} from 'core/table_column_action';
 
 /**
  * Initialize module
  */
 export const init = () => {
-    setUpTable("categoryquestions", "pluginname");
+    setUpTable("categoryquestions", "pluginname", "name");
+    setUpHideShowDropdown("#show-hide-dropdown");
     setUpMoveHandle(".move-handle");
     setUpPinHandle(".pin-handle");
     setUpResizeHandle(".resize-handle");
+
 };

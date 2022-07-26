@@ -34,13 +34,13 @@
     {{#str}}qbanksortdescription, qbank_columnsortorder{{/str}}
 </div>
 <br>
-<div class="show-hide-dropdown">
+<div id="show-hide-dropdown">
 </div>
 <table class="generaltable table-responsive" id="qbank_columnsortorder-{{uniqid}}">
     <thead>
         <tr class="column item list-group-item list-group-item-action">
             {{#names}}
-                <th class="border-left border-right header" data-pluginname={{colname}}>
+                <th class="border-left border-right header" data-pluginname="{{colname}}" data-name="{{name}}">
                     {{>qbank_columnsortorder/column_cell}}
                 </th>
             {{/names}}
@@ -66,7 +66,8 @@
     });
 
     require(['core/table_column_action'], function(ColumnAction) {
-        ColumnAction.setUpTable("qbank_columnsortorder-{{uniqid}}", "pluginname");
+        ColumnAction.setUpTable("qbank_columnsortorder-{{uniqid}}", "pluginname", "name");
+        ColumnAction.setUpHideShowDropdown("#show-hide-dropdown");
         ColumnAction.setUpMoveHandle(".move-handle");
         ColumnAction.setUpPinHandle(".pin-handle");
         ColumnAction.setUpResizeHandle(".resize-handle");
