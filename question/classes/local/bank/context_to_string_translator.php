@@ -83,8 +83,12 @@ class context_to_string_translator {
                     case CONTEXT_SYSTEM :
                         $contextstring = 'system';
                         break;
+                    default:
+                        $contextstring = '';
                 }
-                $this->contexttostringarray[$context->id] = $contextstring;
+                if ($contextstring) {
+                    $this->contexttostringarray[$context->id] = $contextstring;
+                }
             }
         }
     }
