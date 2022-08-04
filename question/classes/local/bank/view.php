@@ -1140,7 +1140,7 @@ class view {
         // End of the table.
         echo \html_writer::end_tag('table');
 
-        // 'Resize column' script.
+        // Column Action script.
         if ($PAGE->user_is_editing()) {
             $PAGE->requires->js_call_amd('core_question/question_bank_table', 'init');
         }

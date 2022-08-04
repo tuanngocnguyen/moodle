@@ -251,9 +251,6 @@ abstract class column_base {
     protected function get_classes(): string {
         $classes = $this->get_extra_classes();
         $classes[] = $this->get_name();
-        if (!$this->isvisible) {
-            $classes[] = " text-secondary";
-        }
         return implode(' ', $classes);
     }
 
