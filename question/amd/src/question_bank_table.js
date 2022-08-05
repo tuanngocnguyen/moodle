@@ -23,15 +23,30 @@
  */
 
 import {setUpTable, setUpMoveHandle, setUpPinHandle, setUpResizeHandle, setUpHideShowDropdown} from 'core/table_column_action';
+import Notification from 'core/notification';
+import Ajax from 'core/ajax';
 
 /**
  * Initialize module
  */
 export const init = () => {
     setUpTable("categoryquestions", "pluginname", "name");
-    setUpHideShowDropdown("#show-hide-dropdown");
-    setUpMoveHandle(".move-handle");
-    setUpPinHandle(".pin-handle");
-    setUpResizeHandle(".resize-handle");
+    setUpHideShowDropdown("#show-hide-dropdown", (args) => {
+        console.log(args);
+    });
+    setUpMoveHandle(".move-handle", (columns) => {
+        const call = {
+            methodname: 'qbank_columnsortorder_set_columnbank_order',
+            args: {columns},
+        };
+        Ajax.call([call])[0]
+            .catch(Notification.exception);
+    });
+    setUpPinHandle(".pin-handle", (args) => {
+        console.log(args);
+    });
+    setUpResizeHandle(".resize-handle", (args) => {
+        console.log(args);
+    });
 
 };
