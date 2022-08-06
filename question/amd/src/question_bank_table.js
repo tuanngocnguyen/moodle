@@ -37,7 +37,7 @@ export const init = () => {
     setUpMoveHandle(".move-handle", (columns) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_columnbank_order',
-            args: {columns},
+            args: {columns: columns, default: false},
         };
         Ajax.call([call])[0]
             .catch(Notification.exception);

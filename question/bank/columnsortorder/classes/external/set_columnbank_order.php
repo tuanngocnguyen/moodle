@@ -17,6 +17,7 @@
 namespace qbank_columnsortorder\external;
 
 use context_system;
+use Exception;
 use external_api;
 use external_function_parameters;
 use external_multiple_structure;
@@ -42,7 +43,8 @@ class set_columnbank_order extends external_api {
         return new external_function_parameters([
             'columns' => new external_multiple_structure(
                 new external_value(PARAM_TEXT, 'Plugin name for the column', VALUE_REQUIRED)
-            )
+            ),
+            'default' => new external_value(PARAM_BOOL, 'Is this user preference or site default', VALUE_DEFAULT, true),
         ]);
     }
 
@@ -57,13 +59,23 @@ class set_columnbank_order extends external_api {
      * Returns the columns plugin order.
      *
      * @param array $columns json string representing new column order.
+     * @param bool $default true if it is site default.
      */
-    public static function execute(array $columns): void {
-        ['columns' => $columns] = self::validate_parameters(self::execute_parameters(), ['columns' => $columns]);
+    public static function execute(array $columns, bool $default): void {
+        [
+            'columns' => $columns,
+            'default' => $default,
+        ]
+            = self::validate_parameters(self::execute_parameters(),
+        [
+            'columns' => $columns,
+            'default' => $default,
+        ]);
         $context = context_system::instance();
         self::validate_context($context);
+        // TODO: Discuss required caps at siteadmin / course page.
         require_capability('moodle/category:manage', $context);
 
-        column_manager::set_column_order($columns);
+        column_manager::set_column_order($columns, $default);
     }
 }

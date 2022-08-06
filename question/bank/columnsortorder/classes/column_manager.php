@@ -48,8 +48,13 @@ class column_manager {
      * Constructor for column_manager class.
      *
      */
-    public function __construct() {
-        $this->columnorder = get_config('qbank_columnsortorder', 'enabledcol');
+    public function __construct(bool $default = true) {
+        $defaultorder = get_config('qbank_columnsortorder', 'enabledcol');
+        if ($default) {
+            $this->columnorder = $defaultorder;
+        } else {
+            $this->columnorder = get_user_preferences('qbank_columnsortorder_enabledcol', $defaultorder);
+        }
         $this->disabledcolumns = get_config('qbank_columnsortorder', 'disabledcol');
         if ($this->columnorder) {
             $this->columnorder = array_flip(explode(',', $this->columnorder));
@@ -63,10 +68,15 @@ class column_manager {
      * Sets column order in the qbank_columnsortorder plugin config.
      *
      * @param array $columns Column order to set.
+     * @param bool $default true if it is site default.
      */
-    public static function set_column_order(array $columns) : void {
+    public static function set_column_order(array $columns, bool $default) : void {
         $columns = implode(',', $columns);
-        set_config('enabledcol', $columns, 'qbank_columnsortorder');
+        if ($default) {
+            set_config('enabledcol', $columns, 'qbank_columnsortorder');
+        } else {
+            set_user_preference('qbank_columnsortorder_enabledcol', $columns);
+        }
     }
 
     /**

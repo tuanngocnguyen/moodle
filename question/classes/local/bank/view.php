@@ -312,7 +312,14 @@ class view {
 
         // Check if qbank_columnsortorder is enabled.
         if (array_key_exists('columnsortorder', core_plugin_manager::instance()->get_enabled_plugins('qbank'))) {
-            $columnorder = new column_manager();
+            if ($this->course->id) {
+                // Site admin context
+                $default = false;
+            } else {
+                // Course or module context.
+                $default = true;
+            }
+            $columnorder = new column_manager($default);
             $questionbankclasscolumns = $columnorder->get_sorted_columns($questionbankclasscolumns);
         }
 
