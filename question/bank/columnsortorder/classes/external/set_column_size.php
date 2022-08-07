@@ -76,6 +76,6 @@ class set_column_size extends external_api {
         // TODO: Discuss required caps at siteadmin / course page.
         require_capability('moodle/category:manage', $context);
 
-        column_manager::set_pinned_columns($columns, $default);
+        column_manager::set_column_size($columns, $default);
     }
 }
