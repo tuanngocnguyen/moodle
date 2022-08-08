@@ -80,6 +80,9 @@ class column_manager {
             $this->hiddencolumns = get_user_preferences('qbank_columnsortorder_hiddencols', $defaulthidden);
             $this->colsize = get_user_preferences('qbank_columnsortorder_colsize', $defaultsize);
         }
+        // To array.
+        $this->pinnedcolumns = explode(',', $this->pinnedcolumns);
+
         $this->disabledcolumns = get_config('qbank_columnsortorder', 'disabledcol');
         if ($this->columnorder) {
             $this->columnorder = array_flip(explode(',', $this->columnorder));

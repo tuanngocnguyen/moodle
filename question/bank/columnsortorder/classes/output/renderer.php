@@ -47,6 +47,7 @@ class renderer extends plugin_renderer_base {
             $params['names'][] = ['name' => $name, 'colname' => $colname, 'class' => $columnname->class];
         }
         $params['disabled'] = $disabledcolumns;
+        $params['pinnedcolumns'] = json_encode($columnsortorder->pinnedcolumns);
         $params['columnsdisabled'] = (!empty($params['disabled'])) ? true : false;
         $urltoredirect = new moodle_url('/admin/settings.php', ['section' => 'manageqbanks']);
 

@@ -78,7 +78,8 @@
                 .catch(Notification.exception);
         });
 
-        ColumnAction.setUpPinHandle(".pin-handle", (columns) => {
+        const currentPinnedColumns = {{{pinnedcolumns}}};
+        ColumnAction.setUpPinHandle(".pin-handle", currentPinnedColumns, (columns) => {
             console.log(columns);
             const call = {
                 methodname: 'qbank_columnsortorder_set_pinned_columns',
