@@ -82,6 +82,8 @@ class column_manager {
         }
         // To array.
         $this->pinnedcolumns = explode(',', $this->pinnedcolumns);
+        $this->hiddencolumns = explode(',', $this->hiddencolumns);
+//         $this->colsize = json_decode($this->colsize);
 
         $this->disabledcolumns = get_config('qbank_columnsortorder', 'disabledcol');
         if ($this->columnorder) {
@@ -140,15 +142,15 @@ class column_manager {
     /**
      * Column size.
      *
-     * @param array $columns columns with width
+     * @param string $columns columns with width
      * @param bool $default true if it is site default.
      */
-    public static function set_column_size(array $columns, bool $default) : void {
-        $columns = implode(',', $columns);
+    public static function set_column_size(string $sizes, bool $default) : void {
+//         $columns = implode(',', $columns);
         if ($default) {
-            set_config('colsize', $columns, 'qbank_columnsortorder');
+            set_config('colsize', $sizes, 'qbank_columnsortorder');
         } else {
-            set_user_preference('qbank_columnsortorder_colsize', $columns);
+            set_user_preference('qbank_columnsortorder_colsize', $sizes);
         }
     }
 
@@ -331,12 +333,11 @@ class column_manager {
             }
 
             // Visibility.
-            foreach ($properorder as $column) {
-                if ($column->get_column_name() === "version_number_column" || $column->get_column_name() === "edit_menu_column") {
-                    $column->isvisible = false;
-                }
-            }
-
+//             foreach ($properorder as $column) {
+//                 if (in_array($column->get_column_name(), $this->hiddencolumns)) {
+//                     $column->isvisible = false;
+//                 }
+//             }
 
             return $properorder;
         }

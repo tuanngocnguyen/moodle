@@ -28,12 +28,21 @@ import Ajax from 'core/ajax';
 
 /**
  * Initialize module
+ * @param {Array} currentHiddenColumns current hidden columns
+ * @param {Array} currentPinnedColumns current pinned columns
  */
-export const init = () => {
+export const init = (currentHiddenColumns, currentPinnedColumns) => {
     setUpTable("categoryquestions", "pluginname", "name");
-    setUpHideShowDropdown("#show-hide-dropdown", (args) => {
-        console.log(args);
+
+    setUpHideShowDropdown("#show-hide-dropdown", currentHiddenColumns, (args) => {
+        const call = {
+            methodname: 'qbank_columnsortorder_set_hidden_columns',
+            args: {columns: columns, default: false},
+        };
+        Ajax.call([call])[0]
+            .catch(Notification.exception);
     });
+
     setUpMoveHandle(".move-handle", (columns) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_columnbank_order',
@@ -42,9 +51,16 @@ export const init = () => {
         Ajax.call([call])[0]
             .catch(Notification.exception);
     });
-    setUpPinHandle(".pin-handle", (args) => {
-        console.log(args);
+
+    setUpPinHandle(".pin-handle", currentPinnedColumns, (args) => {
+        const call = {
+            methodname: 'qbank_columnsortorder_set_pinned_columns',
+            args: {columns: columns, default: false},
+        };
+        Ajax.call([call])[0]
+            .catch(Notification.exception);
     });
+
     setUpResizeHandle(".resize-handle", (args) => {
         console.log(args);
     });

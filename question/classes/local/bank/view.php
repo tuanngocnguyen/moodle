@@ -1149,7 +1149,11 @@ class view {
 
         // Column Action script.
         if ($PAGE->user_is_editing()) {
-            $PAGE->requires->js_call_amd('core_question/question_bank_table', 'init');
+            $columnsortorder = new column_manager(false);
+            $pinnedcolumns = $columnsortorder->pinnedcolumns;
+            $hiddencolumns = $columnsortorder->hiddencolumns;
+            $PAGE->requires->js_call_amd('core_question/question_bank_table', 'init',
+                [$hiddencolumns, $pinnedcolumns]);
         }
 
     }

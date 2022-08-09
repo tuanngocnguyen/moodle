@@ -64,8 +64,15 @@
     require(['core/table_column_action', 'core/ajax', 'core/notification'], function(ColumnAction, Ajax, Notification) {
         ColumnAction.setUpTable("qbank_columnsortorder-{{uniqid}}", "pluginname", "name");
 
-        ColumnAction.setUpHideShowDropdown("#show-hide-dropdown", (columns) => {
+        const currentHiddenColumns = {{{hiddencolumns}}};
+        ColumnAction.setUpHideShowDropdown("#show-hide-dropdown", currentHiddenColumns, (columns) => {
             console.log(columns);
+            const call = {
+                methodname: 'qbank_columnsortorder_set_hidden_columns',
+                args: {columns},
+            };
+            Ajax.call([call])[0]
+                .catch(Notification.exception);
         });
 
         ColumnAction.setUpMoveHandle(".move-handle", (columns) => {
@@ -89,8 +96,16 @@
                 .catch(Notification.exception);
         });
 
-        ColumnAction.setUpResizeHandle(".resize-handle", (columnSize) => {
-            console.log(columnSize);
+        const currentColsize = {{{colsize}}};
+        console.log(currentColsize);
+        ColumnAction.setUpResizeHandle(".resize-handle", currentColsize, (sizes) => {
+            console.log(sizes);
+            const call = {
+                methodname: 'qbank_columnsortorder_set_column_size',
+                args: {sizes},
+            };
+            Ajax.call([call])[0]
+                .catch(Notification.exception);
         });
     });
 {{/js}}
