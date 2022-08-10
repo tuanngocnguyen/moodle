@@ -1152,8 +1152,9 @@ class view {
             $columnsortorder = new column_manager(false);
             $pinnedcolumns = $columnsortorder->pinnedcolumns;
             $hiddencolumns = $columnsortorder->hiddencolumns;
+            $colsize = $columnsortorder->colsize;
             $PAGE->requires->js_call_amd('core_question/question_bank_table', 'init',
-                [$hiddencolumns, $pinnedcolumns]);
+                [$hiddencolumns, $pinnedcolumns, $colsize]);
         }
 
     }

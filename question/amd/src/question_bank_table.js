@@ -30,11 +30,12 @@ import Ajax from 'core/ajax';
  * Initialize module
  * @param {Array} currentHiddenColumns current hidden columns
  * @param {Array} currentPinnedColumns current pinned columns
+ * @param {String} currentColumnSize current pinned columns
  */
-export const init = (currentHiddenColumns, currentPinnedColumns) => {
+export const init = (currentHiddenColumns, currentPinnedColumns, currentColumnSize) => {
     setUpTable("categoryquestions", "pluginname", "name");
 
-    setUpHideShowDropdown("#show-hide-dropdown", currentHiddenColumns, (args) => {
+    setUpHideShowDropdown("#show-hide-dropdown", currentHiddenColumns, (columns) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_hidden_columns',
             args: {columns: columns, default: false},
@@ -52,7 +53,7 @@ export const init = (currentHiddenColumns, currentPinnedColumns) => {
             .catch(Notification.exception);
     });
 
-    setUpPinHandle(".pin-handle", currentPinnedColumns, (args) => {
+    setUpPinHandle(".pin-handle", currentPinnedColumns, (columns) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_pinned_columns',
             args: {columns: columns, default: false},
@@ -61,8 +62,13 @@ export const init = (currentHiddenColumns, currentPinnedColumns) => {
             .catch(Notification.exception);
     });
 
-    setUpResizeHandle(".resize-handle", (args) => {
-        console.log(args);
+    setUpResizeHandle(".resize-handle", currentColumnSize, (sizes) => {
+        const call = {
+            methodname: 'qbank_columnsortorder_set_column_size',
+            args: {sizes: sizes, default: false},
+        };
+        Ajax.call([call])[0]
+            .catch(Notification.exception);
     });
 
 };

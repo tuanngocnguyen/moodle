@@ -146,7 +146,6 @@ class column_manager {
      * @param bool $default true if it is site default.
      */
     public static function set_column_size(string $sizes, bool $default) : void {
-//         $columns = implode(',', $columns);
         if ($default) {
             set_config('colsize', $sizes, 'qbank_columnsortorder');
         } else {
