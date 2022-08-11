@@ -1120,9 +1120,16 @@ class view {
      */
     protected function print_table($questions): void {
         global $PAGE;
-        // Show/hide colum dropdown.
+
         if ($PAGE->user_is_editing()) {
+            // Show/hide colum dropdown.
             echo \html_writer::div('', '', ['id' => "show-hide-dropdown"]);
+
+            $url = new \moodle_url('/question/bank/columnsortorder/reset_preference.php', [
+                'returnurl' => $this->returnurl,
+                'sesskey' => sesskey()
+            ]);
+            echo \html_writer::link($url, get_string('reset'));
         }
 
         // Start of the table.

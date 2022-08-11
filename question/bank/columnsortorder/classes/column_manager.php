@@ -83,7 +83,6 @@ class column_manager {
         // To array.
         $this->pinnedcolumns = explode(',', $this->pinnedcolumns);
         $this->hiddencolumns = explode(',', $this->hiddencolumns);
-//         $this->colsize = json_decode($this->colsize);
 
         $this->disabledcolumns = get_config('qbank_columnsortorder', 'disabledcol');
         if ($this->columnorder) {
