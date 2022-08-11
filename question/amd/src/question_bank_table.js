@@ -38,7 +38,7 @@ export const init = (currentHiddenColumns, currentPinnedColumns, currentColumnSi
     setUpHideShowDropdown("#show-hide-dropdown", currentHiddenColumns, (columns) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_hidden_columns',
-            args: {columns: columns, default: false},
+            args: {columns: columns, preference: 'qbank_view'},
         };
         Ajax.call([call])[0]
             .catch(Notification.exception);
@@ -47,7 +47,7 @@ export const init = (currentHiddenColumns, currentPinnedColumns, currentColumnSi
     setUpMoveHandle(".move-handle", (columns) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_columnbank_order',
-            args: {columns: columns, default: false},
+            args: {columns: columns, preference: 'qbank_view'},
         };
         Ajax.call([call])[0]
             .catch(Notification.exception);
@@ -56,7 +56,7 @@ export const init = (currentHiddenColumns, currentPinnedColumns, currentColumnSi
     setUpPinHandle(".pin-handle", currentPinnedColumns, (columns) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_pinned_columns',
-            args: {columns: columns, default: false},
+            args: {columns: columns, preference: 'qbank_view'},
         };
         Ajax.call([call])[0]
             .catch(Notification.exception);
@@ -65,7 +65,7 @@ export const init = (currentHiddenColumns, currentPinnedColumns, currentColumnSi
     setUpResizeHandle(".resize-handle", currentColumnSize, (sizes) => {
         const call = {
             methodname: 'qbank_columnsortorder_set_column_size',
-            args: {sizes: sizes, default: false},
+            args: {sizes: sizes, preference: 'qbank_view'},
         };
         Ajax.call([call])[0]
             .catch(Notification.exception);

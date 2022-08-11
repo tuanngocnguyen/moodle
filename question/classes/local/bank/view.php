@@ -314,12 +314,12 @@ class view {
         if (array_key_exists('columnsortorder', core_plugin_manager::instance()->get_enabled_plugins('qbank'))) {
             if ($this->course->id) {
                 // Site admin context
-                $default = false;
+                $preference = "";
             } else {
                 // Course or module context.
-                $default = true;
+                $preference = 'qbank_view';
             }
-            $columnorder = new column_manager($default);
+            $columnorder = new column_manager($preference);
             $questionbankclasscolumns = $columnorder->get_sorted_columns($questionbankclasscolumns);
         }
 
@@ -1127,6 +1127,7 @@ class view {
 
             $url = new \moodle_url('/question/bank/columnsortorder/reset_preference.php', [
                 'returnurl' => $this->returnurl,
+                'preference' => 'qbank_view',
                 'sesskey' => sesskey()
             ]);
             echo \html_writer::link($url, get_string('reset'));
@@ -1156,7 +1157,7 @@ class view {
 
         // Column Action script.
         if ($PAGE->user_is_editing()) {
-            $columnsortorder = new column_manager(false);
+            $columnsortorder = new column_manager('qbank_view');
             $pinnedcolumns = $columnsortorder->pinnedcolumns;
             $hiddencolumns = $columnsortorder->hiddencolumns;
             $colsize = $columnsortorder->colsize;

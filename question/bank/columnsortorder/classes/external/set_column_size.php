@@ -42,7 +42,7 @@ class set_column_size extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'sizes' => new external_value(PARAM_TEXT, 'Size for each column', VALUE_REQUIRED),
-            'default' => new external_value(PARAM_BOOL, 'Is this user preference or site default', VALUE_DEFAULT, true),
+            'preference' => new external_value(PARAM_TEXT, 'User preference', VALUE_DEFAULT, ''),
         ]);
     }
 
@@ -54,26 +54,26 @@ class set_column_size extends external_api {
     }
 
     /**
-     * Sticky Columns.
+     * Column sizes.
      *
-     * @param string $columns json string representing pinned columns.
-     * @param bool $default true if it is site default.
+     * @param string $sizes json string representing pinned columns.
+     * @param string $preference name of user preference.
      */
-    public static function execute(string $sizes, bool $default): void {
+    public static function execute(string $sizes, string $preference = ''): void {
         [
             'sizes' => $sizes,
-            'default' => $default,
+            'preference' => $preference,
         ]
             = self::validate_parameters(self::execute_parameters(),
         [
             'sizes' => $sizes,
-            'default' => $default,
+            'preference' => $preference,
         ]);
         $context = context_system::instance();
         self::validate_context($context);
         // TODO: Discuss required caps at siteadmin / course page.
         require_capability('moodle/category:manage', $context);
 
-        column_manager::set_column_size($sizes, $default);
+        column_manager::set_column_size($sizes, $preference);
     }
 }

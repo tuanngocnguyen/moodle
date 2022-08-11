@@ -26,14 +26,15 @@
 require_once(__DIR__ . '/../../../config.php');
 
 $returnurl = required_param('returnurl', PARAM_LOCALURL);
+$preference = required_param('preference', PARAM_TEXT);
 
 require_sesskey();
 require_login();
 
 // Reset user preference.
-unset_user_preference('qbank_columnsortorder_enabledcol');
-unset_user_preference('qbank_columnsortorder_pinnedcols');
-unset_user_preference('qbank_columnsortorder_hiddencols');
-unset_user_preference('qbank_columnsortorder_colsize');
+unset_user_preference("${preference}_enabledcol");
+unset_user_preference("${preference}_pinnedcols");
+unset_user_preference("${preference}_hiddencols");
+unset_user_preference("${preference}_colsize");
 
 redirect($returnurl);

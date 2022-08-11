@@ -63,22 +63,22 @@ class column_manager {
      * Constructor for column_manager class.
      *
      */
-    public function __construct(bool $default = true) {
+    public function __construct($preference = '') {
         $defaultorder = get_config('qbank_columnsortorder', 'enabledcol');
         $defaultpinned = get_config('qbank_columnsortorder', 'pinnedcols');
         $defaulthidden = get_config('qbank_columnsortorder', 'hiddencols');
         $defaultsize = get_config('qbank_columnsortorder', 'colsize');
 
-        if ($default) {
-            $this->columnorder = $defaultorder;
-            $this->pinnedcolumns = $defaultpinned;
-            $this->hiddencolumns = $defaulthidden;
-            $this->colsize = $defaultsize;
+        if (empty($preference)) {
+            $this->columnorder = $defaultorder ?: '';
+            $this->pinnedcolumns = $defaultpinned ?: '';
+            $this->hiddencolumns = $defaulthidden ?: '';
+            $this->colsize = $defaultsize ?: '';
         } else {
-            $this->columnorder = get_user_preferences('qbank_columnsortorder_enabledcol', $defaultorder);
-            $this->pinnedcolumns = get_user_preferences('qbank_columnsortorder_pinnedcols', $defaultpinned);
-            $this->hiddencolumns = get_user_preferences('qbank_columnsortorder_hiddencols', $defaulthidden);
-            $this->colsize = get_user_preferences('qbank_columnsortorder_colsize', $defaultsize);
+            $this->columnorder = get_user_preferences("${preference}_enabledcol", $defaultorder);
+            $this->pinnedcolumns = get_user_preferences("${preference}_pinnedcols", $defaultpinned);
+            $this->hiddencolumns = get_user_preferences("${preference}_hiddencols", $defaulthidden);
+            $this->colsize = get_user_preferences("${preference}_colsize", $defaultsize);
         }
         // To array.
         $this->pinnedcolumns = explode(',', $this->pinnedcolumns);
@@ -97,58 +97,58 @@ class column_manager {
      * Sets column order in the qbank_columnsortorder plugin config.
      *
      * @param array $columns Column order to set.
-     * @param bool $default true if it is site default.
+     * @param string $preference name of user preference.
      */
-    public static function set_column_order(array $columns, bool $default) : void {
+    public static function set_column_order(array $columns, string $preference = '') : void {
         $columns = implode(',', $columns);
-        if ($default) {
-            set_config('enabledcol', $columns, 'qbank_columnsortorder');
-        } else {
-            set_user_preference('qbank_columnsortorder_enabledcol', $columns);
-        }
+        self::save_preference('enabledcol', $columns, $preference);
     }
 
     /**
      * Pinned Columns.
      *
      * @param array $columns pinned columns.
-     * @param bool $default true if it is site default.
+     * @param string $preference name of user preference.
      */
-    public static function set_pinned_columns(array $columns, bool $default) : void {
+    public static function set_pinned_columns(array $columns, string $preference = '') : void {
         $columns = implode(',', $columns);
-        if ($default) {
-            set_config('pinnedcols', $columns, 'qbank_columnsortorder');
-        } else {
-            set_user_preference('qbank_columnsortorder_pinnedcols', $columns);
-        }
+        self::save_preference('pinnedcols', $columns, $preference);
     }
 
     /**
      * Hidden Columns.
      *
      * @param array $columns hidden columns
-     * @param bool $default true if it is site default.
+     * @param string $preference name of user preference.
      */
-    public static function set_hidden_columns(array $columns, bool $default) : void {
+    public static function set_hidden_columns(array $columns, string $preference = '') : void {
         $columns = implode(',', $columns);
-        if ($default) {
-            set_config('hiddencols', $columns, 'qbank_columnsortorder');
-        } else {
-            set_user_preference('qbank_columnsortorder_hiddencols', $columns);
-        }
+        self::save_preference('hiddencols', $columns, $preference);
     }
 
     /**
      * Column size.
      *
      * @param string $columns columns with width
-     * @param bool $default true if it is site default.
+     * @param string $preference name of user preference.
      */
-    public static function set_column_size(string $sizes, bool $default) : void {
-        if ($default) {
-            set_config('colsize', $sizes, 'qbank_columnsortorder');
+    public static function set_column_size(string $sizes, string $preference = '') : void {
+        self::save_preference('colsize', $sizes, $preference);
+    }
+
+    /**
+     * Save Preferences.
+     *
+     * @param string $name name of a configuration
+     * @param string $value value of a configuration
+     * @param string $preference name of user preference.
+     */
+    private function save_preference(string $name, string $value, string $preference = ''): void {
+
+        if (empty($preference)) {
+            set_config($name, $value, 'qbank_columnsortorder');
         } else {
-            set_user_preference('qbank_columnsortorder_colsize', $sizes);
+            set_user_preference("${preference}_${name}", $value);
         }
     }
 

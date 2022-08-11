@@ -44,7 +44,7 @@ class set_pinned_columns extends external_api {
             'columns' => new external_multiple_structure(
                 new external_value(PARAM_TEXT, 'Plugin name for the pinned column', VALUE_REQUIRED)
             ),
-            'default' => new external_value(PARAM_BOOL, 'Is this user preference or site default', VALUE_DEFAULT, true),
+            'preference' => new external_value(PARAM_TEXT, 'User preference', VALUE_DEFAULT, ''),
         ]);
     }
 
@@ -59,23 +59,23 @@ class set_pinned_columns extends external_api {
      * Sticky Columns.
      *
      * @param array $columns json string representing pinned columns.
-     * @param bool $default true if it is site default.
+     * @param string $preference name of user preference.
      */
-    public static function execute(array $columns, bool $default): void {
+    public static function execute(array $columns, string $preference = ''): void {
         [
             'columns' => $columns,
-            'default' => $default,
+            'preference' => $preference,
         ]
             = self::validate_parameters(self::execute_parameters(),
         [
             'columns' => $columns,
-            'default' => $default,
+            'preference' => $preference,
         ]);
         $context = context_system::instance();
         self::validate_context($context);
         // TODO: Discuss required caps at siteadmin / course page.
         require_capability('moodle/category:manage', $context);
 
-        column_manager::set_pinned_columns($columns, $default);
+        column_manager::set_pinned_columns($columns, $preference);
     }
 }
