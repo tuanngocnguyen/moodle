@@ -22,7 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import {setUpTable, setUpMoveHandle, setUpPinHandle, setUpResizeHandle, setUpHideShowDropdown} from 'core/table_column_action';
+import * as ColumnAction from 'core/table_column_action';
 import Notification from 'core/notification';
 import Ajax from 'core/ajax';
 
@@ -30,45 +30,51 @@ import Ajax from 'core/ajax';
  * Initialize module
  * @param {Array} currentHiddenColumns current hidden columns
  * @param {Array} currentPinnedColumns current pinned columns
- * @param {String} currentColumnSize current pinned columns
+ * @param {String} currentColumnSizes current pinned columns
+ * @param {Bool} isEditing whether it is in editing mode
  */
-export const init = (currentHiddenColumns, currentPinnedColumns, currentColumnSize) => {
-    setUpTable("categoryquestions", "pluginname", "name");
+export const init = (currentHiddenColumns, currentPinnedColumns, currentColumnSizes, isEditing) => {
+    ColumnAction.setUpTable("categoryquestions", "pluginname", "name");
 
-    setUpHideShowDropdown("#show-hide-dropdown", currentHiddenColumns, (columns) => {
-        const call = {
-            methodname: 'qbank_columnsortorder_set_hidden_columns',
-            args: {columns: columns, preference: 'qbank_view'},
-        };
-        Ajax.call([call])[0]
-            .catch(Notification.exception);
-    });
+    ColumnAction.setUpCurrentPinnedColumns(currentPinnedColumns);
+    ColumnAction.setUpCurrentColumnSizes(currentColumnSizes);
 
-    setUpMoveHandle(".move-handle", (columns) => {
-        const call = {
-            methodname: 'qbank_columnsortorder_set_columnbank_order',
-            args: {columns: columns, preference: 'qbank_view'},
-        };
-        Ajax.call([call])[0]
-            .catch(Notification.exception);
-    });
+    if (isEditing) {
+        ColumnAction.setUpHideShowDropdown("#show-hide-dropdown", currentHiddenColumns, (columns) => {
+            const call = {
+                methodname: 'qbank_columnsortorder_set_hidden_columns',
+                args: {columns: columns, preference: 'qbank_view'},
+            };
+            Ajax.call([call])[0]
+                .catch(Notification.exception);
+        });
 
-    setUpPinHandle(".pin-handle", currentPinnedColumns, (columns) => {
-        const call = {
-            methodname: 'qbank_columnsortorder_set_pinned_columns',
-            args: {columns: columns, preference: 'qbank_view'},
-        };
-        Ajax.call([call])[0]
-            .catch(Notification.exception);
-    });
+        ColumnAction.setUpMoveHandle(".move-handle", (columns) => {
+            const call = {
+                methodname: 'qbank_columnsortorder_set_columnbank_order',
+                args: {columns: columns, preference: 'qbank_view'},
+            };
+            Ajax.call([call])[0]
+                .catch(Notification.exception);
+        });
 
-    setUpResizeHandle(".resize-handle", currentColumnSize, (sizes) => {
-        const call = {
-            methodname: 'qbank_columnsortorder_set_column_size',
-            args: {sizes: sizes, preference: 'qbank_view'},
-        };
-        Ajax.call([call])[0]
-            .catch(Notification.exception);
-    });
+        ColumnAction.setUpPinHandle(".pin-handle", (columns) => {
+            const call = {
+                methodname: 'qbank_columnsortorder_set_pinned_columns',
+                args: {columns: columns, preference: 'qbank_view'},
+            };
+            Ajax.call([call])[0]
+                .catch(Notification.exception);
+        });
+
+        ColumnAction.setUpResizeHandle(".resize-handle", (sizes) => {
+            const call = {
+                methodname: 'qbank_columnsortorder_set_column_size',
+                args: {sizes: sizes, preference: 'qbank_view'},
+            };
+            Ajax.call([call])[0]
+                .catch(Notification.exception);
+        });
+    }
 
 };

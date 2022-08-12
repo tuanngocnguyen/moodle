@@ -312,7 +312,7 @@ class view {
 
         // Check if qbank_columnsortorder is enabled.
         if (array_key_exists('columnsortorder', core_plugin_manager::instance()->get_enabled_plugins('qbank'))) {
-            if ($this->course->id) {
+            if (!$this->course->id) {
                 // Site admin context
                 $preference = "";
             } else {
@@ -379,6 +379,7 @@ class view {
      * @param string $heading The name of column that is set as heading
      */
     protected function init_columns($wanted, $heading = ''): void {
+        global $PAGE;
         // If we are using the edit menu column, allow it to absorb all the actions.
         foreach ($wanted as $column) {
             if ($column instanceof edit_menu_column) {
@@ -395,7 +396,6 @@ class view {
                 $this->extrarows[$column->get_column_name()] = $column;
             } else {
                 // Only add columns which are visible.
-                global $PAGE;
                 if ($PAGE->user_is_editing() || $column->isvisible) {
                     $this->visiblecolumns[$column->get_column_name()] = $column;
                 }
@@ -1156,15 +1156,12 @@ class view {
         echo \html_writer::end_tag('table');
 
         // Column Action script.
-        if ($PAGE->user_is_editing()) {
-            $columnsortorder = new column_manager('qbank_view');
-            $pinnedcolumns = $columnsortorder->pinnedcolumns;
-            $hiddencolumns = $columnsortorder->hiddencolumns;
-            $colsize = $columnsortorder->colsize;
-            $PAGE->requires->js_call_amd('core_question/question_bank_table', 'init',
-                [$hiddencolumns, $pinnedcolumns, $colsize]);
-        }
-
+        $columnsortorder = new column_manager('qbank_view');
+        $pinnedcolumns = $columnsortorder->pinnedcolumns;
+        $hiddencolumns = $columnsortorder->hiddencolumns;
+        $colsize = $columnsortorder->colsize;
+        $PAGE->requires->js_call_amd('core_question/question_bank_table', 'init',
+            [$hiddencolumns, $pinnedcolumns, $colsize, $PAGE->user_is_editing()]);
     }
 
     /**

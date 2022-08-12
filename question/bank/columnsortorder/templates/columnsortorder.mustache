@@ -87,7 +87,8 @@
 
         // Set up pin action.
         const currentPinnedColumns = {{{pinnedcolumns}}};
-        ColumnAction.setUpPinHandle(".pin-handle", currentPinnedColumns, (columns) => {
+        ColumnAction.setUpCurrentPinnedColumns(currentPinnedColumns);
+        ColumnAction.setUpPinHandle(".pin-handle", (columns) => {
             const call = {
                 methodname: 'qbank_columnsortorder_set_pinned_columns',
                 args: {columns},
@@ -98,7 +99,8 @@
 
         // Set up resize action.
         const currentColsize = {{{colsize}}};
-        ColumnAction.setUpResizeHandle(".resize-handle", currentColsize, (sizes) => {
+        ColumnAction.setUpCurrentColumnSizes(currentColsize);
+        ColumnAction.setUpResizeHandle(".resize-handle", (sizes) => {
             const call = {
                 methodname: 'qbank_columnsortorder_set_column_size',
                 args: {sizes},

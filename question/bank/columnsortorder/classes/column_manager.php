@@ -83,7 +83,6 @@ class column_manager {
         // To array.
         $this->pinnedcolumns = explode(',', $this->pinnedcolumns);
         $this->hiddencolumns = explode(',', $this->hiddencolumns);
-
         $this->disabledcolumns = get_config('qbank_columnsortorder', 'disabledcol');
         if ($this->columnorder) {
             $this->columnorder = array_flip(explode(',', $this->columnorder));
@@ -144,7 +143,6 @@ class column_manager {
      * @param string $preference name of user preference.
      */
     private function save_preference(string $name, string $value, string $preference = ''): void {
-
         if (empty($preference)) {
             set_config($name, $value, 'qbank_columnsortorder');
         } else {
@@ -330,12 +328,14 @@ class column_manager {
                 $properorder = array_merge(['checkbox_column' => $checkboxfirstelement], $properorder);
             }
 
-            // Visibility.
-//             foreach ($properorder as $column) {
-//                 if (in_array($column->get_column_name(), $this->hiddencolumns)) {
-//                     $column->isvisible = false;
-//                 }
-//             }
+            // Set column visibility.
+             foreach ($properorder as $column) {
+                 if (in_array($column->get_column_name(), $this->hiddencolumns)) {
+                    $column->isvisible = false;
+                 } else {
+                    $column->isvisible = true;
+                 }
+             }
 
             return $properorder;
         }
