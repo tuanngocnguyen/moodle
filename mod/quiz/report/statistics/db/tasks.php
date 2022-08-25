@@ -30,7 +30,7 @@ $tasks = [
     [
         'classname' => 'quiz_statistics\task\recalculate',
         'blocking' => 0,
-        'minute' => '*',
+        'minute' => 'R',
         'hour' => '*/4',
         'day' => '*',
         'dayofweek' => '*',

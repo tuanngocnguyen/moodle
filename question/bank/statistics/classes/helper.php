@@ -41,101 +41,119 @@ class helper {
     private const NEED_FOR_REVISION_UPPER_THRESHOLD = 50;
 
     /**
-     * Return contexts where the question is used
+     * For a list of questions find all the places (defined by (component, contextid) where there are attempts.
      *
-     * @param int $questionid id of the question
-     * @return array list of contexts that use the question.
-     * @throws \dml_exception
+     * @param int[] $questionids array of question ids that we are interested in.
+     * @return \stdClass[] list of objects with fields ->component and ->contextid.
      */
-    public static function get_using_contexts(int $questionid): array {
+    public static function get_all_places_where_questions_were_attempted(array $questionids): array {
         global $DB;
 
-        $contexts = $DB->get_records_sql("
-             SELECT DISTINCT qu.contextid, qu.component
-                        FROM {question_usages} qu
-                        JOIN {question_attempts} qatt ON qatt.questionusageid = qu.id
-                       WHERE qatt.questionid = :questionid",
-            ['questionid' => $questionid]
-        );
-        return $contexts;
-    }
+        [$questionidcondition, $params] = $DB->get_in_or_equal($questionids);
+        // The MIN(qu.id) is just to ensure that the rows have a unique key.
+        $places = $DB->get_records_sql("
+                SELECT MIN(qu.id) AS somethingunique, qu.component, qu.contextid
+                  FROM {question_usages} qu
+                  JOIN {question_attempts} qatt ON qatt.questionusageid = qu.id
+                 WHERE qatt.questionid $questionidcondition
+              GROUP BY qu.component, qu.contextid
+                ", $params);
 
-    /**
-     * Load question stats from a quiz
-     *
-     * @param \stdClass $context context that the question is used
-     * @return all_calculated_for_qubaid_condition|null question stats
-     */
-    private static function load_question_stats(\stdClass $context): ?all_calculated_for_qubaid_condition {
-
-        $pluginmanager = \core_plugin_manager::instance();
-        foreach ($pluginmanager->get_subplugins_of_plugin($context->component) as $subpluginname => $subplugin) {
-            if (component_callback_exists($subpluginname, 'calculate_question_stats')) {
-                return component_callback($subpluginname, 'calculate_question_stats', [$context->contextid]);
-            }
+        // Strip out the unwanted ids.
+        $places = array_values($places);
+        foreach ($places as $place) {
+            unset($place->somethingunique);
         }
 
-        return null;
+        return $places;
     }
 
     /**
-     * Load a specified stats item for a question
+     * Load the question statistics for all the attempts belonging to a particular component in a particular context.
      *
-     * @param \stdClass $context question usage
-     * @param int $questionid question id
-     * @param string $item a stats item
-     * @return float|int
+     * This method is only public to facilitate unit testing. DO NOT CALL DIRECTLY!
+     *
+     * @param string $component frankenstyle component name, e.g. 'mod_quiz'.
+     * @param \context $context the context to load the statistics for.
+     * @return all_calculated_for_qubaid_condition|null question statistics.
      */
-    public static function load_question_stats_item(\stdClass $context, int $questionid, string $item): ?float {
-        $questionstats = self::load_question_stats($context);
-        if (is_null($questionstats)) {
+    public static function load_statistics_for_place(string $component, \stdClass $context): ?all_calculated_for_qubaid_condition {
+
+        if (!component_callback_exists($component, 'calculate_question_stats')) {
             return null;
         }
-        // Find in main question.
-        foreach ($questionstats->questionstats as $stats) {
+
+        return component_callback($component, 'calculate_question_stats', [$context]);
+    }
+
+    /**
+     * Extract the value for one question and one type of statistic from a set of statistics.
+     *
+     * This method is only public to facilitate unit testing. DO NOT CALL DIRECTLY!
+     *
+     * @param all_calculated_for_qubaid_condition $statistics the batch of statistics.
+     * @param int $questionid a question id.
+     * @param string $item ane of the field names in all_calculated_for_qubaid_condition, e.g. 'facility'.
+     * @return float|null the required value.
+     */
+    public static function extract_item_value(all_calculated_for_qubaid_condition $statistics,
+            int $questionid, string $item): ?float {
+
+        // Look in main questions.
+        foreach ($statistics->questionstats as $stats) {
             if ($stats->questionid == $questionid && isset($stats->$item)) {
                 return $stats->$item;
             }
         }
-        // If not found, find in sub questions.
-        foreach ($questionstats->subquestionstats as $stats) {
+
+        // If not found, look in sub questions.
+        foreach ($statistics->subquestionstats as $stats) {
             if ($stats->questionid == $questionid && isset($stats->$item)) {
                 return $stats->$item;
             }
         }
+
         return null;
     }
 
     /**
-     * Calculate average for a stats item on a question.
+     * Calculate average for a stats item on a list of questions.
      *
-     * @param int $questionid id of the question
-     * @param string $item stats item
-     * @return float|null
+     * @param int[] $questionids list of ids of the questions we are interested in.
+     * @param string $item ane of the field names in all_calculated_for_qubaid_condition, e.g. 'facility'.
+     * @return array array keys are question ids and the corresponding values are the average values.
+     *      Only questions for which there are data are included.
      */
-    private static function calculate_average_question_stats_item(int $questionid, string $item): ?float {
-        $contexts = self::get_using_contexts($questionid);
+    private static function calculate_average_question_stats_item(array $questionids, string $item): array {
+        $places = self::get_all_places_where_questions_were_attempted($questionids);
 
-        $sum = 0;
-        $count = count($contexts);
-        foreach ($contexts as $context) {
-            $value = self::load_question_stats_item($context, $questionid, $item);
-            if (!is_null($value)) {
-                $sum += $value;
-            } else {
-                // Exclude this value when it is null.
-                $count--;
+        $counts = [];
+        $sums = [];
+
+        foreach ($places as $place) {
+            $statistics = self::load_statistics_for_place($place->component,
+                    \context::instance_by_id($place->contextid));
+            if ($statistics === null) {
+                continue;
+            }
+
+            foreach ($questionids as $questionid) {
+                $value = self::extract_item_value($statistics, $questionid, $item);
+                if ($value === null) {
+                    continue;
+                }
+
+                $counts[$questionid] = ($counts[$questionid] ?? 0) + 1;
+                $sums[$questionid] = ($sums[$questionid] ?? 0) + $value;
             }
         }
 
         // Return null if there is no quizzes.
-        if (empty($count)) {
-            return null;
+        $averages = [];
+        foreach ($sums as $questionid => $sum) {
+            $averages[$questionid] = $sum / $counts[$questionid];
         }
-
-        // Average value per quiz.
-        $average = $sum / $count;
-        return $average;
+        return $averages;
     }
 
     /**
@@ -145,7 +163,8 @@ class helper {
      * @return float|null
      */
     public static function calculate_average_question_facility(int $questionid): ?float {
-        return self::calculate_average_question_stats_item($questionid, 'facility');
+        $averages = self::calculate_average_question_stats_item([$questionid], 'facility');
+        return $averages[$questionid] ?? null;
     }
 
     /**
@@ -155,7 +174,8 @@ class helper {
      * @return float|null
      */
     public static function calculate_average_question_discriminative_efficiency(int $questionid): ?float {
-        return self::calculate_average_question_stats_item($questionid, 'discriminativeefficiency');
+        $averages = self::calculate_average_question_stats_item([$questionid], 'discriminativeefficiency');
+        return $averages[$questionid] ?? null;
     }
 
     /**
@@ -165,7 +185,8 @@ class helper {
      * @return float|null
      */
     public static function calculate_average_question_discrimination_index(int $questionid): ?float {
-        return self::calculate_average_question_stats_item($questionid, 'discriminationindex');
+        $averages = self::calculate_average_question_stats_item([$questionid], 'discriminationindex');
+        return $averages[$questionid] ?? null;
     }
 
     /**

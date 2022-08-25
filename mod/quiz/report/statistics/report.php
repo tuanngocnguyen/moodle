@@ -27,13 +27,12 @@ defined('MOODLE_INTERNAL') || die();
 
 use core_question\statistics\questions\all_calculated_for_qubaid_condition;
 
+require_once($CFG->dirroot . '/mod/quiz/report/default.php');
+require_once($CFG->dirroot . '/mod/quiz/report/reportlib.php');
 require_once($CFG->dirroot . '/mod/quiz/report/statistics/statistics_form.php');
 require_once($CFG->dirroot . '/mod/quiz/report/statistics/statistics_table.php');
 require_once($CFG->dirroot . '/mod/quiz/report/statistics/statistics_question_table.php');
 require_once($CFG->dirroot . '/mod/quiz/report/statistics/statisticslib.php');
-require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-require_once($CFG->dirroot . '/mod/quiz/report/default.php');
-require_once($CFG->dirroot . '/mod/quiz/report/reportlib.php');
 
 /**
  * The quiz statistics report provides summary information about each question in
@@ -931,19 +930,17 @@ class quiz_statistics_report extends quiz_default_report {
     /**
      * Load question stats for a quiz
      *
-     * @param \int $quizid question usage
+     * @param int $quizid question usage
      * @return all_calculated_for_qubaid_condition question stats
      */
     public function calculate_questions_stats_for_question_bank(int $quizid): all_calculated_for_qubaid_condition {
-        $quizobj = \quiz::create($quizid);
-        $quiz = $quizobj->get_quiz();
+        global $DB;
+        $quiz = $DB->get_record('quiz', ['id' => $quizid], '*', MUST_EXIST);
         $questions = $this->load_and_initialise_questions_for_calculations($quiz);
 
-        list(, $questionstats) = $this->get_all_stats_and_analysis($quiz,
-            $quiz->grademethod,
-            \question_attempt::ALL_TRIES,
-            new \core\dml\sql_join(),
-            $questions);
+        [, $questionstats] = $this->get_all_stats_and_analysis($quiz,
+            $quiz->grademethod, question_attempt::ALL_TRIES, new \core\dml\sql_join(), $questions);
+
         return $questionstats;
     }
 }
