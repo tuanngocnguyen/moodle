@@ -37,10 +37,18 @@ require_once($CFG->dirroot . '/mod/quiz/report/statistics/report.php');
  */
 class recalculate extends \core\task\scheduled_task {
 
+    /**
+     * Get a descriptive name for this task.
+     *
+     * @return string
+     */
     public function get_name() {
         return get_string('recalculatetask', 'quiz_statistics');
     }
 
+    /**
+     * Calculate question stats.
+     */
     public function execute() {
         global $DB;
         // TODO: MDL-75197, add quizid in quiz_statistics so that it is simpler to find quizzes for stats calculation.

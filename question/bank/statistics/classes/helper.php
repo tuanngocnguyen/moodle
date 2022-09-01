@@ -77,7 +77,7 @@ class helper {
      * @param \context $context the context to load the statistics for.
      * @return all_calculated_for_qubaid_condition|null question statistics.
      */
-    public static function load_statistics_for_place(string $component, \stdClass $context): ?all_calculated_for_qubaid_condition {
+    public static function load_statistics_for_place(string $component, \context $context): ?all_calculated_for_qubaid_condition {
 
         if (!component_callback_exists($component, 'calculate_question_stats')) {
             return null;
