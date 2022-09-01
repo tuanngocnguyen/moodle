@@ -46,7 +46,7 @@ class helper {
      * @param int[] $questionids array of question ids that we are interested in.
      * @return \stdClass[] list of objects with fields ->component and ->contextid.
      */
-    public static function get_all_places_where_questions_were_attempted(array $questionids): array {
+    private static function get_all_places_where_questions_were_attempted(array $questionids): array {
         global $DB;
 
         [$questionidcondition, $params] = $DB->get_in_or_equal($questionids);
@@ -71,13 +71,11 @@ class helper {
     /**
      * Load the question statistics for all the attempts belonging to a particular component in a particular context.
      *
-     * This method is only public to facilitate unit testing. DO NOT CALL DIRECTLY!
-     *
      * @param string $component frankenstyle component name, e.g. 'mod_quiz'.
      * @param \context $context the context to load the statistics for.
      * @return all_calculated_for_qubaid_condition|null question statistics.
      */
-    public static function load_statistics_for_place(string $component, \context $context): ?all_calculated_for_qubaid_condition {
+    private static function load_statistics_for_place(string $component, \context $context): ?all_calculated_for_qubaid_condition {
 
         if (!component_callback_exists($component, 'calculate_question_stats')) {
             return null;

@@ -40,6 +40,9 @@ class helper_test extends \advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
+        $rcm = new \ReflectionMethod(helper::class, 'get_all_places_where_questions_were_attempted');
+        $rcm->setAccessible(true);
+
         // Create a course.
         $course = $this->getDataGenerator()->create_course();
 
@@ -84,13 +87,13 @@ class helper_test extends \advanced_testcase {
         $this->submit_quiz($quiz2, [1 => ['answer' => 'frog'], 2 => ['answer' => 10]]);
 
         // Checking quizzes that use question 1.
-        $q1places = helper::get_all_places_where_questions_were_attempted([$question1->id]);
+        $q1places = $rcm->invoke(null, [$question1->id]);
         $this->assertCount(2, $q1places);
         $this->assertEquals((object) ['component' => 'mod_quiz', 'contextid' => $quiz1context->id], $q1places[0]);
         $this->assertEquals((object) ['component' => 'mod_quiz', 'contextid' => $quiz2context->id], $q1places[1]);
 
         // Checking quizzes that contain question 2.
-        $q2places = helper::get_all_places_where_questions_were_attempted([$question2->id]);
+        $q2places = $rcm->invoke(null, [$question2->id]);
         $this->assertCount(1, $q2places);
         $this->assertEquals((object) ['component' => 'mod_quiz', 'contextid' => $quiz2context->id], $q2places[0]);
 
@@ -99,8 +102,8 @@ class helper_test extends \advanced_testcase {
         $this->submit_quiz($quiz3, [1 => ['answer' => 'willbewrong']]);
 
         // Quiz 3 will now be in one of these arrays.
-        $q1places = helper::get_all_places_where_questions_were_attempted([$question1->id]);
-        $q2places = helper::get_all_places_where_questions_were_attempted([$question2->id]);
+        $q1places = $rcm->invoke(null, [$question1->id]);
+        $q2places = $rcm->invoke(null, [$question2->id]);
         if (count($q1places) == 3) {
             $newplace = end($q1places);
         } else {
@@ -281,8 +284,11 @@ class helper_test extends \advanced_testcase {
 
         list($quiz1, $quiz2, $questions) = $this->prepare_and_submit_quizzes($quiz1attempts, $quiz2attempts);
 
+        $rcm = new \ReflectionMethod(helper::class, 'load_statistics_for_place');
+        $rcm->setAccessible(true);
+
         // Quiz 1 facilities.
-        $stats = helper::load_statistics_for_place('mod_quiz', \context_module::instance($quiz1->cmid));
+        $stats = $rcm->invoke(null, 'mod_quiz', \context_module::instance($quiz1->cmid));
         $quiz1facility1 = helper::extract_item_value($stats, $questions[1]->id, 'facility');
         $quiz1facility2 = helper::extract_item_value($stats, $questions[2]->id, 'facility');
         $quiz1facility3 = helper::extract_item_value($stats, $questions[3]->id, 'facility');
@@ -294,7 +300,7 @@ class helper_test extends \advanced_testcase {
         $this->assertEquals($expectedquiz1facilities[3], helper::format_percentage($quiz1facility4));
 
         // Quiz 2 facilities.
-        $stats = helper::load_statistics_for_place('mod_quiz', \context_module::instance($quiz2->cmid));
+        $stats = $rcm->invoke(null, 'mod_quiz', \context_module::instance($quiz2->cmid));
         $quiz2facility1 = helper::extract_item_value($stats, $questions[1]->id, 'facility');
         $quiz2facility2 = helper::extract_item_value($stats, $questions[2]->id, 'facility');
         $quiz2facility3 = helper::extract_item_value($stats, $questions[3]->id, 'facility');
@@ -363,8 +369,11 @@ class helper_test extends \advanced_testcase {
 
         list($quiz1, $quiz2, $questions) = $this->prepare_and_submit_quizzes($quiz1attempts, $quiz2attempts);
 
+        $rcm = new \ReflectionMethod(helper::class, 'load_statistics_for_place');
+        $rcm->setAccessible(true);
+
         // Quiz 1 discriminative efficiency.
-        $stats = helper::load_statistics_for_place('mod_quiz', \context_module::instance($quiz1->cmid));
+        $stats = $rcm->invoke(null, 'mod_quiz', \context_module::instance($quiz1->cmid));
         $discriminativeefficiency1 = helper::extract_item_value($stats, $questions[1]->id, 'discriminativeefficiency');
         $discriminativeefficiency2 = helper::extract_item_value($stats, $questions[2]->id, 'discriminativeefficiency');
         $discriminativeefficiency3 = helper::extract_item_value($stats, $questions[3]->id, 'discriminativeefficiency');
@@ -384,7 +393,7 @@ class helper_test extends \advanced_testcase {
             "Failure in quiz 1 - question 4 discriminative efficiency");
 
         // Quiz 2 discriminative efficiency.
-        $stats = helper::load_statistics_for_place('mod_quiz', \context_module::instance($quiz2->cmid));
+        $stats = $rcm->invoke(null, 'mod_quiz', \context_module::instance($quiz2->cmid));
         $discriminativeefficiency1 = helper::extract_item_value($stats, $questions[1]->id, 'discriminativeefficiency');
         $discriminativeefficiency2 = helper::extract_item_value($stats, $questions[2]->id, 'discriminativeefficiency');
         $discriminativeefficiency3 = helper::extract_item_value($stats, $questions[3]->id, 'discriminativeefficiency');
@@ -469,8 +478,11 @@ class helper_test extends \advanced_testcase {
 
         list($quiz1, $quiz2, $questions) = $this->prepare_and_submit_quizzes($quiz1attempts, $quiz2attempts);
 
+        $rcm = new \ReflectionMethod(helper::class, 'load_statistics_for_place');
+        $rcm->setAccessible(true);
+
         // Quiz 1 discrimination index.
-        $stats = helper::load_statistics_for_place('mod_quiz', \context_module::instance($quiz1->cmid));
+        $stats = $rcm->invoke(null, 'mod_quiz', \context_module::instance($quiz1->cmid));
         $discriminationindex1 = helper::extract_item_value($stats, $questions[1]->id, 'discriminationindex');
         $discriminationindex2 = helper::extract_item_value($stats, $questions[2]->id, 'discriminationindex');
         $discriminationindex3 = helper::extract_item_value($stats, $questions[3]->id, 'discriminationindex');
@@ -490,7 +502,7 @@ class helper_test extends \advanced_testcase {
             "Failure in quiz 1 - question 4 discrimination index");
 
         // Quiz 2 discrimination index.
-        $stats = helper::load_statistics_for_place('mod_quiz', \context_module::instance($quiz2->cmid));
+        $stats = $rcm->invoke(null, 'mod_quiz', \context_module::instance($quiz2->cmid));
         $discriminationindex1 = helper::extract_item_value($stats, $questions[1]->id, 'discriminationindex');
         $discriminationindex2 = helper::extract_item_value($stats, $questions[2]->id, 'discriminationindex');
         $discriminationindex3 = helper::extract_item_value($stats, $questions[3]->id, 'discriminationindex');
