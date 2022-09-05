@@ -33,6 +33,7 @@ class helper_test extends \advanced_testcase {
     /**
      * Test quizzes that contain a specified question.
      *
+     * @covers ::get_all_places_where_questions_were_attempted
      * @throws \coding_exception
      * @throws \dml_exception
      */
