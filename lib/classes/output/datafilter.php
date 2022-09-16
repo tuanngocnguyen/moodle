@@ -72,6 +72,7 @@ abstract class datafilter implements renderable, templatable {
      * @param string|null $filterclass
      * @param array $values
      * @param bool $allowempty
+     * @param string|null $conditionclass
      * @return stdClass|null
      */
     protected function get_filter_object(
@@ -81,7 +82,8 @@ abstract class datafilter implements renderable, templatable {
         bool $multiple,
         ?string $filterclass,
         array $values,
-        bool $allowempty = false
+        bool $allowempty = false,
+        ?string $conditionclass = null
     ): ?stdClass {
 
         if (!$allowempty && empty($values)) {
@@ -94,6 +96,7 @@ abstract class datafilter implements renderable, templatable {
             'title' => $title,
             'allowcustom' => $custom,
             'allowmultiple' => $multiple,
+            'conditionclass' => $conditionclass,
             'filtertypeclass' => $filterclass,
             'values' => $values,
         ];
