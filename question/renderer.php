@@ -133,7 +133,7 @@ class core_question_bank_renderer extends plugin_renderer_base {
      * @return bool|string
      */
     public function render_hidden_condition_advanced($displaydata) {
-        return $this->render_from_template('core_question/hidden_condition_advanced', $displaydata);
+        return $this->render_from_template('qbank_deletequestion/hidden_condition_advanced', $displaydata);
     }
 
     /**
