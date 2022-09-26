@@ -113,7 +113,7 @@ class core_question_bank_renderer extends plugin_renderer_base {
      * @return bool|string
      */
     public function render_category_condition($displaydata) {
-        return $this->render_from_template('core_question/category_condition', $displaydata);
+        return $this->render_from_template('qbank_managecategories/category_condition', $displaydata);
     }
 
     /**
@@ -123,7 +123,7 @@ class core_question_bank_renderer extends plugin_renderer_base {
      * @return bool|string
      */
     public function render_category_condition_advanced($displaydata) {
-        return $this->render_from_template('core_question/category_condition_advanced', $displaydata);
+        return $this->render_from_template('qbank_managecategories/category_condition_advanced', $displaydata);
     }
 
     /**

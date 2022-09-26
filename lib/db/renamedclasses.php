@@ -84,4 +84,5 @@ $renamedclasses = [
     'context_to_string_translator' => 'core_question\\local\\bank\\context_to_string_translator',
     'question_edit_contexts' => 'core_question\\local\\bank\\question_edit_contexts',
     'core_question\\bank\\search\\condition' => 'core_question\\local\\bank\\condition',
+    'core_question\\bank\\search\\category_condition' => 'qbank_managecategories\\category_condition',
 ];
