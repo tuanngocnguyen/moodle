@@ -51,4 +51,70 @@ class helper {
             throw new \moodle_exception('The following plugin is either disabled or missing from disk: ' . $pluginname);
         }
     }
+
+    /**
+     * Convert multidimentional object to array.
+     *
+     * @param $obj
+     * @return array|mixed
+     */
+    public static function convert_object_array($obj) {
+        // Not an object or array.
+        if (!is_object($obj) && !is_array($obj)) {
+            return $obj;
+        }
+        // Parse array.
+        foreach ($obj as $key => $value) {
+            $arr[$key] = self::convert_object_array($value);
+        }
+        // Return parsed array.
+        return $arr;
+    }
+
+    /**
+     * Transform query string to array
+     *
+     * @param string $query query string
+     * @return array
+     */
+    public static function filter_query_to_array(string $query): array {
+        if (empty($query)) {
+            return [];
+        }
+
+        $filters = [];
+
+        // Filters are join by '&'.
+        $encodedfilters = explode('&', $query);
+
+        foreach ($encodedfilters as $encodedfilter) {
+            // Filter key and data are separate by '=';
+            $encodedfilter = explode('=', $encodedfilter);
+            $key = $encodedfilter[0];
+            $filters[$key] = [];
+            $params = explode('&', urldecode($encodedfilter[1]));
+            foreach ($params as $param) {
+                $param = explode('=', $param);
+                $name = $param[0];
+                $values = urldecode($param[1]);
+                if ($name == 'values') {
+                    if (strpos($values, '=') !== false) {
+                        // This containes multiple values.
+                        $values = explode('&', $values);
+                        foreach ($values as $value) {
+                            list($index, $avalue) = explode('=', $value);
+                            $filters[$key][$name][$index] = $avalue;
+                        }
+                    } else {
+                        $filters[$key][$name] = [$values];
+                    }
+                } else {
+                    // This container only one value.
+                    $filters[$key][$name] = $values;
+                }
+            }
+        }
+        return $filters;
+    }
+
 }
