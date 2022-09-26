@@ -1,4 +1,3 @@
-<?php
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -14,29 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace qbank_viewquestiontext;
-
-use core_question\local\bank\plugin_features_base;
-
 /**
- * Class columns is the entrypoint for the columns.
+ * Filter managing question text display.
  *
- * @package    qbank_viewquestiontext
- * @copyright  2021 Catalyst IT Australia Pty Ltd
- * @author     Safat Shahin <safatshahin@catalyst-au.net>
+ * @module     qbank_viewquestiontext/datafilter/filtertypes/showtext
+ * @author     2022 Ghaly Marc-Alexandre <marc-alexandreghaly@catalyst-ca.net>
+ * @copyright  2022 Catalyst IT Australia Pty Ltd
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class plugin_feature extends plugin_features_base {
 
-    public function get_question_columns($qbank): array {
-        return [
-            new question_text_row($qbank)
-        ];
-    }
+import Binary from 'core/datafilter/filtertypes/binary';
 
-    public function get_question_filters($qbank): array {
-        return [
-            new questiontext_condition($qbank),
-        ];
+export default class extends Binary {
+    constructor(filterType, filterSet, initialValues) {
+        super(filterType, filterSet, initialValues);
     }
 }
