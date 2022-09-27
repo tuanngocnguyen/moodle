@@ -1,4 +1,4 @@
-@qbank @qbank_history
+@qbank @qbank_history @javascript
 Feature: Use the qbank plugin manager page for question history
   In order to check the plugin behaviour with enable and disable
 
@@ -16,7 +16,6 @@ Feature: Use the qbank plugin manager page for question history
       | questioncategory | qtype     | name           | questiontext              |
       | Test questions   | truefalse | First question | Answer the first question |
 
-  @javascript
   Scenario: Enable/disable question history column from the base view
     Given I log in as "admin"
     When I navigate to "Plugins > Question bank plugins > Manage question bank plugins" in site administration
@@ -38,8 +37,6 @@ Feature: Use the qbank plugin manager page for question history
     And I am on the "Test quiz" "quiz activity" page
     When I navigate to "Question bank" in current page administration
     And I choose "History" action for "First question" in the question bank
-    Then I should not see "Select a category"
-    And I should see "No tag filters applied"
     And I should see "Question"
     And I should see "Actions"
     And I should see "Status"
@@ -47,7 +44,6 @@ Feature: Use the qbank plugin manager page for question history
     And I should see "Created by"
     And I should see "First question"
     And I click on ".dropdown-toggle" "css_element" in the "First question" "table_row"
-    But I should not see "History"
     And I click on "#qbank-history-close" "css_element"
     And I click on ".dropdown-toggle" "css_element" in the "First question" "table_row"
     And I should see "History" in the "region-main" "region"

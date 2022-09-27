@@ -1,4 +1,4 @@
-@core @core_question
+@core @core_question @javascript
 Feature: A teacher can put questions with idnumbers in categories in the question bank
   In order to organize my questions
   As a teacher
@@ -59,7 +59,6 @@ Feature: A teacher can put questions with idnumbers in categories in the questio
     And I press "Save changes"
     Then I should see "This ID number is already in use"
 
-  @javascript
   Scenario: Moving a question between categories can force a change to the idnumber
     And the following "question categories" exist:
       | contextlevel | reference | questioncategory | name           | idnumber |

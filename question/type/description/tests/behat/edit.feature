@@ -1,4 +1,4 @@
-@qtype @qtype_description
+@qtype @qtype_description @javascript
 Feature: Test editing a Description question
   As a teacher
   In order to be able to update my Description question

@@ -1,4 +1,4 @@
-@qtype @qtype_multichoice
+@qtype @qtype_multichoice @javascript
 Feature: Test creating a Multiple choice question
   As a teacher
   In order to test my students
@@ -36,7 +36,6 @@ Feature: Test creating a Multiple choice question
       | Hint 2                   | Second hint                        |
     Then I should see "Multi-choice-001"
 
-  @javascript
   Scenario: Create a Multiple choice question with single response
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Multiple choice" question filling the form with:

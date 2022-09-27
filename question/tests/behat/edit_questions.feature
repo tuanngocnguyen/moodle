@@ -1,4 +1,4 @@
-@core @core_question
+@core @core_question @javascript
 Feature: A teacher can edit questions in the question bank
   In order to improve my questions
   As a teacher

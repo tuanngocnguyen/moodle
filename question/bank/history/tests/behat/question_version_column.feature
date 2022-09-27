@@ -16,6 +16,7 @@ Feature: Use the qbank plugin manager page for version column
       | questioncategory | qtype     | name           | questiontext              |
       | Test questions   | truefalse | First question | Answer the first question |
 
+  @javascript
   Scenario: Enable/disable version column from the base view
     Given I log in as "admin"
     And I navigate to "Plugins > Question bank plugins > Manage question bank plugins" in site administration

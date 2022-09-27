@@ -1,4 +1,4 @@
-@qtype @qtype_truefalse
+@qtype @qtype_truefalse @javascript
 Feature: Test editing a True/False question
   As a teacher
   In order to be able to update my True/False question

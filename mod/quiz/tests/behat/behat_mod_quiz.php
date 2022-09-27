@@ -62,6 +62,7 @@ class behat_mod_quiz extends behat_question_base {
      *
      * Recognised page names are:
      * | pagetype          | name meaning                                | description                                  |
+     * | question bank     | Quiz name                                   | The question bank for a quiz                 |
      * | View              | Quiz name                                   | The quiz info page (view.php)                |
      * | Edit              | Quiz name                                   | The edit quiz page (edit.php)                |
      * | Group overrides   | Quiz name                                   | The manage group overrides page              |
@@ -81,6 +82,10 @@ class behat_mod_quiz extends behat_question_base {
         global $DB;
 
         switch (strtolower($type)) {
+            case 'question bank':
+                return new moodle_url('/question/edit.php',
+                    ['cmid' => $this->get_cm_by_quiz_name($identifier)->id]);
+
             case 'view':
                 return new moodle_url('/mod/quiz/view.php',
                         ['id' => $this->get_cm_by_quiz_name($identifier)->id]);

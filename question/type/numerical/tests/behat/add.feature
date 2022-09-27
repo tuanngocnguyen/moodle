@@ -1,4 +1,4 @@
-@qtype @qtype_numerical
+@qtype @qtype_numerical @javascript
 Feature: Test creating a Numerical question
   As a teacher
   In order to test my students
@@ -36,7 +36,6 @@ Feature: Test creating a Numerical question
       | id_fraction_2                      | 100%                                   |
     Then I should see "Numerical-001"
 
-  @javascript
   Scenario: Create a Numerical question with units
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Numerical" question filling the form with:

@@ -1,4 +1,4 @@
-@qtype @qtype_multianswer
+@qtype @qtype_multianswer @javascript
 Feature: Test creating a Multianswer (Cloze) question
   As a teacher
   In order to test my students

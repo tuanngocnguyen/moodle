@@ -1,4 +1,4 @@
-@qtype @qtype_description
+@qtype @qtype_description @javascript
 Feature: Test creating a Description question
   As a teacher
   In order to test my students

@@ -1,4 +1,4 @@
-@qtype @qtype_essay
+@qtype @qtype_essay @javascript
 Feature: Test creating an Essay question
   As a teacher
   In order to test my students
@@ -33,7 +33,6 @@ Feature: Test creating an Essay question
       | id_responseformat        | editorfilepicker               |
     Then I should see "essay-002"
 
-  @javascript
   Scenario: Create an Essay question for testing some default options
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I add a "Essay" question filling the form with:

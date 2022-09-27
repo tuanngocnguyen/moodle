@@ -22,7 +22,6 @@ Feature: Use the qbank base view to test the status change using
     Given I log in as "admin"
     And I am on the "Test quiz" "quiz activity" page
     And I navigate to "Question bank" in current page administration
-    And I set the field "Select a category" to "Test questions"
     And I should see "Test questions"
     And I should see "Ready" in the "First question" "table_row"
     And I should see "Ready" in the "Second question" "table_row"

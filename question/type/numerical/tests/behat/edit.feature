@@ -1,4 +1,4 @@
-@qtype @qtype_numerical
+@qtype @qtype_numerical @javascript
 Feature: Test editing a Numerical question
   As a teacher
   In order to be able to update my Numerical question

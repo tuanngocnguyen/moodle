@@ -1,4 +1,4 @@
-@qtype @qtype_multichoice
+@qtype @qtype_multichoice @javascript
 Feature: Test editing a Multiple choice question
   As a teacher
   In order to be able to update my Multiple choice question
