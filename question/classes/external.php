@@ -307,8 +307,28 @@ class core_question_external extends external_api {
         $loader = new \core_question\local\bank\random_question_loader(new qubaid_list([]));
         // Only load the properties we require from the DB.
         $properties = \core_question\external\question_summary_exporter::get_mandatory_properties();
-        $questions = $loader->get_questions($categoryid, $includesubcategories, $tagids, $limit, $offset, $properties);
-        $totalcount = $loader->count_questions($categoryid, $includesubcategories, $tagids);
+
+        // Transform to filters.
+        $filters = [
+            'category' => (object) [
+                'jointype' => \qbank_managecategories\category_condition::JOINTYPE_DEFAULT,
+                'values' => [$categoryid],
+                'conditionclass' => \qbank_managecategories\category_condition::class
+            ],
+            'subcategories' => (object) [
+                'jointype' => \qbank_managecategories\subcategories_condition::JOINTYPE_DEFAULT,
+                'values' => [$includesubcategories],
+                'conditionclass' => \qbank_managecategories\subcategories_condition::class
+            ],
+            'qtagids' => (object) [
+                'jointype' => \qbank_tagquestion\tag_condition::JOINTYPE_DEFAULT,
+                'values' => $tagids,
+                'conditionclass' => \qbank_tagquestion\tag_condition::class
+            ]
+        ];
+
+        $questions = $loader->get_filtered_questions($filters, $limit, $offset, $properties);
+        $totalcount = $loader->count_filtered_questions($filters);
         $renderer = $PAGE->get_renderer('core');
 
         $formattedquestions = array_map(function($question) use ($context, $renderer) {

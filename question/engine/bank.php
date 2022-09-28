@@ -532,6 +532,73 @@ class question_finder implements cache_data_source {
         return $DB->get_records_sql_menu($sql, $qcparams + $extraparams);
     }
 
+
+    /**
+     * Get questions and their usage based on filter condition.
+     *
+     * @param array $filters filter array
+     * @param qubaid_condition $qubaids which question_usages to count previous uses from.
+     * @param string $extraconditions extra conditions to AND with the rest of
+     *      the where clause. Must use named parameters.
+     * @param array $extraparams any parameters used by $extraconditions.
+     * @return array questionid => count of number of previous uses.
+     */
+    public function get_filtered_questions_with_usage_counts(array $filters, qubaid_condition $qubaids,
+                                                             string $extraconditions = '', array $extraparams = []): array {
+        global $DB;
+
+        $select = "q.id, (SELECT COUNT(1)
+                            FROM " . $qubaids->from_question_attempts('qa') . "
+                           WHERE qa.questionid = q.id AND " . $qubaids->where() . "
+                         ) AS previous_attempts";
+        $from   = "{question} q ";
+
+        $joins = [
+            'qv' => 'JOIN {question_versions} qv ON qv.questionid = q.id',
+            'qbe' => 'JOIN {question_bank_entries} qbe on qbe.id = qv.questionbankentryid',
+        ];
+
+        // Latest version.
+        $latestversion = 'qv.version = (SELECT MAX(v.version)
+                                          FROM {question_versions} v
+                                          JOIN {question_bank_entries} be
+                                            ON be.id = v.questionbankentryid
+                                         WHERE be.id = qbe.id)';
+
+        $readyonly = "qv.status = '" . \core_question\local\bank\question_version_status::QUESTION_STATUS_READY . "' ";
+        $where =  ['q.parent = 0', $latestversion, $readyonly];
+        $params = $qubaids->from_where_params();
+
+        // Build filter conditions.
+        foreach ($filters as $filter) {
+            if (isset($filter->conditionclass)) {
+                list($filterwhere, $filterparams) = $filter->conditionclass::build_query_from_filters($filters);
+                if (!empty($filterwhere)) {
+                    $where[] = '(' . $filterwhere . ')';
+                }
+                if (!empty($filterparams)) {
+                    $params = array_merge($params, $filterparams);
+                }
+            }
+        }
+
+        // Extra conditions.
+        if ($extraconditions) {
+            $where[] = $extraconditions;
+            $params = array_merge($params, $extraparams);
+        }
+
+        // Build query.
+        $from = $from . implode(' ', $joins);
+        $where = implode(' AND ', $where);
+        $sql = "SELECT $select
+                  FROM $from
+                 WHERE $where
+              ORDER BY previous_attempts";
+
+        return $DB->get_records_sql_menu($sql, $params);
+    }
+
     /**
      * Get the ids of all the questions in a list of categories, with the number
      * of times they have already been used in a given set of usages.
@@ -544,9 +611,14 @@ class question_finder implements cache_data_source {
      *      the where clause. Must use named parameters.
      * @param array $extraparams any parameters used by $extraconditions.
      * @return array questionid => count of number of previous uses.
+     *
+     * @deprecated since Moodle 4.1
+     * @todo Final deprecation on Moodle 4.5
      */
     public function get_questions_from_categories_with_usage_counts($categoryids,
             qubaid_condition $qubaids, $extraconditions = '', $extraparams = array()) {
+        debugging('Function get_questions_from_categories_with_usage_counts() is deprecated,
+         please do not use the function.', DEBUG_DEVELOPER);
         return $this->get_questions_from_categories_and_tags_with_usage_counts(
                 $categoryids, $qubaids, $extraconditions, $extraparams);
     }
@@ -564,9 +636,13 @@ class question_finder implements cache_data_source {
      * @param array $extraparams any parameters used by $extraconditions.
      * @param array $tagids an array of tag ids
      * @return array questionid => count of number of previous uses.
+     * @deprecated since Moodle 4.1
+     * @todo Final deprecation on Moodle 4.5
      */
     public function get_questions_from_categories_and_tags_with_usage_counts($categoryids,
             qubaid_condition $qubaids, $extraconditions = '', $extraparams = array(), $tagids = array()) {
+        debugging('Function get_questions_from_categories_and_tags_with_usage_counts() is deprecated,
+         please do not use the function.', DEBUG_DEVELOPER);
         global $DB;
 
         list($qcsql, $qcparams) = $DB->get_in_or_equal($categoryids, SQL_PARAMS_NAMED, 'qc');
