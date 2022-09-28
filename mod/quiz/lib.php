@@ -26,12 +26,15 @@
  */
 
 
+use qbank_managecategories\helper;
+
 defined('MOODLE_INTERNAL') || die();
 
 use mod_quiz\question\bank\custom_view;
 use core_question\statistics\questions\all_calculated_for_qubaid_condition;
 
 require_once($CFG->dirroot . '/calendar/lib.php');
+require_once($CFG->dirroot . '/question/editlib.php');
 
 
 /**#@+
@@ -2373,27 +2376,24 @@ function mod_quiz_core_calendar_event_timestart_updated(\calendar_event $event, 
  * @param array $args The fragment arguments.
  * @return string The rendered mform fragment.
  */
-function mod_quiz_output_fragment_quiz_question_bank($args) {
-    global $CFG, $DB, $PAGE;
-    require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-    require_once($CFG->dirroot . '/question/editlib.php');
+function mod_quiz_output_fragment_quiz_question_bank($args): string {
+    global $PAGE;
 
-    $querystring = preg_replace('/^\?/', '', $args['querystring']);
+    // Retrieve params.
     $params = [];
+    $extraparams = [];
+    $querystring = parse_url($args['querystring'], PHP_URL_QUERY);
     parse_str($querystring, $params);
 
-    // Build the required resources. The $params are all cleaned as
-    // part of this process.
-    list($thispageurl, $contexts, $cmid, $cm, $quiz, $pagevars) =
-            question_build_edit_resources('editq', '/mod/quiz/edit.php', $params, custom_view::DEFAULT_PAGE_SIZE);
+    $viewclass = \mod_quiz\question\bank\custom_view::class;
+    $extraparams['view'] = $viewclass;
 
-    // Get the course object and related bits.
-    $course = $DB->get_record('course', array('id' => $quiz->course), '*', MUST_EXIST);
-    require_capability('mod/quiz:manage', $contexts->lowest());
+    // Build required parameters.
+    list($contexts, $thispageurl, $course, $cm, $pagevars, $extraparams) =
+        build_required_parameters_for_custom_view($params, $extraparams);
 
-    // Create quiz question bank view.
-    $questionbank = new custom_view($contexts, $thispageurl, $course, $cm, $quiz);
-    $questionbank->set_quiz_has_attempts(quiz_has_attempts($quiz->id));
+    // Custom View.
+    $questionbank = new $viewclass($contexts, $thispageurl, $course, $cm, $pagevars, $extraparams);
 
     // Output.
     $renderer = $PAGE->get_renderer('mod_quiz', 'edit');
@@ -2485,6 +2485,96 @@ function quiz_delete_references($quizid): void {
         // Delete any references.
         $DB->delete_records('question_references', $params);
     }
+}
+
+/**
+ * Question data fragment to get the question html via ajax call.
+ *
+ * @param $args
+ * @return array|string
+ */
+function mod_quiz_output_fragment_question_data($args) {
+    // Return if there is no args.
+    if (empty($args)) {
+        return '';
+    }
+
+    // Retrieve params from query string.
+    list($params, $extraparams) = extract_parameters_from_query_string($args);
+
+    // Build required parameters.
+    $cmid = $extraparams['cmid'];
+    $thispageurl = new \moodle_url('/mod/quiz/edit.php', ['cmid' => $cmid]);
+    $thiscontext = \context_module::instance($cmid);
+    $contexts = new \core_question\local\bank\question_edit_contexts($thiscontext);
+    $course = get_course($params['courseid']);
+    list(, $cm) = get_module_from_cmid($cmid);
+
+    // Custom question bank View.
+    $viewclass = $extraparams['view'];
+    $questionbank = new $viewclass($contexts, $thispageurl, $course, $cm, $params, $extraparams);
+
+    // Question table.
+    list($questionhtml, $jsfooter) = $questionbank->display_questions_table();
+    return [$questionhtml, $jsfooter];
+}
+
+/**
+ * Extract parameter from query string.
+ *
+ * @param string $args
+ * @return array the param and extra param
+ */
+function extract_parameters_from_query_string($args): array {
+    // Decode query string.
+    $args = json_decode($args);
+    $filtercondition = json_decode($args->filtercondition);
+    $extraparams = json_decode($args->extraparams);
+
+    // Convert into array.
+    $params = \core_question\local\bank\helper::convert_object_array($filtercondition);
+    $extraparamsclean = [];
+    if (!empty($extraparams)) {
+        $extraparamsclean = \core_question\local\bank\helper::convert_object_array($extraparams);
+    }
+
+    return [$params, $extraparamsclean];
+}
+
+/**
+ * Build required parameters for question bank custom view
+ *
+ * @param array $params the page parameters
+ * @param array $extraparams additional parameters
+ * @return array
+ */
+function build_required_parameters_for_custom_view(array $params, array $extraparams): array {
+    global $DB;
+
+    // Retrieve questions per page.
+    $viewclass = $extraparams['view'] ?? null;
+    // Build the required params.
+    if ($viewclass && $viewclass::DEFAULT_PAGE_SIZE) {
+        list($thispageurl, $contexts, $cmid, $cm, $quiz, $pagevars) =
+            question_build_edit_resources('editq', '/mod/quiz/edit.php',
+                array_merge($params, $extraparams),
+                $viewclass::DEFAULT_PAGE_SIZE);
+    } else {
+        // Build the required params.
+        list($thispageurl, $contexts, $cmid, $cm, $quiz, $pagevars) =
+            question_build_edit_resources('editq',
+                '/mod/quiz/edit.php',
+                array_merge($params, $extraparams));
+    }
+
+    // Get the course object.
+    $course = $DB->get_record('course', array('id' => $quiz->course), '*', MUST_EXIST);
+    require_capability('mod/quiz:manage', $contexts->lowest());
+
+    // Add cmid so we can retrieve later in extra params.
+    $extraparams['cmid'] = $cmid;
+
+    return [$contexts, $thispageurl, $course, $cm, $pagevars, $extraparams];
 }
 
 /**

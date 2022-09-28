@@ -18,6 +18,7 @@ namespace mod_quiz\question\bank;
 
 use core_question\local\bank\question_version_status;
 use core_question\local\bank\random_question_loader;
+use qbank_tagquestion\tag_condition;
 use qubaid_condition;
 
 defined('MOODLE_INTERNAL') || die();
@@ -110,6 +111,7 @@ class qbank_helper {
                        slot.maxmark,
                        slot.requireprevious,
                        qsr.filtercondition,
+                       qsr.usingcontextid,
                        qv.status,
                        qv.id AS versionid,
                        qv.version,
