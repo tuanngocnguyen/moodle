@@ -171,11 +171,43 @@ class qbank_helper {
 
             if ($slot->filtercondition) {
                 // Unpack the information about a random question.
-                $filtercondition = json_decode($slot->filtercondition);
                 $slot->questionid = 's' . $slot->id; // Sometimes this is used as an array key, so needs to be unique.
-                $slot->category = $filtercondition->questioncategoryid;
-                $slot->randomrecurse = (bool) $filtercondition->includingsubcategories;
-                $slot->randomtags = isset($filtercondition->tags) ? (array) $filtercondition->tags : [];
+                $slot->filtercondition = json_decode($slot->filtercondition);
+
+                // Transform old filtercondition into new ones.
+                if (!isset($slot->filtercondition->filters)) {
+                    $slot->filtercondition->filters = new \stdClass();
+
+                    // Question category filter.
+                    if (isset($slot->filtercondition->questioncategoryid)) {
+                        $slot->filtercondition->filters->category = (object) [
+                            'jointype' => \qbank_managecategories\category_condition::JOINTYPE_DEFAULT,
+                            'values' => [$slot->filtercondition->questioncategoryid],
+                            'conditionclass' => \qbank_managecategories\category_condition::class
+                        ];
+                    }
+
+                    // Subcategories filter.
+                    if (isset($slot->filtercondition->includingsubcategories)) {
+                        $slot->filtercondition->filters->subcategories = (object) [
+                            'jointype' => \qbank_managecategories\subcategories_condition::JOINTYPE_DEFAULT,
+                            'values' => [$slot->filtercondition->includingsubcategories],
+                            'conditionclass' => \qbank_managecategories\subcategories_condition::class
+                        ];
+                    }
+
+                    // Tag filters.
+                    if (isset($slot->filtercondition->tags)) {
+                        $slot->filtercondition->filters->qtagid = (object) [
+                            'jointype' => \qbank_tagquestion\tag_condition::JOINTYPE_DEFAULT,
+                            'values' => $slot->filtercondition->tags,
+                            'conditionclass' => \qbank_tagquestion\tag_condition::class
+                        ];
+                    }
+                }
+
+                $slot->category = $slot->filtercondition->filters->category->values[0] ?? 0;
+
                 $slot->qtype = 'random';
                 $slot->name = get_string('random', 'quiz');
                 $slot->length = 1;
@@ -208,9 +240,12 @@ class qbank_helper {
      */
     public static function get_tag_ids_for_slot(\stdClass $slotdata): array {
         $tagids = [];
-        foreach ($slotdata->randomtags as $taginfo) {
-            [$id] = explode(',', $taginfo, 2);
-            $tagids[] = $id;
+        if (!isset($slotdata->filtercondition->filters)) {
+            return $tagids;
+        }
+        $filters = $slotdata->filtercondition->filters;
+        if (isset($filters->qtagids)) {
+            $tagids = $filters->qtagids->values;
         }
         return $tagids;
     }
@@ -222,10 +257,19 @@ class qbank_helper {
      * @return string that can be used to display the random slot.
      */
     public static function describe_random_question(\stdClass $slotdata): string {
-        global $DB;
-        $category = $DB->get_record('question_categories', ['id' => $slotdata->category]);
-        return \question_bank::get_qtype('random')->question_name(
-               $category, $slotdata->randomrecurse, $slotdata->randomtags);
+        $qtagids = self::get_tag_ids_for_slot($slotdata);
+
+        if ($qtagids) {
+            $tagnames = [];
+            $tags = \core_tag_tag::get_bulk($qtagids, 'id, name');
+            foreach ($tags as $tag) {
+                $tagnames[] = $tag->name;
+            }
+            $description = get_string('randomqnametags', 'mod_quiz', implode(",", $tagnames));
+        } else {
+            $description = get_string('randomqname', 'mod_quiz');
+        }
+        return shorten_text($description, 255);
     }
 
     /**
@@ -249,8 +293,9 @@ class qbank_helper {
 
         // Random question.
         $randomloader = new random_question_loader($qubaids, []);
-        $newqusetionid = $randomloader->get_next_question_id($slotdata->category,
-                $slotdata->randomrecurse, self::get_tag_ids_for_slot($slotdata));
+        $fitlercondition = $slotdata->filtercondition;
+        $filters = (array) $fitlercondition->filters ?? [];
+        $newqusetionid = $randomloader->get_next_filtered_question_id($filters);
 
         if ($newqusetionid === null) {
             throw new \moodle_exception('notenoughrandomquestions', 'quiz');

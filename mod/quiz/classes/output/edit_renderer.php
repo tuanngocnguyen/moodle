@@ -669,7 +669,7 @@ class edit_renderer extends \plugin_renderer_base {
         if ($structure->can_add_random_questions()) {
             $returnurl = new \moodle_url('/mod/quiz/edit.php', array('cmid' => $structure->get_cmid(), 'data-addonpage' => $page));
             $params = ['returnurl' => $returnurl, 'cmid' => $structure->get_cmid(), 'appendqnumstring' => 'addarandomquestion'];
-            $url = new \moodle_url('/mod/quiz/addrandom.php', $params);
+            $url = new \moodle_url('/mod/quiz/edit.php', $params);
             $icon = new \pix_icon('t/add', $str->addarandomquestion, 'moodle', array('class' => 'iconsmall', 'title' => ''));
             $attributes = array('class' => 'cm-edit-action addarandomquestion', 'data-action' => 'addarandomquestion');
             if ($page) {
@@ -1052,7 +1052,6 @@ class edit_renderer extends \plugin_renderer_base {
         $qbankurlparams = [
             'cmid' => $structure->get_cmid(),
             'cat' => $slot->category . ',' . $slot->contextid,
-            'recurse' => $slot->randomrecurse,
         ];
 
         $slottags = [];
@@ -1064,14 +1063,8 @@ class edit_renderer extends \plugin_renderer_base {
             $qbankurlparams["qtagids[{$index}]"] = $slottag[0];
         }
 
-        // If this is a random question, display a link to show the questions
-        // selected from in the question bank.
-        $qbankurl = new \moodle_url('/question/edit.php', $qbankurlparams);
-        $qbanklink = ' ' . \html_writer::link($qbankurl,
-                        get_string('seequestions', 'quiz'), array('class' => 'mod_quiz_random_qbank_link'));
-
         return html_writer::link($editurl, $icon . $editicon, array('title' => $configuretitle)) .
-                ' ' . $instancename . ' ' . $qbanklink;
+                ' ' . $instancename;
     }
 
     /**

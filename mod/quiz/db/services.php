@@ -199,4 +199,20 @@ $functions = array(
         'capabilities'  => 'mod/quiz:view',
         'ajax'          => true,
     ],
+
+    'mod_quiz_add_random_question' => [
+        'classname'     => 'mod_quiz\external\add_random_question',
+        'description'   => 'Add a number of random questions to a quiz.',
+        'type'          => 'write',
+        'capabilities'  => 'mod/quiz:manage',
+        'ajax'          => true,
+    ],
+
+    'mod_quiz_update_filter_condition' => [
+        'classname'     => 'mod_quiz\external\update_filter_condition',
+        'description'   => 'Update filter condition for a random question slot.',
+        'type'          => 'write',
+        'capabilities'  => 'mod/quiz:manage',
+        'ajax'          => true,
+    ],
 );

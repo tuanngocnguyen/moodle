@@ -43,7 +43,6 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-require_once($CFG->dirroot . '/mod/quiz/addrandomform.php');
 require_once($CFG->dirroot . '/question/editlib.php');
 
 // These params are only passed from page request to request while we stay on
@@ -131,20 +130,6 @@ if ($addsectionatpage = optional_param('addsectionatpage', false, PARAM_INT)) {
     redirect($afteractionurl);
 }
 
-if ((optional_param('addrandom', false, PARAM_BOOL)) && confirm_sesskey()) {
-    // Add random questions to the quiz.
-    $structure->check_can_be_edited();
-    $recurse = optional_param('recurse', 0, PARAM_BOOL);
-    $addonpage = optional_param('addonpage', 0, PARAM_INT);
-    $categoryid = required_param('categoryid', PARAM_INT);
-    $randomcount = required_param('randomcount', PARAM_INT);
-    quiz_add_random_questions($quiz, $addonpage, $categoryid, $randomcount, $recurse);
-
-    quiz_delete_previews($quiz);
-    quiz_update_sumgrades($quiz);
-    redirect($afteractionurl);
-}
-
 if (optional_param('savechanges', false, PARAM_BOOL) && confirm_sesskey()) {
 
     // If rescaling is required save the new maximum.
@@ -184,6 +169,13 @@ if ($node) {
     $node->make_active();
 }
 echo $OUTPUT->header();
+
+// Add random question - result message.
+if ($message = optional_param('message', '', PARAM_TEXT)) {
+    echo $output->box_start('generalbox');
+    echo $OUTPUT->notification($message, 'success');
+    echo $OUTPUT->box_end();
+}
 
 // Initialise the JavaScript.
 $quizeditconfig = new stdClass();

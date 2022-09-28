@@ -2414,33 +2414,56 @@ function mod_quiz_output_fragment_quiz_question_bank($args): string {
  * @return string The rendered mform fragment.
  */
 function mod_quiz_output_fragment_add_random_question_form($args) {
-    global $CFG;
-    require_once($CFG->dirroot . '/mod/quiz/addrandomform.php');
+    global $PAGE, $OUTPUT;
 
-    $contexts = new \core_question\local\bank\question_edit_contexts($args['context']);
-    $formoptions = [
-        'contexts' => $contexts,
-        'cat' => $args['cat']
+    // Retrieve params.
+    $params = $args;
+    $extraparams = [];
+
+    // Build required parameters.
+    list($contexts, $thispageurl, $course, $cm, $pagevars, $extraparams) =
+        build_required_parameters_for_custom_view($params, $extraparams);
+
+    // Additional param to differentiate with other question bank view
+    $viewclass = \mod_quiz\question\bank\random_question_view::class;
+    $extraparams['view'] = $viewclass;
+
+    // Custom View.
+    $questionbank = new $viewclass($contexts, $thispageurl, $course, $cm, $pagevars, $extraparams);
+
+    $renderer = $PAGE->get_renderer('mod_quiz', 'edit');
+    $questionbankoutput = $renderer->question_bank_contents($questionbank, $pagevars);
+
+    $randomcount[] = ['value'=> 0, 'name' => get_string('randomnumber', 'quiz')];
+
+    $maxrand = 100;
+    for ($i = 1; $i <= min(100, $maxrand); $i++) {
+        $randomcount[] = ['value'=> $i, 'name' => $i];
+    }
+
+    // Parent category select.
+    $usablecontexts = $contexts->having_cap('moodle/question:useall');
+    $categoriesarray = helper::question_category_options($usablecontexts);
+    $catoptions = [];
+    foreach ($categoriesarray as $group => $opts) {
+        // Options for each category group.
+        $categories = [];
+        foreach ($opts as $context => $name) {
+            $categories[] = ['value'=> $context, 'name' => $name];
+        }
+        $catoptions[] = ['label' => $group, 'options' => $categories];
+    }
+
+    // Template data.
+    $data = [
+        'questionbank' => $questionbankoutput,
+        'randomoptions' => $randomcount,
+        'questioncategoryoptions' => $catoptions,
     ];
-    $formdata = [
-        'category' => $args['cat'],
-        'addonpage' => $args['addonpage'],
-        'returnurl' => $args['returnurl'],
-        'cmid' => $args['cmid']
-    ];
 
-    $form = new quiz_add_random_form(
-        new \moodle_url('/mod/quiz/addrandom.php'),
-        $formoptions,
-        'post',
-        '',
-        null,
-        true,
-        $formdata
-    );
-    $form->set_data($formdata);
+    $result = $OUTPUT->render_from_template('mod_quiz/add_random_question_form', $data);
 
-    return $form->render();
+    return $result;
 }
 
 /**
