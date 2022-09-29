@@ -6069,9 +6069,48 @@ trait restore_question_set_reference_data_trait {
         $data->usingcontextid = $this->get_mappingid('context', $data->usingcontextid);
         $data->itemid = $this->get_new_parentid('quiz_question_instance');
         $filtercondition = json_decode($data->filtercondition);
-        if ($category = $this->get_mappingid('question_category', $filtercondition->questioncategoryid)) {
-            $filtercondition->questioncategoryid = $category;
+
+        // Mapping category filter.
+        if ($filtercondition && isset($filtercondition->filters)) {
+            $newfiltervalues = [];
+            foreach ($filtercondition->filters->category->values as $categoryid) {
+                if ($category = $this->get_mappingid('question_category', $categoryid)) {
+                    $newfiltervalues[] = $category;
+                }
+            }
+            $filtercondition->filters->category->values = $newfiltervalues;
+        } else if ($filtercondition) {
+            $filters = new \stdClass();
+
+            // Question category filter.
+            if (isset($filtercondition->questioncategoryid)) {
+                $filters->category = (object) [
+                    'jointype' => \qbank_managecategories\category_condition::JOINTYPE_DEFAULT,
+                    'values' => [$filtercondition->questioncategoryid],
+                    'conditionclass' => \qbank_managecategories\category_condition::class
+                ];
+            }
+
+            // Subcategories filter.
+            if (isset($filtercondition->includingsubcategories)) {
+                $filters->subcategories = (object) [
+                    'jointype' => \qbank_managecategories\subcategories_condition::JOINTYPE_DEFAULT,
+                    'values' => [$filtercondition->includingsubcategories],
+                    'conditionclass' => \qbank_managecategories\subcategories_condition::class
+                ];
+            }
+
+            // Tag filters.
+            if (isset($filtercondition->tags)) {
+                $filters->qtagid = (object) [
+                    'jointype' => \qbank_tagquestion\tag_condition::JOINTYPE_DEFAULT,
+                    'values' => $filtercondition->tags,
+                    'conditionclass' => \qbank_tagquestion\tag_condition::class
+                ];
+            }
+            $filtercondition->filters = $filters;
         }
+
         $data->filtercondition = json_encode($filtercondition);
         if ($context = $this->get_mappingid('context', $data->questionscontextid)) {
             $data->questionscontextid = $context;
