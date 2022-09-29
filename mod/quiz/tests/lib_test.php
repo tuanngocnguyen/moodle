@@ -109,7 +109,7 @@ class lib_test extends \advanced_testcase {
         $standardq = $questiongenerator->create_question('shortanswer', null, array('category' => $cat->id));
 
         quiz_add_quiz_question($standardq->id, $quiz);
-        quiz_add_random_questions($quiz, 0, $cat->id, 1, false);
+        quiz_add_random_questions($quiz, 0, $cat->id, 1);
 
         // Get the random question.
         $randomq = $DB->get_record('question', array('qtype' => 'random'));

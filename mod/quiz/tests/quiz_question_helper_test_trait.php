@@ -90,7 +90,7 @@ trait quiz_question_helper_test_trait {
         $cat = $questiongenerator->create_question_category($override);
         $questiongenerator->create_question('truefalse', null, array('category' => $cat->id));
         $questiongenerator->create_question('essay', null, array('category' => $cat->id));
-        quiz_add_random_questions($quiz, 0, $cat->id, 1, false);
+        quiz_add_random_questions($quiz, 0, $cat->id, 1);
     }
 
     /**

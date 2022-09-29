@@ -1864,7 +1864,7 @@ class external_test extends externallib_advanced_testcase {
         $question = $questiongenerator->create_question('truefalse', null, array('category' => $cat->id));
         $question = $questiongenerator->create_question('essay', null, array('category' => $cat->id));
 
-        quiz_add_random_questions($quiz, 0, $cat->id, 1, false);
+        quiz_add_random_questions($quiz, 0, $cat->id, 1);
 
         $quizobj = quiz::create($quiz->id, $this->student->id);
 
@@ -1986,8 +1986,8 @@ class external_test extends externallib_advanced_testcase {
         $question = $questiongenerator->create_question('essay', null, ['category' => $anothercat->id]);
 
         // Add a couple of random questions from the same category.
-        quiz_add_random_questions($quiz, 0, $cat->id, 1, false);
-        quiz_add_random_questions($quiz, 0, $cat->id, 1, false);
+        quiz_add_random_questions($quiz, 0, $cat->id, 1);
+        quiz_add_random_questions($quiz, 0, $cat->id, 1);
 
         $this->setUser($this->student);
 
@@ -2001,7 +2001,7 @@ class external_test extends externallib_advanced_testcase {
 
         // Add more questions to the quiz, this time from the other category.
         $this->setAdminUser();
-        quiz_add_random_questions($quiz, 0, $anothercat->id, 1, false);
+        quiz_add_random_questions($quiz, 0, $anothercat->id, 1);
 
         $this->setUser($this->student);
         $result = mod_quiz_external::get_quiz_required_qtypes($quiz->id);

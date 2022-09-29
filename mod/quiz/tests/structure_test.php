@@ -699,7 +699,7 @@ class structure_test extends \advanced_testcase {
 
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
         $cat = $questiongenerator->create_question_category();
-        quiz_add_random_questions($quizobj->get_quiz(), 1, $cat->id, 1, false);
+        quiz_add_random_questions($quizobj->get_quiz(), 1, $cat->id, 1);
         $structure = structure::create_for_quiz($quizobj);
         $sql = 'SELECT qsr.*
                  FROM {question_set_references} qsr
