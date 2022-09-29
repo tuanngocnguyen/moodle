@@ -105,8 +105,8 @@ class questionbank_test extends \advanced_testcase {
                 $questiondata2->id => 0,
                 $questiondata3->id => 1,
                 $questiondata1->id => 2,
-        ), question_bank::get_finder()->get_questions_from_categories_with_usage_counts(
-                array($cat->id), new qubaid_list(array($quba->get_id()))));
+        ), question_bank::get_finder()->get_filtered_questions_with_usage_counts(
+                [], new qubaid_list(array($quba->get_id()))));
     }
 
     public function test_load_many_for_cache() {
