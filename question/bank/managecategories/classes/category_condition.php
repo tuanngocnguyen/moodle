@@ -212,39 +212,6 @@ class category_condition extends condition {
     }
 
     /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        $catmenu = helper::question_category_options($this->contexts, true, 0, true, -1, false);
-        $values = [];
-        foreach ($catmenu as $menu) {
-            foreach ($menu as $catlist) {
-                foreach ($catlist as $key => $value) {
-                    $values[] = (object) [
-                        // Remove contextid from value.
-                        'value' => strpos($key, ',') === false ? $key : substr($key, 0, strpos($key, ',')),
-                        'title' => html_entity_decode($value),
-                        'selected' => ($key === $this->cat),
-                    ];
-                }
-            }
-        }
-        $filteroptions = [
-            'name' => 'category',
-            'title' => get_string('category', 'core_question'),
-            'custom' => false,
-            'multiple' => false,
-            'conditionclass' => get_class($this),
-            'filterclass' => null,
-            'values' => $values,
-            'allowempty' => false,
-        ];
-        return $filteroptions;
-    }
-
-    /**
      * Build query from filter value
      *
      * @param array $filters filter objects
@@ -282,5 +249,47 @@ class category_condition extends condition {
         list($insql, $params) = $DB->get_in_or_equal($categoriesandsubcategories, SQL_PARAMS_NAMED, 'cat', $equal);
         $where = 'qbe.questioncategoryid ' . $insql;
         return [$where, $params];
+    }
+
+    public function get_name() {
+        return 'category';
+    }
+
+    public function get_title() {
+        return get_string('category', 'core_question');
+    }
+
+    public function get_filter_class() {
+        return null;
+    }
+
+    public function allow_custom() {
+        return false;
+    }
+
+    public function allow_multiple() {
+        return false;
+    }
+
+    public function allow_empty() {
+        return false;
+    }
+
+    public function get_initial_values() {
+        $catmenu = helper::question_category_options($this->contexts, true, 0, true, -1, false);
+        $values = [];
+        foreach ($catmenu as $menu) {
+            foreach ($menu as $catlist) {
+                foreach ($catlist as $key => $value) {
+                    $values[] = (object) [
+                        // Remove contextid from value.
+                        'value' => strpos($key, ',') === false ? $key : substr($key, 0, strpos($key, ',')),
+                        'title' => html_entity_decode($value),
+                        'selected' => ($key === $this->cat),
+                    ];
+                }
+            }
+        }
+        return $values;
     }
 }

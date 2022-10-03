@@ -33,12 +33,6 @@ class subcategories_condition extends condition {
     /** @var array query param used in where. */
     protected $params;
 
-    /**
-     * Constructor to initialize the question text filter condition.
-     */
-    public function __construct($qbank) {
-    }
-
     public function get_condition_key() {
         return 'subcategories';
     }
@@ -60,21 +54,15 @@ class subcategories_condition extends condition {
         return $this->params;
     }
 
-    /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        return [
-            'name' => 'subcategories',
-            'title' => get_string('includesubcategories', 'core_question'),
-            'custom' => true,
-            'multiple' => true,
-            'conditionclass' => get_class($this),
-            'filterclass' => 'qbank_managecategories/datafilter/filtertypes/subcategories',
-            'values' => [],
-            'allowempty' => true,
-        ];
+    public function get_name() {
+        return 'subcategories';
+    }
+
+    public function get_title() {
+        return get_string('includesubcategories', 'core_question');
+    }
+
+    public function get_filter_class() {
+        return 'qbank_managecategories/datafilter/filtertypes/subcategories';
     }
 }

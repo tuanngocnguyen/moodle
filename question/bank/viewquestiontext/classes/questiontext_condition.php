@@ -60,21 +60,15 @@ class questiontext_condition extends condition {
         return $this->params;
     }
 
-    /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        return [
-            'name' => 'showtext',
-            'title' => get_string('showquestiontext', 'core_question'),
-            'custom' => true,
-            'multiple' => true,
-            'conditionclass' => get_class($this),
-            'filterclass' => 'qbank_viewquestiontext/datafilter/filtertypes/showtext',
-            'values' => [],
-            'allowempty' => true,
-        ];
+    public function get_name() {
+        return 'showtext';
+    }
+
+    public function get_title() {
+        return get_string('showquestiontext', 'core_question');
+    }
+
+    public function get_filter_class() {
+        return 'qbank_viewquestiontext/datafilter/filtertypes/showtext';
     }
 }

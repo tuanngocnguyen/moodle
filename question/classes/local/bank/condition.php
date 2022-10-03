@@ -51,10 +51,78 @@ abstract class condition {
     const RANGETYPE_BETWEEN = 2;
 
     /**
+     * Return title of the condition
+     *
+     * @return string title of the condition
+     */
+    abstract public function get_name();
+
+    /**
+     * Return name of the condition
+     *
+     * @return string name of the condition
+     */
+    abstract public function get_title();
+
+    /**
+     * Return filter class associated with this condition
+     *
+     * @return string name of the condition
+     */
+    abstract public function get_filter_class();
+
+    /**
      * Return an SQL fragment to be ANDed into the WHERE clause to filter which questions are shown.
+     *
      * @return string SQL fragment. Must use named parameters.
      */
     abstract public function where();
+
+    /**
+     * Whether customisation is allowed.
+     *
+     * @return bool
+     */
+    public function allow_custom() {
+        return true;
+    }
+
+    /**
+     * Whether multiple values are allowed .
+     *
+     * @return bool
+     */
+    public function allow_multiple() {
+        return true;
+    }
+
+    /**
+     * Initial values of the condition
+     *
+     * @return array
+     */
+    public function get_initial_values() {
+        return [];
+    }
+
+
+    /**
+     * Whether empty value is allowed
+     *
+     * @return bool
+     */
+    public function allow_empty() {
+        return true;
+    }
+
+    /**
+     * Return this condition class
+     *
+     * @return string
+     */
+    public function get_condition_class() {
+        return get_class($this);
+    }
 
     /**
      * Each condition will need a unique key to be identified and sequenced by the api.
@@ -99,15 +167,6 @@ abstract class condition {
     public function display_options() {
         debugging('Function display_options() is deprecated, please use filtering objects', DEBUG_DEVELOPER);
         return false;
-    }
-
-    /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        return [];
     }
 
     /**

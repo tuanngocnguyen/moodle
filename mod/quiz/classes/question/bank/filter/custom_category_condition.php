@@ -31,7 +31,7 @@ use qbank_managecategories\helper;
  */
 class custom_category_condition extends \qbank_managecategories\category_condition {
 
-    public function get_filter_options(): array {
+    public function get_initial_values() {
         $catmenu = custom_category_condition_helper::question_category_options($this->contexts, true, 0, true, -1, false);
         $values = [];
         foreach ($catmenu as $menu) {
@@ -46,16 +46,6 @@ class custom_category_condition extends \qbank_managecategories\category_conditi
                 }
             }
         }
-        $filteroptions = [
-            'name' => 'category',
-            'title' => get_string('category', 'core_question'),
-            'custom' => false,
-            'multiple' => false,
-            'filterclass' => null,
-            'conditionclass' => get_class($this),
-            'values' => $values,
-            'allowempty' => false,
-        ];
-        return $filteroptions;
+        return $values;
     }
 }

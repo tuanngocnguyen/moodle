@@ -63,24 +63,6 @@ class hidden_condition extends condition {
     }
 
     /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        return [
-            'name' => 'hidden',
-            'title' => get_string('showhidden', 'core_question'),
-            'custom' => true,
-            'multiple' => true,
-            'conditionclass' => get_class($this),
-            'filterclass' => 'qbank_deletequestion/datafilter/filtertypes/hidden',
-            'values' => [],
-            'allowempty' => true,
-        ];
-    }
-
-    /**
      * Build query from filter value
      *
      * @param array $filters filter objects
@@ -103,5 +85,17 @@ class hidden_condition extends condition {
         }
         return [$where, []];
 
+    }
+
+    public function get_name() {
+        return 'hidden';
+    }
+
+    public function get_title() {
+        return get_string('showhidden', 'core_question');
+    }
+
+    public function get_filter_class() {
+        return 'qbank_deletequestion/datafilter/filtertypes/hidden';
     }
 }

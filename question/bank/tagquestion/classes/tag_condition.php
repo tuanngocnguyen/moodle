@@ -107,34 +107,6 @@ class tag_condition extends condition {
     }
 
     /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        $tags = \core_tag_tag::get_tags_by_area_in_contexts('core_question', 'question', $this->contexts);
-        $values = [];
-        foreach ($tags as $tag) {
-            $values[] = [
-                'value' => $tag->id,
-                'title' => html_entity_decode($tag->name),
-                'selected' => in_array($tag->id, $this->selectedtagids)
-            ];
-        }
-        $filteroptions = [
-            'name' => 'qtagids',
-            'title' => get_string('tag', 'tag'),
-            'custom' => false,
-            'multiple' => true,
-            'conditionclass' => get_class($this),
-            'filterclass' => null,
-            'values' => $values,
-            'allowempty' => true,
-        ];
-        return $filteroptions;
-    }
-
-    /**
      * Build query from filter value
      *
      * @param array $filters filter objects
@@ -182,5 +154,34 @@ class tag_condition extends condition {
         }
 
         return [$where, $params];
+    }
+
+    public function get_name() {
+        return 'qtagids';
+    }
+
+    public function get_title() {
+        return get_string('tag', 'tag');
+    }
+
+    public function get_filter_class() {
+        return null;
+    }
+
+    public function allow_custom() {
+        return false;
+    }
+
+    public function get_initial_values() {
+        $tags = \core_tag_tag::get_tags_by_area_in_contexts('core_question', 'question', $this->contexts);
+        $values = [];
+        foreach ($tags as $tag) {
+            $values[] = [
+                'value' => $tag->id,
+                'title' => html_entity_decode($tag->name),
+                'selected' => in_array($tag->id, $this->selectedtagids)
+            ];
+        }
+        return $values;
     }
 }

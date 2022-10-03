@@ -85,24 +85,6 @@ class date_condition extends condition {
     }
 
     /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        return [
-            'name' => 'date',
-            'title' => 'Date',
-            'custom' => true,
-            'multiple' => true,
-            'conditionclass' => get_class($this),
-            'filterclass' => 'core/datafilter/filtertypes/date',
-            'values' => [],
-            'allowempty' => true,
-        ];
-    }
-
-    /**
      * Get the list of available joins for the filter.
      *
      * @return array
@@ -141,5 +123,17 @@ class date_condition extends condition {
             return [$where, []];
         }
         return ['', []];
+    }
+
+    public function get_name() {
+        return 'date';
+    }
+
+    public function get_title() {
+        return get_string('filter_title', 'qbank_viewcreator');
+    }
+
+    public function get_filter_class() {
+        return 'core/datafilter/filtertypes/date';
     }
 }

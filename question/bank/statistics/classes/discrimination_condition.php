@@ -79,24 +79,6 @@ class discrimination_condition extends condition {
     }
 
     /**
-     * Get options for filter.
-     *
-     * @return array
-     */
-    public function get_filter_options(): array {
-        return [
-            'name' => 'discrimination',
-            'title' => 'Discrimination index',
-            'custom' => true,
-            'multiple' => true,
-            'conditionclass' => get_class($this),
-            'filterclass' => 'qbank_statistics/datafilter/filtertypes/discrimination',
-            'values' => [],
-            'allowempty' => true,
-        ];
-    }
-
-    /**
      * Get the list of available joins for the filter.
      *
      * @return array
@@ -139,5 +121,17 @@ class discrimination_condition extends condition {
             return [$where, []];
         }
         return ['', []];
+    }
+
+    public function get_name() {
+        return 'discrimination';
+    }
+
+    public function get_title() {
+        return get_string('title', 'qbank_statistics');
+    }
+
+    public function get_filter_class() {
+        return 'qbank_statistics/datafilter/filtertypes/discrimination';
     }
 }
