@@ -185,6 +185,26 @@ export const init = (filterRegionId, defaultcourseid, defaultcategoryid,
     };
 
     /**
+     * Cleans URL parameters.
+     *
+     */
+    const cleanUrlParams = () => {
+        const queryString = location.search;
+        const urlParams = new URLSearchParams(queryString);
+        if (urlParams.has('cmid')) {
+            const cleanedUrl = new URL(location.href.replace(location.search, ''));
+            cleanedUrl.searchParams.set('cmid', urlParams.get('cmid'));
+            history.pushState({}, '', cleanedUrl);
+        }
+
+        if (urlParams.has('courseid')) {
+            const cleanedUrl = new URL(location.href.replace(location.search, ''));
+            cleanedUrl.searchParams.set('courseid', urlParams.get('courseid'));
+            history.pushState({}, '', cleanedUrl);
+        }
+    };
+
+    /**
      * Convert a nested object into query parameters.
      *
      * @param {Object} filters Active filters.
@@ -243,6 +263,42 @@ export const init = (filterRegionId, defaultcourseid, defaultcategoryid,
         });
         return object;
     };
+
+    // Add listeners for the sorting actions.
+    document.addEventListener('click', e => {
+        const sortableLink = e.target.closest(SELECTORS.SORT_LINK);
+        const paginationLink = e.target.closest(SELECTORS.PAGINATION_LINK);
+        const clearLink = e.target.closest(Selectors.filterset.actions.resetFilters);
+        if (sortableLink) {
+            e.preventDefault();
+            let oldsort = wsfilter.sortdata;
+            wsfilter.sortdata = [];
+            let sortdata = {
+                sortby: sortableLink.dataset.sortby,
+                sortorder: sortableLink.dataset.sortorder
+            };
+            wsfilter.sortdata.push(sortdata);
+            oldsort.forEach(value => {
+                if (value.sortby !== sortableLink.dataset.sortby) {
+                    wsfilter.sortdata.push(value);
+                }
+            });
+            wsfilter.displayoptions.page = 0;
+            coreFilter.updateTableFromFilter();
+        }
+        if (paginationLink) {
+            e.preventDefault();
+            let attr = e.target.getAttribute("href");
+            if (attr !== '#') {
+                const urlParams = new URLSearchParams(attr);
+                wsfilter.displayoptions.page = urlParams.get('qpage');
+                coreFilter.updateTableFromFilter();
+            }
+        }
+        if (clearLink) {
+            cleanUrlParams();
+        }
+    });
 
     // Run apply filter at page load.
     pagevars = JSON.parse(pagevars);
