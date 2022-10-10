@@ -27,7 +27,7 @@ Feature: Test creating a Multianswer (Cloze) question
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I press "Create a new question ..."
     And I set the field "Embedded answers (Cloze)" to "1"
-    And I press "Add"
+    And I click on "Add" "button" in the "Choose a question type to add" "dialogue"
     And I set the field "Question name" to "multianswer-002"
     And I set the field "Question text" to "Please select the fruits {1:MULTICHOICE:=Apple#Correct}"
     And I set the field "General feedback" to "Apple are delicious."
@@ -42,7 +42,7 @@ Feature: Test creating a Multianswer (Cloze) question
     When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
     And I press "Create a new question ..."
     And I set the field "Embedded answers (Cloze)" to "1"
-    And I press "Add"
+    And I click on "Add" "button" in the "Choose a question type to add" "dialogue"
     And I set the following fields to these values:
       | Question name | multianswer-003                                |
       | Question text | {1:SHORTANSWER:=  } is the capital of Germany. |
