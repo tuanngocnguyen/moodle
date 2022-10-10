@@ -117,4 +117,24 @@ class helper {
         return $filters;
     }
 
+    /**
+     * List of condition classes
+     *
+     * @return array condition classes in the form [condition_key] = class
+     */
+    public static function get_condition_classes(): array {
+        $classes = [];
+        $plugins = \core_component::get_plugin_list_with_class('qbank', 'plugin_feature', 'plugin_feature.php');
+        foreach ($plugins as $componentname => $plugin) {
+            if (\core\plugininfo\qbank::is_plugin_enabled($componentname)) {
+                $pluginentrypointobject = new $plugin();
+                $conditions = $pluginentrypointobject->get_question_filters();
+                foreach ($conditions as $condition) {
+                    $classes[$condition->get_condition_key()] = $condition->get_condition_class();
+                }
+            }
+        }
+        return $classes;
+    }
+
 }

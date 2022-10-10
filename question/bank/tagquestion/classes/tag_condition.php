@@ -45,6 +45,9 @@ class tag_condition extends condition {
      *
      */
     public function __construct($qbank) {
+        if (!$qbank) {
+            return;
+        }
         $cat = $qbank->get_pagevars('cat');
         if (is_array($cat)) {
             foreach ($cat as $value) {

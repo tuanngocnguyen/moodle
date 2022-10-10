@@ -111,7 +111,6 @@ class add_random_question extends external_api {
             $filters = [
                 'category' => [
                     'jointype' => custom_category_condition::JOINTYPE_DEFAULT,
-                    'conditionclass' => custom_category_condition::class,
                     'values' => [$categoryid]
                 ]
             ];

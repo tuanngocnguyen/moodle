@@ -312,18 +312,15 @@ class core_question_external extends external_api {
         $filters = [
             'category' => (object) [
                 'jointype' => \qbank_managecategories\category_condition::JOINTYPE_DEFAULT,
-                'values' => [$categoryid],
-                'conditionclass' => \qbank_managecategories\category_condition::class
+                'values' => [$categoryid]
             ],
             'subcategories' => (object) [
                 'jointype' => \qbank_managecategories\subcategories_condition::JOINTYPE_DEFAULT,
-                'values' => [$includesubcategories],
-                'conditionclass' => \qbank_managecategories\subcategories_condition::class
+                'values' => [$includesubcategories]
             ],
             'qtagids' => (object) [
                 'jointype' => \qbank_tagquestion\tag_condition::JOINTYPE_DEFAULT,
-                'values' => $tagids,
-                'conditionclass' => \qbank_tagquestion\tag_condition::class
+                'values' => $tagids
             ]
         ];
 

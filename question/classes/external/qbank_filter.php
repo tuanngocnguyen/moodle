@@ -59,7 +59,6 @@ class qbank_filter extends external_api {
                 new external_single_structure(
                     [
                         'filtertype' => new external_value(PARAM_ALPHANUM, 'Filter type'),
-                        'conditionclass' => new external_value(PARAM_TEXT, 'Condition class', VALUE_OPTIONAL),
                         'jointype' => new external_value(PARAM_INT, 'Join type'),
                         'values' => new external_value(PARAM_RAW, 'list of ids'),
                         'rangetype' => new external_value(PARAM_INT, 'Range type', VALUE_OPTIONAL),
@@ -152,7 +151,6 @@ class qbank_filter extends external_api {
             $params['filters'][$filter['filtertype']] = [
                 'jointype' => $filter['jointype'],
                 'rangetype' => $filter['rangetype'] ?? null,
-                'conditionclass' => $filter['conditionclass'] ?? null,
                 'values' => empty($filter['values'])  && $filter['values'] != 0 ? [] : explode(',', $filter['values']),
             ];
         }

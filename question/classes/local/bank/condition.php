@@ -55,19 +55,12 @@ abstract class condition {
      *
      * @return string title of the condition
      */
-    abstract public function get_name();
-
-    /**
-     * Return name of the condition
-     *
-     * @return string name of the condition
-     */
     abstract public function get_title();
 
     /**
      * Return filter class associated with this condition
      *
-     * @return string name of the condition
+     * @return string filter class
      */
     abstract public function get_filter_class();
 

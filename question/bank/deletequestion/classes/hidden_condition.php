@@ -37,8 +37,14 @@ class hidden_condition extends condition {
 
     /**
      * Constructor to initialize the hidden condition for qbank.
+     *
+     * @param null $qbank qbank view
      */
-    public function __construct($qbank) {
+    public function __construct($qbank = null) {
+        if (!$qbank) {
+            return;
+        }
+
         $filters = $qbank->get_pagevars('filters');
         if (isset($filters['hidden'])) {
             $this->filter = (object) $filters['hidden'];

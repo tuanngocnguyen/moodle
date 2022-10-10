@@ -37,6 +37,9 @@ class date_condition extends condition {
      * Constructor to initialize the date filter condition.
      */
     public function __construct($qbank) {
+        if (!$qbank) {
+            return;
+        }
         $this->filters = $qbank->get_pagevars('filters');
         // Build where and params.
         list($this->where, $this->params) = self::build_query_from_filters($this->filters);

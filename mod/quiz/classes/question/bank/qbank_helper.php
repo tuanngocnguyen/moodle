@@ -182,8 +182,7 @@ class qbank_helper {
                     if (isset($slot->filtercondition->questioncategoryid)) {
                         $slot->filtercondition->filters->category = (object) [
                             'jointype' => \qbank_managecategories\category_condition::JOINTYPE_DEFAULT,
-                            'values' => [$slot->filtercondition->questioncategoryid],
-                            'conditionclass' => \qbank_managecategories\category_condition::class
+                            'values' => [$slot->filtercondition->questioncategoryid]
                         ];
                     }
 
@@ -191,8 +190,7 @@ class qbank_helper {
                     if (isset($slot->filtercondition->includingsubcategories)) {
                         $slot->filtercondition->filters->subcategories = (object) [
                             'jointype' => \qbank_managecategories\subcategories_condition::JOINTYPE_DEFAULT,
-                            'values' => [$slot->filtercondition->includingsubcategories],
-                            'conditionclass' => \qbank_managecategories\subcategories_condition::class
+                            'values' => [$slot->filtercondition->includingsubcategories]
                         ];
                     }
 
@@ -200,8 +198,7 @@ class qbank_helper {
                     if (isset($slot->filtercondition->tags)) {
                         $slot->filtercondition->filters->qtagid = (object) [
                             'jointype' => \qbank_tagquestion\tag_condition::JOINTYPE_DEFAULT,
-                            'values' => $slot->filtercondition->tags,
-                            'conditionclass' => \qbank_tagquestion\tag_condition::class
+                            'values' => $slot->filtercondition->tags
                         ];
                     }
                 }

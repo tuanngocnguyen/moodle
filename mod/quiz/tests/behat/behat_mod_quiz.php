@@ -276,8 +276,7 @@ class behat_mod_quiz extends behat_question_base {
                 $filters = [
                     'subcategories' => (object) [
                         'jointype' => \qbank_managecategories\subcategories_condition::JOINTYPE_DEFAULT,
-                        'values' => [$includingsubcategories],
-                        'conditionclass' => \qbank_managecategories\subcategories_condition::class
+                        'values' => [$includingsubcategories]
                     ],
                 ];
                 $filtercondition['filters'] = $filters;

@@ -2523,8 +2523,7 @@ function quiz_add_random_questions(stdClass $quiz, int $addonpage, int $category
             $filters = [
                 'category' => (object) [
                     'jointype' => \qbank_managecategories\category_condition::JOINTYPE_DEFAULT,
-                    'values' => [$categoryid],
-                    'conditionclass' => \qbank_managecategories\category_condition::class
+                    'values' => [$categoryid]
                 ],
             ];
             $condition = [];

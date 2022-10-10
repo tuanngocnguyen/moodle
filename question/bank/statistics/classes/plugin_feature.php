@@ -44,7 +44,7 @@ class plugin_feature extends \core_question\local\bank\plugin_features_base {
         ];
     }
 
-    public function get_question_filters(view $qbank): array {
+    public function get_question_filters(view $qbank = null): array {
         return [
             new discrimination_condition($qbank),
         ];

@@ -60,14 +60,13 @@ class qbank_filter extends datafilter {
 
         foreach ($this->searchconditions as $searchcondition) {
             $filtertypes[] = $this->get_filter_object(
-                $searchcondition->get_name(),
+                $searchcondition->get_condition_key(),
                 $searchcondition->get_title(),
                 $searchcondition->allow_custom(),
                 $searchcondition->allow_multiple(),
                 $searchcondition->get_filter_class(),
                 $searchcondition->get_initial_values(),
-                $searchcondition->allow_empty(),
-                $searchcondition->get_condition_class()
+                $searchcondition->allow_empty()
             );
         }
 

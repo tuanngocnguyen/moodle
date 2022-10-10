@@ -68,10 +68,10 @@ class plugin_features_base {
     /**
      * Return search conditions for the plugin.
      *
-     * @param view $qbank
+     * @param view|null $qbank
      * @return condition[]
      */
-    public function get_question_filters(view $qbank): array {
+    public function get_question_filters(view $qbank = null): array {
         return [];
     }
 }

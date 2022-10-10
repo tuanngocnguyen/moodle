@@ -568,11 +568,11 @@ class question_finder implements cache_data_source {
         $readyonly = "qv.status = '" . \core_question\local\bank\question_version_status::QUESTION_STATUS_READY . "' ";
         $where =  ['q.parent = 0', $latestversion, $readyonly];
         $params = $qubaids->from_where_params();
-
+        $conditionclasses = \core_question\local\bank\helper::get_condition_classes();
         // Build filter conditions.
-        foreach ($filters as $filter) {
-            if (isset($filter->conditionclass)) {
-                list($filterwhere, $filterparams) = $filter->conditionclass::build_query_from_filters($filters);
+        foreach ($filters as $key => $filter) {
+            if (isset($conditionclasses[$key])) {
+                list($filterwhere, $filterparams) = $conditionclasses[$key]::build_query_from_filters($filters);
                 if (!empty($filterwhere)) {
                     $where[] = '(' . $filterwhere . ')';
                 }

@@ -108,7 +108,6 @@ export const init = (filterRegionId, defaultcourseid, defaultcategoryid,
             for (const [key, value] of Object.entries(filterdata)) {
                 let filter = {
                     'filtertype': key,
-                    'conditionclass': value.conditionclass,
                     'jointype': value.jointype,
                     'rangetype': value.rangetype,
                     'values': value.values.toString()
