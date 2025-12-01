@@ -1237,17 +1237,25 @@ final class events_test extends \advanced_testcase {
         $assigninstance = $this->getDataGenerator()->create_module('assign', array('course' => $course->id));
         $cm = get_coursemodule_from_instance('assign', $assigninstance->id, $course->id);
         $context = \context_module::instance($cm->id);
-        $assign = new \assign($context, $cm, $course);
+
+        // Create a teacher with capability to manage overrides.
+        $teacher = $this->getDataGenerator()->create_user();
+        $teacherrole = $DB->get_record('role', ['shortname' => 'editingteacher']);
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, $teacherrole->id);
+        $this->setUser($teacher);
 
         // Create an override.
         $override = new \stdClass();
-        $override->assign = $assigninstance->id;
+        $override->assignid = $assigninstance->id;
         $override->userid = 2;
         $override->id = $DB->insert_record('assign_overrides', $override);
 
+        // Create override manager.
+        $manager = new \mod_assign\override_manager($assigninstance, $context);
+
         // Trigger and capture the event.
         $sink = $this->redirectEvents();
-        $assign->delete_override($override->id);
+        $manager->delete_overrides_by_id([$override->id]);
         $events = $sink->get_events();
         $event = reset($events);
 
@@ -1268,17 +1276,28 @@ final class events_test extends \advanced_testcase {
         $assigninstance = $this->getDataGenerator()->create_module('assign', array('course' => $course->id));
         $cm = get_coursemodule_from_instance('assign', $assigninstance->id, $course->id);
         $context = \context_module::instance($cm->id);
-        $assign = new \assign($context, $cm, $course);
+
+        // Create a teacher with capability to manage overrides.
+        $teacher = $this->getDataGenerator()->create_user();
+        $teacherrole = $DB->get_record('role', ['shortname' => 'editingteacher']);
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, $teacherrole->id);
+        $this->setUser($teacher);
+
+        // Create a group.
+        $group = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
 
         // Create an override.
         $override = new \stdClass();
-        $override->assign = $assigninstance->id;
-        $override->groupid = 2;
+        $override->assignid = $assigninstance->id;
+        $override->groupid = $group->id;
         $override->id = $DB->insert_record('assign_overrides', $override);
+
+        // Create override manager.
+        $manager = new \mod_assign\override_manager($assigninstance, $context);
 
         // Trigger and capture the event.
         $sink = $this->redirectEvents();
-        $assign->delete_override($override->id);
+        $manager->delete_overrides_by_id([$override->id]);
         $events = $sink->get_events();
         $event = reset($events);
 
