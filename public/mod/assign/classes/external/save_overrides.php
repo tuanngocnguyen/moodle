@@ -16,6 +16,7 @@
 
 namespace mod_assign\external;
 
+use context_module;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
@@ -52,7 +53,12 @@ class save_overrides extends external_api {
             'data' => new external_single_structure([
                 'assignid' => new external_value(PARAM_INT, 'ID of assignment to save overrides to'),
                 'overrides' => new external_multiple_structure($overridestructure),
-                'recalculate' => new external_value(PARAM_BOOL, 'Recalculate grades after saving', VALUE_DEFAULT, false),
+                'recalculatepenalties' => new external_value(
+                    PARAM_BOOL,
+                    'Recalculate penalties after saving',
+                    VALUE_DEFAULT,
+                    false
+                ),
             ]),
         ]);
     }
@@ -63,7 +69,7 @@ class save_overrides extends external_api {
      * @param array $data array with assignid key and overrides key containing list of overrides to save.
      * @return array with ids key which contains ids of created/updated overrides.
      */
-    public static function execute($data): array {
+    public static function execute(array $data): array {
         global $DB;
 
         $params = self::validate_parameters(self::execute_parameters(), ['data' => $data])['data'];
@@ -71,7 +77,7 @@ class save_overrides extends external_api {
         // Get the assignment and course module.
         $assign = $DB->get_record('assign', ['id' => $params['assignid']], '*', MUST_EXIST);
         $cm = get_coursemodule_from_instance('assign', $assign->id, $assign->course, false, MUST_EXIST);
-        $context = \context_module::instance($cm->id);
+        $context = context_module::instance($cm->id);
 
         self::validate_context($context);
 
@@ -80,8 +86,8 @@ class save_overrides extends external_api {
         $manager->require_manage_capability();
 
         // Save all overrides with recalculate flag.
-        $recalculate = $params['recalculate'] ?? false;
-        $ids = $manager->save_overrides($params['overrides'], $recalculate);
+        $recalculatepenalties = $params['recalculatepenalties'] ?? false;
+        $ids = $manager->save_overrides($params['overrides'], $recalculatepenalties);
 
         return ['ids' => $ids];
     }

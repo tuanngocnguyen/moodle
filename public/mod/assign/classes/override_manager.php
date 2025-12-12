@@ -16,12 +16,23 @@
 
 namespace mod_assign;
 
+use assign;
+use cache;
+use calendar_event;
+use context_module;
+use core\exception\moodle_exception;
+use core_course\cm_info;
+use core_user;
+use core_user\fields as user_field;
+use invalid_parameter_exception;
 use mod_assign\event\group_override_created;
 use mod_assign\event\group_override_deleted;
 use mod_assign\event\group_override_updated;
 use mod_assign\event\user_override_created;
 use mod_assign\event\user_override_deleted;
 use mod_assign\event\user_override_updated;
+use mod_assign\penalty\helper as penalty_helper;
+use stdClass;
 
 /**
  * Manager class for assignment overrides
@@ -37,14 +48,14 @@ class override_manager {
     /**
      * Create override manager
      *
-     * @param \stdClass $assign The assignment to link the manager to.
-     * @param \context_module $context Context being operated in
+     * @param stdClass $assign The assignment to link the manager to.
+     * @param context_module $context Context being operated in
      */
     public function __construct(
-        /** @var \stdClass The assignment linked to this manager instance **/
-        protected readonly \stdClass $assign,
-        /** @var \context_module The context being operated in **/
-        public readonly \context_module $context
+        /** @var stdClass The assignment linked to this manager instance **/
+        protected readonly stdClass $assign,
+        /** @var context_module The context being operated in **/
+        public readonly context_module $context
     ) {
         global $CFG;
         // Required for assign_* functions.
@@ -75,7 +86,7 @@ class override_manager {
         // Filter for those overrides user can access.
         $filteredoverrides = array_filter(
             $this->get_all_overrides(),
-            fn(\stdClass $override) => $this->can_view_override($override, $course, $cm)
+            fn(stdClass $override) => $this->can_view_override($override, $course, $cm)
         );
 
         // Convert to array and reset keys.
@@ -118,7 +129,7 @@ class override_manager {
         }
 
         // If user is set, ensure it is a valid user.
-        if (!empty($formdata->userid) && !\core_user::is_real_user($formdata->userid, true)) {
+        if (!empty($formdata->userid) && !core_user::is_real_user($formdata->userid, true)) {
             $errors['userid'][] = get_string('invaliduserid', 'assign');
         }
 
@@ -233,24 +244,25 @@ class override_manager {
     }
 
     /**
-     * Returns the existing assign override record with the given ID or null if it does not exist.
+     * Returns the existing assign override record with the given ID or false if it does not exist.
      *
      * @param int $id existing assign override id
-     * @return ?\stdClass record, if exists
+     * @return false|stdClass record, if exists
+     * @throws \dml_exception
      */
-    private function get_existing(int $id): ?\stdClass {
+    private function get_existing(int $id): false|stdClass {
         global $DB;
-        return $DB->get_record('assign_overrides', ['id' => $id]) ?: null;
+        return $DB->get_record('assign_overrides', ['id' => $id]);
     }
 
     /**
      * Validates the formdata against an existing record.
      *
      * @param int $existingid id of existing assign override record
-     * @param \stdClass $formdata formdata, usually from moodleform or webservice call.
+     * @param stdClass $formdata formdata, usually from moodleform or webservice call.
      * @return array array where the keys are error elements, and the values are lists of errors for each element.
      */
-    private function validate_against_existing_record(int $existingid, \stdClass $formdata): array {
+    private function validate_against_existing_record(int $existingid, stdClass $formdata): array {
         $existingrecord = $this->get_existing($existingid);
         $errors = [];
 
@@ -280,7 +292,7 @@ class override_manager {
      * @return array array containing parsed formdata, with keys as the properties and values as the values.
      * Any values set the same as the existing assignment are set to null.
      */
-    public function parse_formdata(array $formdata): array {
+    private function parse_formdata(array $formdata): array {
         // Get the data from the form that we want to update.
         $settings = array_intersect_key($formdata, array_flip(self::OVERRIDEABLE_ASSIGN_SETTINGS));
 
@@ -297,24 +309,21 @@ class override_manager {
      * Saves multiple overrides at once. Each override can contain an id for updating existing overrides.
      *
      * @param array $overridesdata array of override data, where each element is data usually from moodleform or webservice call.
-     * @param bool $recalculate If true, recalculate grades for all affected users after saving overrides.
+     * @param bool $recalculatepenalties If true, recalculate penalties for all affected users after saving overrides.
      * @return array array of updated/inserted record ids
      */
-    public function save_overrides(array $overridesdata, bool $recalculate = false): array {
-        // Require capability to manage overrides.
-        $this->require_manage_capability();
-
+    public function save_overrides(array $overridesdata, bool $recalculatepenalties = false): array {
         $ids = [];
         foreach ($overridesdata as $override) {
             $overrideid = $this->save_override($override);
             $ids[] = $overrideid;
 
-            // Recalculate grades if requested.
-            if ($recalculate) {
+            // Recalculate penalties if requested.
+            if ($recalculatepenalties) {
                 $userid = $override['userid'] ?? null;
                 $groupid = $override['groupid'] ?? null;
                 if ($userid || $groupid) {
-                    $this->recalculate_grades($userid, $groupid);
+                    $this->recalculate_penalties($userid, $groupid);
                 }
             }
         }
@@ -338,7 +347,7 @@ class override_manager {
         $errors = $this->validate_data($datatoset);
         if (!empty($errors)) {
             $errorstr = implode(',', $errors);
-            throw new \invalid_parameter_exception($errorstr);
+            throw new invalid_parameter_exception($errorstr);
         }
 
         // Convert to object for ease of use.
@@ -368,6 +377,8 @@ class override_manager {
                 'groupid' => empty($datatoset->groupid) ? null : $datatoset->groupid,
             ];
             if ($oldoverride = $DB->get_record('assign_overrides', $conditions)) {
+                // On overrideedit.php form, user/group selection is disabled, so $userorgroupchanged is always false.
+                // While the save_override() ws allows changing user/group, so we need to handle this case.
                 // Don't delete the override we're currently updating.
                 if (empty($existingoverride) || $oldoverride->id != $existingoverride->id) {
                     // Merge with old override.
@@ -376,7 +387,7 @@ class override_manager {
                             $datatoset->{$key} = $oldoverride->{$key};
                         }
                     }
-                    $this->delete_overrides_by_id([$oldoverride->id], false);
+                    $this->delete_overrides_by_id([$oldoverride->id]);
                 }
             }
         }
@@ -388,12 +399,6 @@ class override_manager {
         if (!empty($id)) {
             // Update existing record.
             $DB->update_record('assign_overrides', $datatoset);
-
-            // Update cache.
-            $cachekey = $groupmode ?
-                "{$this->assign->id}_g_{$datatoset->groupid}" :
-                "{$this->assign->id}_u_{$datatoset->userid}";
-            \cache::make('mod_assign', 'overrides')->delete($cachekey);
         } else {
             // Insert new record.
             unset($datatoset->id);
@@ -402,7 +407,6 @@ class override_manager {
 
             // Set sort order for group overrides.
             if ($groupmode) {
-                $datatoset->sortorder = 1;
                 $overridecountgroup = $DB->count_records(
                     'assign_overrides',
                     ['userid' => null, 'assignid' => $this->assign->id]
@@ -417,16 +421,13 @@ class override_manager {
                 $DB->update_record('assign_overrides', $datatoset);
                 $this->reorder_group_overrides();
             }
-
-            // Update cache.
-            $cachekey = $groupmode ?
-                "{$this->assign->id}_g_{$datatoset->groupid}" :
-                "{$this->assign->id}_u_{$datatoset->userid}";
-            \cache::make('mod_assign', 'overrides')->delete($cachekey);
         }
 
         $userid = $datatoset->userid ?? null;
         $groupid = $datatoset->groupid ?? null;
+
+        // Clear cache.
+        $this->clear_cache_for($userid, $groupid);
 
         // Trigger moodle events.
         if (empty($override['id'])) {
@@ -440,7 +441,7 @@ class override_manager {
         $course = $DB->get_record('course', ['id' => $this->assign->course], '*', MUST_EXIST);
 
         // Create assign instance for calendar updates.
-        $assigninstance = new \assign($this->context, $cm, $course);
+        $assigninstance = new assign($this->context, $cm, $course);
 
         // Update calendar events.
         assign_update_events($assigninstance, $datatoset);
@@ -453,12 +454,12 @@ class override_manager {
      * Capabilities are checked internally.
      *
      * @param bool $shouldlog If true, will log a override_deleted event
-     * @param bool $recalculate If true, recalculate grades for affected users after deletion
+     * @param bool $recalculatepenalties If true, recalculate penalties for affected users after deletion
      */
-    public function delete_all_overrides(bool $shouldlog = true, bool $recalculate = false): void {
+    public function delete_all_overrides(bool $shouldlog = true, bool $recalculatepenalties = false): void {
         global $DB;
         $overrides = $DB->get_records('assign_overrides', ['assignid' => $this->assign->id], '', 'id,userid,groupid');
-        $this->delete_overrides($overrides, $shouldlog, $recalculate);
+        $this->delete_overrides($overrides, $shouldlog, $recalculatepenalties);
     }
 
     /**
@@ -468,9 +469,9 @@ class override_manager {
      *
      * @param array $ids IDs of overrides to delete
      * @param bool $shouldlog If true, will log a override_deleted event
-     * @param bool $recalculate If true, recalculate grades for affected users after deletion
+     * @param bool $recalculatepenalties If true, recalculate penalties for affected users after deletion
      */
-    public function delete_overrides_by_id(array $ids, bool $shouldlog = true, bool $recalculate = false): void {
+    public function delete_overrides_by_id(array $ids, bool $shouldlog = true, bool $recalculatepenalties = false): void {
         global $DB;
 
         // Early return if no IDs provided.
@@ -480,7 +481,7 @@ class override_manager {
 
         [$sql, $params] = $this->get_override_in_sql($this->assign->id, $ids);
         $overrides = $DB->get_records_select('assign_overrides', $sql, $params, '', 'id,userid,groupid');
-        $this->delete_overrides($overrides, $shouldlog, $recalculate);
+        $this->delete_overrides($overrides, $shouldlog, $recalculatepenalties);
     }
 
     /**
@@ -503,31 +504,30 @@ class override_manager {
      * Deletes the given overrides in the assignment linked to the override manager.
      *
      * @param array $overrides override to delete. Must specify an id, assignid, and either a userid or groupid.
-     * @param bool $shouldlog If true, will log a override_deleted event
-     * @param bool $recalculate If true, recalculate grades for affected users after deletion
+     * @param bool $shouldlog If true, will log an override_deleted event
+     * @param bool $recalculatepenalties If true, recalculate penalties for affected users after deletion
      */
-    private function delete_overrides(array $overrides, bool $shouldlog = true, bool $recalculate = false): void {
+    private function delete_overrides(array $overrides, bool $shouldlog = true, bool $recalculatepenalties = false): void {
         global $DB;
 
         if (empty($overrides)) {
             return;
         }
 
-        // Require capability to manage overrides.
-        $this->require_manage_capability();
-
         // Details to verify user can access all the overrides before deleting.
         $cm = get_coursemodule_from_instance('assign', $this->assign->id, $this->assign->course, false, MUST_EXIST);
         $course = $DB->get_record('course', ['id' => $this->assign->course], '*', MUST_EXIST);
 
+        // Check if any group overrides were deleted and reorder if needed.
+        $hasgroupoverride = false;
         foreach ($overrides as $override) {
             if (empty($override->id)) {
-                throw new \invalid_parameter_exception("All overrides must specify an ID");
+                throw new invalid_parameter_exception("All overrides must specify an ID");
             }
 
             // Verify user can access override.
             if (!$this->can_view_override($override, $course, $cm)) {
-                throw new \invalid_parameter_exception(
+                throw new invalid_parameter_exception(
                     'Override with id ' . $override->id . ' is not accessible by user.'
                 );
             }
@@ -535,11 +535,24 @@ class override_manager {
             // Sanity check that user xor group is specified.
             // User or group is required to clear the cache.
             $this->ensure_userid_xor_groupid_set($override->userid ?? null, $override->groupid ?? null);
+
+            if (!empty($override->groupid)) {
+                $hasgroupoverride = true;
+            }
         }
 
         // Match id and assignid.
         [$sql, $params] = $this->get_override_in_sql($this->assign->id, array_column($overrides, 'id'));
         $DB->delete_records_select('assign_overrides', $sql, $params);
+
+        // Reorder group overrides BEFORE cleanup/recalculation.
+        // When users belong to multiple groups, override_exists() uses
+        // "ORDER BY sortorder ASC" to select which override applies. Reordering ensures
+        // the sortorder is sequential without gaps, so penalty calculations use the correct
+        // override (the one with the lowest sortorder among remaining overrides).
+        if ($hasgroupoverride) {
+            $this->reorder_group_overrides();
+        }
 
         // Perform other cleanup.
         foreach ($overrides as $override) {
@@ -554,13 +567,10 @@ class override_manager {
             }
 
             // Recalculate grades if requested.
-            if ($recalculate) {
-                $this->recalculate_grades($userid, $groupid);
+            if ($recalculatepenalties) {
+                $this->recalculate_penalties($userid, $groupid);
             }
         }
-
-        // Reorder group overrides if any were deleted.
-        $this->reorder_group_overrides();
     }
 
     /**
@@ -578,7 +588,7 @@ class override_manager {
         $xorset = $groupset ^ $userset;
 
         if (!$xorset) {
-            throw new \coding_exception("Either userid or groupid must be specified, but not both.");
+            throw new invalid_parameter_exception("Either userid or groupid must be specified, but not both.");
         }
     }
 
@@ -595,7 +605,7 @@ class override_manager {
         $cachekey = !empty($groupid) ?
             "{$this->assign->id}_g_{$groupid}" :
             "{$this->assign->id}_u_{$userid}";
-        \cache::make('mod_assign', 'overrides')->delete($cachekey);
+        cache::make('mod_assign', 'overrides')->delete($cachekey);
     }
 
     /**
@@ -624,7 +634,7 @@ class override_manager {
 
         $events = $DB->get_records('event', $eventssearchparams);
         foreach ($events as $event) {
-            $eventold = \calendar_event::load($event);
+            $eventold = calendar_event::load($event);
             $eventold->delete();
         }
     }
@@ -639,12 +649,12 @@ class override_manager {
     /**
      * Determine whether user can view a given override record
      *
-     * @param \stdClass $override
-     * @param \stdClass $course
-     * @param \stdClass|\cm_info $cm
+     * @param stdClass $override
+     * @param stdClass $course
+     * @param stdClass|cm_info $cm
      * @return bool
      */
-    public function can_view_override(\stdClass $override, \stdClass $course, \stdClass|\cm_info $cm): bool {
+    private function can_view_override(stdClass $override, stdClass $course, stdClass|cm_info $cm): bool {
         if (!empty($override->groupid)) {
             return groups_group_visible($override->groupid, $course, $cm);
         } else if (!empty($override->userid)) {
@@ -769,21 +779,20 @@ class override_manager {
     }
 
     /**
-     * Recalculate grades for user(s) affected by an override.
+     * Recalculate penalties for user(s) affected by an override.
      *
      * Only recalculates when penalties are enabled in the assignment.
      *
      * @param int|null $userid User ID for user override, or null for group override
      * @param int|null $groupid Group ID for group override, or null for user override
-     * @throws \moodle_exception if penalty is not enabled for this assignment
      */
-    public function recalculate_grades(?int $userid = null, ?int $groupid = null): void {
+    private function recalculate_penalties(?int $userid = null, ?int $groupid = null): void {
         // Sanity check.
         $this->ensure_userid_xor_groupid_set($userid, $groupid);
 
         // Only recalculate grades when penalties are enabled.
-        if (!\mod_assign\penalty\helper::is_penalty_enabled($this->assign->id)) {
-            throw new \moodle_exception('penaltynotenabled', 'mod_assign');
+        if (!penalty_helper::is_penalty_enabled($this->assign->id)) {
+            return;
         }
 
         $assigninstance = clone $this->assign;
@@ -868,7 +877,7 @@ class override_manager {
         [$sort, $params] = users_order_by_sql('u');
         $params['assignid'] = $this->assign->id;
 
-        $userfieldsapi = \core_user\fields::for_name();
+        $userfieldsapi = user_field::for_name();
 
         if ($accessallgroups) {
             $sql = 'SELECT o.*, ' . $userfieldsapi->get_sql('u', false, '', '', false)->selects . '
@@ -901,13 +910,13 @@ class override_manager {
      * @param int $overrideid ID of the override to move
      * @param string $direction Direction to move ('up' or 'down')
      * @return bool true if successful, false otherwise
-     * @throws \invalid_parameter_exception if parameters are invalid
+     * @throws invalid_parameter_exception if parameters are invalid
      */
     public function move_group_override(int $overrideid, string $direction): bool {
         global $DB;
 
         if (!in_array($direction, ['up', 'down'])) {
-            throw new \invalid_parameter_exception('Direction must be "up" or "down"');
+            throw new invalid_parameter_exception('Direction must be "up" or "down"');
         }
 
         // Get the override object.
@@ -922,7 +931,7 @@ class override_manager {
         }
 
         if (empty($override->groupid)) {
-            throw new \invalid_parameter_exception('Can only move group overrides');
+            throw new invalid_parameter_exception('Can only move group overrides');
         }
 
         // Count the number of group overrides.
@@ -950,10 +959,9 @@ class override_manager {
             $DB->update_record('assign_overrides', $override);
             $DB->update_record('assign_overrides', $swapoverride);
 
-            // Delete cache for the 2 records we updated above.
-            $cache = \cache::make('mod_assign', 'overrides');
-            $cache->delete("{$this->assign->id}_g_{$override->groupid}");
-            $cache->delete("{$this->assign->id}_g_{$swapoverride->groupid}");
+            // Clear cache for the 2 records we updated above.
+            $this->clear_cache_for(null, $override->groupid);
+            $this->clear_cache_for(null, $swapoverride->groupid);
         }
 
         $this->reorder_group_overrides();
@@ -975,13 +983,12 @@ class override_manager {
         );
 
         if ($overrides) {
-            $cache = \cache::make('mod_assign', 'overrides');
             foreach ($overrides as $override) {
-                $f = new \stdClass();
+                $f = new stdClass();
                 $f->id = $override->id;
                 $f->sortorder = $i++;
                 $DB->update_record('assign_overrides', $f);
-                $cache->delete("{$this->assign->id}_g_{$override->groupid}");
+                $this->clear_cache_for(null, $override->groupid);
 
                 // Update priorities of group overrides.
                 $params = [

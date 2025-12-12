@@ -16,8 +16,13 @@
 
 namespace mod_assign;
 
+use invalid_parameter_exception;
 use mod_assign_override_test_trait;
 use mod_assign_test_generator;
+use mod_assign_testable_assign;
+use PHPUnit\Framework\Attributes\CoversClass;
+use required_capability_exception;
+use stdClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -33,10 +38,10 @@ require_once($CFG->dirroot . '/mod/assign/tests/mod_assign_override_test_trait.p
  *
  * @package    mod_assign
  * @category   test
- * @covers     \mod_assign\override_manager
  * @copyright  2025 Catalyst IT
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+#[CoversClass(override_manager::class)]
 final class override_manager_test extends externallib_advanced_testcase {
     use mod_assign_test_generator;
     use mod_assign_override_test_trait;
@@ -59,8 +64,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test manager constructor and basic properties.
-     *
-     * @covers ::__construct
      */
     public function test_constructor(): void {
         $this->resetAfterTest();
@@ -74,8 +77,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test get_all_overrides returns empty array when no overrides exist.
-     *
-     * @covers ::get_all_overrides
      */
     public function test_get_all_overrides_empty(): void {
         $this->resetAfterTest();
@@ -90,8 +91,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test get_all_overrides returns existing overrides.
-     *
-     * @covers ::get_all_overrides
      */
     public function test_get_all_overrides_with_data(): void {
         global $DB;
@@ -101,14 +100,14 @@ final class override_manager_test extends externallib_advanced_testcase {
         $manager = $data['manager'];
 
         // Create a user override.
-        $override1 = new \stdClass();
+        $override1 = new stdClass();
         $override1->assignid = $data['assign']->id;
         $override1->userid = $data['student1']->id;
         $override1->duedate = time() + (10 * DAYSECS);
         $override1id = $DB->insert_record('assign_overrides', $override1);
 
         // Create a group override.
-        $override2 = new \stdClass();
+        $override2 = new stdClass();
         $override2->assignid = $data['assign']->id;
         $override2->groupid = $data['group1']->id;
         $override2->duedate = time() + (8 * DAYSECS);
@@ -126,9 +125,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test get_accessible_overrides filters by user access.
-     *
-     * @covers ::get_accessible_overrides
-     * @covers ::can_view_override
      */
     public function test_get_accessible_overrides(): void {
         global $DB;
@@ -139,13 +135,13 @@ final class override_manager_test extends externallib_advanced_testcase {
         $this->setUser($data['teacher']);
 
         // Create overrides.
-        $override1 = new \stdClass();
+        $override1 = new stdClass();
         $override1->assignid = $data['assign']->id;
         $override1->userid = $data['student1']->id;
         $override1->duedate = time() + (10 * DAYSECS);
         $override1->id = $DB->insert_record('assign_overrides', $override1);
 
-        $override2 = new \stdClass();
+        $override2 = new stdClass();
         $override2->assignid = $data['assign']->id;
         $override2->groupid = $data['group1']->id;
         $override2->duedate = time() + (8 * DAYSECS);
@@ -160,9 +156,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data with valid user override data.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_valid_user_override(): void {
         $this->resetAfterTest();
@@ -183,9 +176,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data with valid group override data.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_valid_group_override(): void {
         $this->resetAfterTest();
@@ -206,9 +196,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data requires either userid or groupid.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_requires_user_or_group(): void {
         $this->resetAfterTest();
@@ -226,9 +213,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data prevents both userid and groupid.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_prevents_both_user_and_group(): void {
         $this->resetAfterTest();
@@ -248,9 +232,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data validates date ordering.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_validates_date_order(): void {
         $this->resetAfterTest();
@@ -271,9 +252,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data with invalid user ID.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_invalid_user(): void {
         $this->resetAfterTest();
@@ -292,9 +270,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data with invalid group ID.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_invalid_group(): void {
         $this->resetAfterTest();
@@ -313,9 +288,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data respects extension dates for user override.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_respects_extension_dates(): void {
         global $DB;
@@ -325,7 +297,7 @@ final class override_manager_test extends externallib_advanced_testcase {
         $manager = $data['manager'];
 
         // Set an extension date for student1.
-        $userflags = new \stdClass();
+        $userflags = new stdClass();
         $userflags->assignment = $data['assign']->id;
         $userflags->userid = $data['student1']->id;
         $userflags->extensionduedate = time() + (5 * DAYSECS);
@@ -343,9 +315,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data requires at least one overrideable setting.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_requires_override_data(): void {
         $this->resetAfterTest();
@@ -363,37 +332,7 @@ final class override_manager_test extends externallib_advanced_testcase {
     }
 
     /**
-     * Test parse_formdata extracts only overrideable settings.
-     *
-     * @covers ::parse_formdata
-     */
-    public function test_parse_formdata(): void {
-        $this->resetAfterTest();
-
-        $data = $this->create_test_data();
-        $manager = $data['manager'];
-
-        $formdata = [
-            'userid' => $data['student1']->id,
-            'duedate' => time() + (10 * DAYSECS),
-            'cutoffdate' => time() + (17 * DAYSECS),
-            'invalidfield' => 'should be removed',
-            'anotherbadfield' => 123,
-        ];
-
-        $parsed = $manager->parse_formdata($formdata);
-
-        $this->assertArrayHasKey('userid', $parsed);
-        $this->assertArrayHasKey('duedate', $parsed);
-        $this->assertArrayHasKey('cutoffdate', $parsed);
-        $this->assertArrayNotHasKey('invalidfield', $parsed);
-        $this->assertArrayNotHasKey('anotherbadfield', $parsed);
-    }
-
-    /**
      * Test save_overrides creates a user override.
-     *
-     * @covers ::save_overrides
      */
     public function test_save_overrides_create_user_override(): void {
         global $DB;
@@ -422,8 +361,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test save_overrides creates a group override.
-     *
-     * @covers ::save_overrides
      */
     public function test_save_overrides_create_group_override(): void {
         global $DB;
@@ -452,9 +389,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test save_overrides with grade recalculation.
-     *
-     * @covers ::save_overrides
-     * @covers ::recalculate_grades
      */
     public function test_save_overrides_with_recalculation(): void {
         global $DB;
@@ -503,8 +437,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test save_overrides updates existing override.
-     *
-     * @covers ::save_overrides
      */
     public function test_save_overrides_update_existing(): void {
         global $DB;
@@ -541,8 +473,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test delete_overrides_by_id removes overrides.
-     *
-     * @covers ::delete_overrides_by_id
      */
     public function test_delete_overrides_by_id(): void {
         global $DB;
@@ -573,9 +503,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test delete_overrides_by_id with recalculation.
-     *
-     * @covers ::delete_overrides_by_id
-     * @covers ::recalculate_grades
      */
     public function test_delete_overrides_by_id_with_recalculation(): void {
         global $DB;
@@ -607,7 +534,7 @@ final class override_manager_test extends externallib_advanced_testcase {
 
         // Create testable assign instance.
         $course = $DB->get_record('course', ['id' => $data['assign']->course]);
-        $assign = new \mod_assign_testable_assign($data['context'], $data['cm'], $course);
+        $assign = new mod_assign_testable_assign($data['context'], $data['cm'], $course);
 
         // Add submission and grade using proper methods.
         $this->add_submission($data['student1'], $assign, 'Sample text');
@@ -659,8 +586,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test delete_all_overrides removes all overrides.
-     *
-     * @covers ::delete_all_overrides
      */
     public function test_delete_all_overrides(): void {
         global $DB;
@@ -702,8 +627,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test require_manage_capability throws exception for unauthorized user.
-     *
-     * @covers ::require_manage_capability
      */
     public function test_require_manage_capability_unauthorized(): void {
         $this->resetAfterTest();
@@ -712,14 +635,12 @@ final class override_manager_test extends externallib_advanced_testcase {
         $manager = $data['manager'];
         $this->setUser($data['student1']);
 
-        $this->expectException(\required_capability_exception::class);
+        $this->expectException(required_capability_exception::class);
         $manager->require_manage_capability();
     }
 
     /**
      * Test require_manage_capability passes for authorized user.
-     *
-     * @covers ::require_manage_capability
      */
     public function test_require_manage_capability_authorized(): void {
         $this->resetAfterTest();
@@ -734,191 +655,7 @@ final class override_manager_test extends externallib_advanced_testcase {
     }
 
     /**
-     * Test can_view_override for user overrides.
-     *
-     * @covers ::can_view_override
-     */
-    public function test_can_view_override_user(): void {
-        global $DB;
-        $this->resetAfterTest();
-
-        $data = $this->create_test_data();
-        $manager = $data['manager'];
-        $this->setUser($data['teacher']);
-
-        $override = new \stdClass();
-        $override->assignid = $data['assign']->id;
-        $override->userid = $data['student1']->id;
-        $override->duedate = time() + (10 * DAYSECS);
-
-        $course = $DB->get_record('course', ['id' => $data['assign']->course]);
-
-        $canview = $manager->can_view_override($override, $course, $data['cm']);
-        $this->assertTrue($canview);
-    }
-
-    /**
-     * Test can_view_override for group overrides.
-     *
-     * @covers ::can_view_override
-     */
-    public function test_can_view_override_group(): void {
-        global $DB;
-        $this->resetAfterTest();
-
-        $data = $this->create_test_data();
-        $manager = $data['manager'];
-        $this->setUser($data['teacher']);
-
-        $override = new \stdClass();
-        $override->assignid = $data['assign']->id;
-        $override->groupid = $data['group1']->id;
-        $override->duedate = time() + (8 * DAYSECS);
-
-        $course = $DB->get_record('course', ['id' => $data['assign']->course]);
-
-        $canview = $manager->can_view_override($override, $course, $data['cm']);
-        $this->assertTrue($canview);
-    }
-
-    /**
-     * Test recalculate_grades for user override.
-     *
-     * @covers ::recalculate_grades
-     */
-    public function test_recalculate_grades_user(): void {
-        global $DB;
-        $this->resetAfterTest();
-
-        $data = $this->create_test_data();
-        $manager = $data['manager'];
-        $this->setUser($data['teacher']);
-
-        // Set up late submission with penalty.
-        $this->setup_late_submission_with_penalty($data, $data['student1']);
-
-        // Verify penalty was applied initially.
-        $course = $DB->get_record('course', ['id' => $data['assign']->course]);
-        $initialfinalgrade = $this->get_final_grade(
-            $data['assign']->id,
-            $course->id,
-            $data['student1']->id
-        );
-        $this->assertEquals(90, $initialfinalgrade); // 100 - 10% penalty = 90.
-
-        // Now manually update the due date to future (simulating an override being created).
-        $data['assign']->duedate = time() + (10 * DAYSECS);
-        $DB->update_record('assign', $data['assign']);
-
-        // Recalculate grades - penalty should be removed.
-        $manager->recalculate_grades($data['student1']->id, null);
-
-        // Fake penalty plugin should have logged debug messages.
-        $this->assertDebuggingCalledCount(2);
-
-        // Verify penalty was removed after recalculation.
-        $updatedfinalgrade = $this->get_final_grade(
-            $data['assign']->id,
-            $course->id,
-            $data['student1']->id
-        );
-        $this->assertEquals(100, $updatedfinalgrade); // Penalty removed: 90 → 100.
-    }
-
-    /**
-     * Test recalculate_grades for group override.
-     *
-     * @covers ::recalculate_grades
-     */
-    public function test_recalculate_grades_group(): void {
-        global $DB;
-        $this->resetAfterTest();
-
-        $data = $this->create_test_data();
-        $manager = $data['manager'];
-        $this->setUser($data['teacher']);
-
-        // Enable penalty module for testing.
-        $this->enable_assign_penalty($data['assign']);
-
-        // Set times for late submission scenario.
-        $duedate = time() - (2 * DAYSECS); // Due date 2 days ago.
-        $submissiontime = time() - DAYSECS; // Submitted 1 day ago (1 day AFTER due date = late).
-
-        // Update assignment due date.
-        $data['assign']->duedate = $duedate;
-        $DB->update_record('assign', $data['assign']);
-
-        // Create testable assign instance.
-        $course = $DB->get_record('course', ['id' => $data['assign']->course]);
-        $assign = new \mod_assign_testable_assign($data['context'], $data['cm'], $course);
-
-        // Create submissions and grades for group members.
-        foreach ([$data['student1'], $data['student2']] as $student) {
-            // Add submission and grade using proper methods.
-            $this->add_submission($student, $assign, 'Sample text');
-            $this->submit_for_grading($student, $assign);
-
-            // Set submission time to be late (AFTER the due date).
-            $DB->set_field('assign_submission', 'timemodified', $submissiontime, [
-                'assignment' => $data['assign']->id,
-                'userid' => $student->id,
-            ]);
-
-            // Apply grade using testable method - penalty should be calculated here.
-            $assign->testable_apply_grade_to_user((object)['grade' => 100], $student->id, 0);
-
-            // Penalty system should have logged debug messages.
-            $this->assertDebuggingCalledCount(2);
-        }
-
-        // Verify penalty was applied initially for both students.
-        $initial1 = $this->get_final_grade($data['assign']->id, $course->id, $data['student1']->id);
-        $initial2 = $this->get_final_grade($data['assign']->id, $course->id, $data['student2']->id);
-        $this->assertEquals(90, $initial1); // 100 - 10% penalty = 90.
-        $this->assertEquals(90, $initial2); // 100 - 10% penalty = 90.
-
-        // Now manually update the due date to future (simulating a group override being created).
-        $data['assign']->duedate = time() + (10 * DAYSECS);
-        $DB->update_record('assign', $data['assign']);
-
-        // Recalculate grades for group - penalty should be removed for all members.
-        $manager->recalculate_grades(null, $data['group1']->id);
-
-        // Fake penalty plugin should have logged debug messages for both students (2 debug messages for each).
-        $this->assertDebuggingCalledCount(4);
-
-        // Verify penalty was removed after recalculation for both students.
-        $updated1 = $this->get_final_grade($data['assign']->id, $course->id, $data['student1']->id);
-        $updated2 = $this->get_final_grade($data['assign']->id, $course->id, $data['student2']->id);
-        $this->assertEquals(100, $updated1); // Penalty removed: 90 → 100.
-        $this->assertEquals(100, $updated2); // Penalty removed: 90 → 100.
-    }
-
-    /**
-     * Test recalculate_grades throws exception when penalties are not enabled.
-     *
-     * @covers ::recalculate_grades
-     */
-    public function test_recalculate_grades_without_penalty_enabled(): void {
-        $this->resetAfterTest();
-
-        $data = $this->create_test_data(); // No penalty enabled.
-        $manager = $data['manager'];
-        $this->setUser($data['teacher']);
-
-        $this->expectException(\moodle_exception::class);
-        $this->expectExceptionMessage(
-            'Grade recalculation is only available when grade penalties are enabled for this assignment.'
-        );
-
-        $manager->recalculate_grades($data['student1']->id, null);
-    }
-
-    /**
      * Test delete_orphaned_group_overrides removes orphaned overrides.
-     *
-     * @covers ::delete_orphaned_group_overrides
      */
     public function test_delete_orphaned_group_overrides(): void {
         global $DB;
@@ -928,7 +665,7 @@ final class override_manager_test extends externallib_advanced_testcase {
         $manager = $data['manager'];
 
         // Create a group override.
-        $override = new \stdClass();
+        $override = new stdClass();
         $override->assignid = $data['assign']->id;
         $override->groupid = $data['group1']->id;
         $override->duedate = time() + (8 * DAYSECS);
@@ -948,8 +685,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test move_group_override functionality.
-     *
-     * @covers ::move_group_override
      */
     public function test_move_group_override(): void {
         global $DB;
@@ -996,8 +731,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test move_group_override with invalid direction.
-     *
-     * @covers ::move_group_override
      */
     public function test_move_group_override_invalid_direction(): void {
         $this->resetAfterTest();
@@ -1005,14 +738,12 @@ final class override_manager_test extends externallib_advanced_testcase {
         $data = $this->create_test_data();
         $manager = $data['manager'];
 
-        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectException(invalid_parameter_exception::class);
         $manager->move_group_override(1, 'invalid');
     }
 
     /**
      * Test get_group_overrides_for_listing.
-     *
-     * @covers ::get_group_overrides_for_listing
      */
     public function test_get_group_overrides_for_listing(): void {
         $this->resetAfterTest();
@@ -1040,8 +771,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test get_user_overrides_for_listing with access all groups.
-     *
-     * @covers ::get_user_overrides_for_listing
      */
     public function test_get_user_overrides_for_listing_access_all(): void {
         $this->resetAfterTest();
@@ -1067,8 +796,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test reorder_group_overrides.
-     *
-     * @covers ::reorder_group_overrides
      */
     public function test_reorder_group_overrides(): void {
         global $DB;
@@ -1103,8 +830,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test save_overrides with multiple overrides in single call.
-     *
-     * @covers ::save_overrides
      */
     public function test_save_overrides_multiple_at_once(): void {
         global $DB;
@@ -1141,9 +866,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test validate_data with zero/null date values.
-     *
-     * @covers ::validate_data
-     * @covers ::parse_formdata
      */
     public function test_validate_data_with_null_dates(): void {
         $this->resetAfterTest();
@@ -1164,8 +886,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test move_group_override attempting to move first item up.
-     *
-     * @covers ::move_group_override
      */
     public function test_move_group_override_first_item_up(): void {
         global $DB;
@@ -1203,8 +923,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test move_group_override attempting to move last item down.
-     *
-     * @covers ::move_group_override
      */
     public function test_move_group_override_last_item_down(): void {
         global $DB;
@@ -1242,8 +960,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test delete_overrides_by_id with empty array.
-     *
-     * @covers ::delete_overrides_by_id
      */
     public function test_delete_overrides_by_id_empty_array(): void {
         $this->resetAfterTest();
@@ -1259,8 +975,6 @@ final class override_manager_test extends externallib_advanced_testcase {
 
     /**
      * Test get_user_overrides_for_listing with group restrictions.
-     *
-     * @covers ::get_user_overrides_for_listing
      */
     public function test_get_user_overrides_for_listing_with_group_filter(): void {
         $this->resetAfterTest();

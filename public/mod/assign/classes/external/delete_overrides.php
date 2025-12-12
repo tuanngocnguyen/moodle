@@ -16,6 +16,7 @@
 
 namespace mod_assign\external;
 
+use context_module;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
@@ -41,7 +42,12 @@ class delete_overrides extends external_api {
             'data' => new external_single_structure([
                 'assignid' => new external_value(PARAM_INT, "ID of assignment to delete overrides in"),
                 'ids' => new external_multiple_structure(new external_value(PARAM_INT, 'List of overrides to delete')),
-                'recalculate' => new external_value(PARAM_BOOL, 'Recalculate grades after deleting', VALUE_DEFAULT, false),
+                'recalculatepenalties' => new external_value(
+                    PARAM_BOOL,
+                    'Recalculate penalties after deleting',
+                    VALUE_DEFAULT,
+                    false
+                ),
             ]),
         ]);
     }
@@ -60,7 +66,7 @@ class delete_overrides extends external_api {
         // Get the assignment and course module.
         $assign = $DB->get_record('assign', ['id' => $params['assignid']], '*', MUST_EXIST);
         $cm = get_coursemodule_from_instance('assign', $assign->id, $assign->course, false, MUST_EXIST);
-        $context = \context_module::instance($cm->id);
+        $context = context_module::instance($cm->id);
 
         self::validate_context($context);
 
@@ -69,8 +75,8 @@ class delete_overrides extends external_api {
         $manager->require_manage_capability();
 
         // Delete the overrides using the manager (handles recalculation internally).
-        $recalculate = $params['recalculate'] ?? false;
-        $manager->delete_overrides_by_id($params['ids'], true, $recalculate);
+        $recalculatepenalties = $params['recalculatepenalties'] ?? false;
+        $manager->delete_overrides_by_id($params['ids'], true, $recalculatepenalties);
 
         return ['ids' => $params['ids']];
     }

@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+use core\plugininfo\gradepenalty;
+use core_grades\penalty_manager;
+
 /**
  * Trait providing common functionality for assignment override tests.
  *
@@ -28,22 +31,22 @@ trait mod_assign_override_test_trait {
      * This enables the penalty for assignment, loads the fake_deduction test plugin
      * (which deducts 10% for late submissions), and enables gradepenalty on the assignment.
      *
-     * @param \stdClass $assign Assignment record to enable penalty on
+     * @param stdClass $assign Assignment record to enable penalty on
      */
-    protected function enable_assign_penalty(\stdClass $assign): void {
+    protected function enable_assign_penalty(stdClass $assign): void {
         global $DB, $CFG;
 
         // Enable penalty for assignment.
-        \core_grades\penalty_manager::enable_module('assign');
+        penalty_manager::enable_module('assign');
 
         // Load the fake penalty plugin for testing.
-        $mockedcomponent = new \ReflectionClass(\core_component::class);
+        $mockedcomponent = new ReflectionClass(core_component::class);
         $mockedplugins = $mockedcomponent->getProperty('plugins');
         $plugins = $mockedplugins->getValue();
         $plugins['gradepenalty'] = ["fake_deduction" => "{$CFG->dirroot}/mod/assign/tests/fixtures/fakeplugins/fake_deduction"];
         require_once($CFG->dirroot . '/mod/assign/tests/fixtures/fakeplugins/fake_deduction/classes/penalty_calculator.php');
         $mockedplugins->setValue(null, $plugins);
-        \core\plugininfo\gradepenalty::enable_plugin('fake_deduction', true);
+        gradepenalty::enable_plugin('fake_deduction', true);
 
         // Enable gradepenalty to allow grade recalculation.
         $assign->gradepenalty = 1;
@@ -59,7 +62,7 @@ trait mod_assign_override_test_trait {
      * @return float|null The final grade, or null if not graded
      */
     protected function get_final_grade(int $assignid, int $courseid, int $userid): ?float {
-        $gradeitem = \grade_item::fetch([
+        $gradeitem = grade_item::fetch([
             'courseid' => $courseid,
             'itemtype' => 'mod',
             'itemmodule' => 'assign',
@@ -88,15 +91,15 @@ trait mod_assign_override_test_trait {
      * for add_submission() and submit_for_grading() methods.
      *
      * @param array $data Test data array (should contain 'assign', 'context', 'cm' keys)
-     * @param \stdClass $student Student to create submission for
+     * @param stdClass $student Student to create submission for
      * @param int $grade Initial grade to apply before penalty (default 100)
-     * @return \mod_assign_testable_assign The testable assign instance
+     * @return mod_assign_testable_assign The testable assign instance
      */
     protected function setup_late_submission_with_penalty(
         array $data,
-        \stdClass $student,
+        stdClass $student,
         int $grade = 100
-    ): \mod_assign_testable_assign {
+    ): mod_assign_testable_assign {
         global $DB;
 
         // Enable assignment penalty system.
@@ -112,7 +115,7 @@ trait mod_assign_override_test_trait {
 
         // Create testable assign instance.
         $course = $DB->get_record('course', ['id' => $data['assign']->course]);
-        $assign = new \mod_assign_testable_assign($data['context'], $data['cm'], $course);
+        $assign = new mod_assign_testable_assign($data['context'], $data['cm'], $course);
 
         // Add submission and grade using proper methods.
         $this->add_submission($student, $assign, 'Sample text');
@@ -165,7 +168,7 @@ trait mod_assign_override_test_trait {
         ]);
 
         $cm = get_coursemodule_from_instance('assign', $instance->id);
-        $context = \context_module::instance($cm->id);
+        $context = context_module::instance($cm->id);
 
         // Create and enrol users.
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
