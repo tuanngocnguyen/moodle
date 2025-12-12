@@ -255,7 +255,6 @@ $functions = array(
             'capabilities'  => 'mod/assign:submit',
             'services'      => [MOODLE_OFFICIAL_MOBILE_SERVICE],
         ],
-
         'mod_assign_save_overrides' => [
             'classname'     => 'mod_assign\external\save_overrides',
             'description'   => 'Update or insert assignment overrides',
@@ -263,7 +262,6 @@ $functions = array(
             'capabilities'  => 'mod/assign:manageoverrides',
             'ajax'          => true,
         ],
-
         'mod_assign_delete_overrides' => [
             'classname'     => 'mod_assign\external\delete_overrides',
             'description'   => 'Delete assignment overrides',
@@ -271,7 +269,6 @@ $functions = array(
             'capabilities'  => 'mod/assign:manageoverrides',
             'ajax'          => true,
         ],
-
         'mod_assign_get_overrides' => [
             'classname'     => 'mod_assign\external\get_overrides',
             'description'   => 'Get assignment overrides',

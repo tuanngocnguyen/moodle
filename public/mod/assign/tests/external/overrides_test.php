@@ -16,9 +16,15 @@
 
 namespace mod_assign\external;
 
+use core_external\external_api;
+use dml_missing_record_exception;
+use invalid_parameter_exception;
 use mod_assign_override_test_trait;
 use mod_assign\externallib_advanced_testcase;
 use mod_assign_test_generator;
+use PHPUnit\Framework\Attributes\CoversClass;
+use required_capability_exception;
+use stdClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -34,12 +40,12 @@ require_once($CFG->dirroot . '/mod/assign/tests/mod_assign_override_test_trait.p
  *
  * @package    mod_assign
  * @category   test
- * @covers     \mod_assign\external\get_overrides
- * @covers     \mod_assign\external\save_overrides
- * @covers     \mod_assign\external\delete_overrides
  * @copyright  2025 Catalyst IT
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+#[CoversClass(get_overrides::class)]
+#[CoversClass(save_overrides::class)]
+#[CoversClass(delete_overrides::class)]
 final class overrides_test extends externallib_advanced_testcase {
     use mod_assign_test_generator;
     use mod_assign_override_test_trait;
@@ -53,7 +59,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $this->setUser($data['teacher']);
 
         $result = get_overrides::execute($data['assign']->id);
-        $result = \core_external\external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
 
         $this->assertIsArray($result);
         $this->assertArrayHasKey('overrides', $result);
@@ -73,7 +79,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $now = time();
 
         // Create a user override.
-        $override1 = new \stdClass();
+        $override1 = new stdClass();
         $override1->assignid = $data['assign']->id;
         $override1->userid = $data['student1']->id;
         $override1->duedate = $now + (10 * DAYSECS);
@@ -81,7 +87,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $override1->id = $DB->insert_record('assign_overrides', $override1);
 
         // Create a group override.
-        $override2 = new \stdClass();
+        $override2 = new stdClass();
         $override2->assignid = $data['assign']->id;
         $override2->groupid = $data['group1']->id;
         $override2->duedate = $now + (8 * DAYSECS);
@@ -89,7 +95,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $override2->id = $DB->insert_record('assign_overrides', $override2);
 
         $result = get_overrides::execute($data['assign']->id);
-        $result = \core_external\external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
 
         $this->assertCount(2, $result['overrides']);
 
@@ -120,7 +126,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $data = $this->create_assign_with_overrides_test_data();
         $this->setUser($data['student1']);
 
-        $this->expectException(\required_capability_exception::class);
+        $this->expectException(required_capability_exception::class);
         get_overrides::execute($data['assign']->id);
     }
 
@@ -132,7 +138,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $data = $this->create_assign_with_overrides_test_data();
         $this->setUser($data['teacher']);
 
-        $this->expectException(\dml_missing_record_exception::class);
+        $this->expectException(dml_missing_record_exception::class);
         get_overrides::execute(99999);
     }
 
@@ -158,7 +164,7 @@ final class overrides_test extends externallib_advanced_testcase {
                 'cutoffdate' => $cutoffdate,
             ]],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
 
         $this->assertCount(1, $result['ids']);
 
@@ -192,7 +198,7 @@ final class overrides_test extends externallib_advanced_testcase {
                 'cutoffdate' => $cutoffdate,
             ]],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
 
         $this->assertCount(1, $result['ids']);
 
@@ -217,7 +223,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $now = time();
 
         // Create initial override.
-        $override = new \stdClass();
+        $override = new stdClass();
         $override->assignid = $data['assign']->id;
         $override->userid = $data['student1']->id;
         $override->duedate = $now + (10 * DAYSECS);
@@ -237,7 +243,7 @@ final class overrides_test extends externallib_advanced_testcase {
                 'duedate' => $newduedate,
             ]],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
 
         $this->assertEquals($override->id, $result['ids'][0]);
 
@@ -275,7 +281,7 @@ final class overrides_test extends externallib_advanced_testcase {
                 ],
             ],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
 
         $this->assertCount(3, $result['ids']);
 
@@ -295,7 +301,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $now = time();
 
         // Try to create override with cutoff before due date.
-        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectException(invalid_parameter_exception::class);
         save_overrides::execute([
             'assignid' => $data['assign']->id,
             'overrides' => [[
@@ -317,7 +323,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $now = time();
 
         // Try to create override with due date before allow submissions from.
-        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectException(invalid_parameter_exception::class);
         save_overrides::execute([
             'assignid' => $data['assign']->id,
             'overrides' => [[
@@ -336,7 +342,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $data = $this->create_assign_with_overrides_test_data();
         $this->setUser($data['teacher']);
 
-        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectException(invalid_parameter_exception::class);
         save_overrides::execute([
             'assignid' => $data['assign']->id,
             'overrides' => [[
@@ -353,7 +359,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $data = $this->create_assign_with_overrides_test_data();
         $this->setUser($data['teacher']);
 
-        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectException(invalid_parameter_exception::class);
         save_overrides::execute([
             'assignid' => $data['assign']->id,
             'overrides' => [[
@@ -372,7 +378,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $data = $this->create_assign_with_overrides_test_data();
         $this->setUser($data['student1']);
 
-        $this->expectException(\required_capability_exception::class);
+        $this->expectException(required_capability_exception::class);
         save_overrides::execute([
             'assignid' => $data['assign']->id,
             'overrides' => [[
@@ -425,7 +431,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $this->setUser($data['teacher']);
 
         // Create an override.
-        $override = new \stdClass();
+        $override = new stdClass();
         $override->assignid = $data['assign']->id;
         $override->userid = $data['student1']->id;
         $override->duedate = time() + (10 * DAYSECS);
@@ -436,7 +442,7 @@ final class overrides_test extends externallib_advanced_testcase {
             'assignid' => $data['assign']->id,
             'ids' => [$override->id],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
 
         $this->assertCount(1, $result['ids']);
         $this->assertEquals($override->id, $result['ids'][0]);
@@ -458,13 +464,13 @@ final class overrides_test extends externallib_advanced_testcase {
         $now = time();
 
         // Create overrides.
-        $override1 = new \stdClass();
+        $override1 = new stdClass();
         $override1->assignid = $data['assign']->id;
         $override1->userid = $data['student1']->id;
         $override1->duedate = $now + (10 * DAYSECS);
         $override1->id = $DB->insert_record('assign_overrides', $override1);
 
-        $override2 = new \stdClass();
+        $override2 = new stdClass();
         $override2->assignid = $data['assign']->id;
         $override2->userid = $data['student2']->id;
         $override2->duedate = $now + (11 * DAYSECS);
@@ -475,7 +481,7 @@ final class overrides_test extends externallib_advanced_testcase {
             'assignid' => $data['assign']->id,
             'ids' => [$override1->id, $override2->id],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
 
         $this->assertCount(2, $result['ids']);
 
@@ -495,7 +501,7 @@ final class overrides_test extends externallib_advanced_testcase {
 
         // Create override as teacher.
         $this->setUser($data['teacher']);
-        $override = new \stdClass();
+        $override = new stdClass();
         $override->assignid = $data['assign']->id;
         $override->userid = $data['student1']->id;
         $override->duedate = time() + (10 * DAYSECS);
@@ -503,7 +509,7 @@ final class overrides_test extends externallib_advanced_testcase {
 
         // Try to delete as student.
         $this->setUser($data['student1']);
-        $this->expectException(\required_capability_exception::class);
+        $this->expectException(required_capability_exception::class);
         delete_overrides::execute([
             'assignid' => $data['assign']->id,
             'ids' => [$override->id],
@@ -529,7 +535,7 @@ final class overrides_test extends externallib_advanced_testcase {
                 'duedate' => $duedate,
             ]],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
         $overrideid = $result['ids'][0];
 
         // Verify calendar event exists.
@@ -544,7 +550,7 @@ final class overrides_test extends externallib_advanced_testcase {
             'assignid' => $data['assign']->id,
             'ids' => [$overrideid],
         ]);
-        $result = \core_external\external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
 
         // Verify calendar event removed.
         $this->assertFalse($DB->record_exists('event', [
@@ -566,14 +572,14 @@ final class overrides_test extends externallib_advanced_testcase {
 
         // Set an extension due date for student1.
         $extensiondate = time() + (5 * DAYSECS);
-        $userflags = new \stdClass();
+        $userflags = new stdClass();
         $userflags->assignment = $data['assign']->id;
         $userflags->userid = $data['student1']->id;
         $userflags->extensionduedate = $extensiondate;
         $DB->insert_record('assign_user_flags', $userflags);
 
         // Try to create override with due date after extension (should fail).
-        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectException(invalid_parameter_exception::class);
         save_overrides::execute([
             'assignid' => $data['assign']->id,
             'overrides' => [[
@@ -616,9 +622,9 @@ final class overrides_test extends externallib_advanced_testcase {
                 'userid' => $data['student1']->id,
                 'duedate' => time() + (10 * DAYSECS), // Due date now in future.
             ]],
-            'recalculate' => true,
+            'recalculatepenalties' => true,
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
 
         // Expect debugging calls from recalculation.
         $this->assertDebuggingCalledCount(2);
@@ -660,7 +666,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $DB->update_record('assign', $data['assign']);
 
         // Create a submission for student1 (submitted late).
-        $submission = new \stdClass();
+        $submission = new stdClass();
         $submission->assignment = $data['assign']->id;
         $submission->userid = $data['student1']->id;
         $submission->status = 'submitted';
@@ -671,7 +677,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $DB->insert_record('assign_submission', $submission);
 
         // Create initial grade.
-        $grade = new \stdClass();
+        $grade = new stdClass();
         $grade->assignment = $data['assign']->id;
         $grade->userid = $data['student1']->id;
         $grade->grader = $data['teacher']->id;
@@ -686,21 +692,26 @@ final class overrides_test extends externallib_advanced_testcase {
         $this->assertNotFalse($initialgrade);
         $this->assertEquals(100, $initialgrade->grade);
 
-        // Attempt to save override with recalculate flag when gradepenalty is disabled.
-        // This should throw an exception.
-        $this->expectException(\moodle_exception::class);
-        $this->expectExceptionMessage(
-            'Grade recalculation is only available when grade penalties are enabled for this assignment.'
-        );
-
-        save_overrides::execute([
+        // Save override with recalculate flag when gradepenalty is disabled.
+        // This should complete successfully without recalculating grades.
+        $result = save_overrides::execute([
             'assignid' => $data['assign']->id,
             'overrides' => [[
                 'userid' => $data['student1']->id,
                 'duedate' => time() + (10 * DAYSECS),
             ]],
-            'recalculate' => true,
+            'recalculatepenalties' => true,
         ]);
+
+        // Verify the override was created.
+        $this->assertNotEmpty($result['ids']);
+        $this->assertCount(1, $result['ids']);
+
+        // Verify the grade was not recalculated (should remain unchanged).
+        $finalgrade = $DB->get_record('assign_grades', ['id' => $gradeid]);
+        $this->assertNotFalse($finalgrade);
+        $this->assertEquals(100, $finalgrade->grade);
+        $this->assertEquals($initialgrade->timemodified, $finalgrade->timemodified);
     }
 
     /**
@@ -716,7 +727,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $now = time();
 
         // Create a submission and grade for student1.
-        $submission = new \stdClass();
+        $submission = new stdClass();
         $submission->assignment = $data['assign']->id;
         $submission->userid = $data['student1']->id;
         $submission->status = 'submitted';
@@ -726,7 +737,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $submission->timemodified = $now;
         $DB->insert_record('assign_submission', $submission);
 
-        $grade = new \stdClass();
+        $grade = new stdClass();
         $grade->assignment = $data['assign']->id;
         $grade->userid = $data['student1']->id;
         $grade->grader = $data['teacher']->id;
@@ -744,9 +755,9 @@ final class overrides_test extends externallib_advanced_testcase {
                 'userid' => $data['student1']->id,
                 'duedate' => $now + (10 * DAYSECS),
             ]],
-            'recalculate' => false,
+            'recalculatepenalties' => false,
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
 
         // Verify override was created.
         $this->assertCount(1, $result['ids']);
@@ -790,9 +801,9 @@ final class overrides_test extends externallib_advanced_testcase {
                 'groupid' => $data['group1']->id,
                 'duedate' => time() + (10 * DAYSECS), // Due date now in future.
             ]],
-            'recalculate' => true,
+            'recalculatepenalties' => true,
         ]);
-        $result = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
 
         // Expect debugging calls from recalculation (2 per student = 4 total).
         $this->assertDebuggingCalledCount(4);
@@ -829,7 +840,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $DB->update_record('assign', $data['assign']);
 
         // Create an override with future due date (so submission won't be late initially).
-        $override = new \stdClass();
+        $override = new stdClass();
         $override->assignid = $data['assign']->id;
         $override->userid = $data['student1']->id;
         $override->duedate = time() + (10 * DAYSECS);
@@ -855,9 +866,9 @@ final class overrides_test extends externallib_advanced_testcase {
         $result = delete_overrides::execute([
             'assignid' => $data['assign']->id,
             'ids' => [$override->id],
-            'recalculate' => true,
+            'recalculatepenalties' => true,
         ]);
-        $result = \core_external\external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
 
         // Expect debugging calls from recalculation.
         $this->assertDebuggingCalledCount(2);
@@ -889,14 +900,14 @@ final class overrides_test extends externallib_advanced_testcase {
         $now = time();
 
         // Create an override.
-        $override = new \stdClass();
+        $override = new stdClass();
         $override->assignid = $data['assign']->id;
         $override->userid = $data['student1']->id;
         $override->duedate = $now + (10 * DAYSECS);
         $override->id = $DB->insert_record('assign_overrides', $override);
 
         // Create a submission and grade for student1.
-        $submission = new \stdClass();
+        $submission = new stdClass();
         $submission->assignment = $data['assign']->id;
         $submission->userid = $data['student1']->id;
         $submission->status = 'submitted';
@@ -906,7 +917,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $submission->timemodified = $now;
         $DB->insert_record('assign_submission', $submission);
 
-        $grade = new \stdClass();
+        $grade = new stdClass();
         $grade->assignment = $data['assign']->id;
         $grade->userid = $data['student1']->id;
         $grade->grader = $data['teacher']->id;
@@ -921,9 +932,9 @@ final class overrides_test extends externallib_advanced_testcase {
         $result = delete_overrides::execute([
             'assignid' => $data['assign']->id,
             'ids' => [$override->id],
-            'recalculate' => false,
+            'recalculatepenalties' => false,
         ]);
-        $result = \core_external\external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
 
         // Verify override was deleted.
         $this->assertCount(1, $result['ids']);
@@ -956,7 +967,7 @@ final class overrides_test extends externallib_advanced_testcase {
         $DB->update_record('assign', $data['assign']);
 
         // Create a group override with future due date (so submissions won't be late initially).
-        $override = new \stdClass();
+        $override = new stdClass();
         $override->assignid = $data['assign']->id;
         $override->groupid = $data['group1']->id;
         $override->duedate = time() + (10 * DAYSECS);
@@ -984,9 +995,9 @@ final class overrides_test extends externallib_advanced_testcase {
         $result = delete_overrides::execute([
             'assignid' => $data['assign']->id,
             'ids' => [$override->id],
-            'recalculate' => true,
+            'recalculatepenalties' => true,
         ]);
-        $result = \core_external\external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(delete_overrides::execute_returns(), $result);
 
         // Expect debugging calls from recalculation (2 per student = 4 total).
         $this->assertDebuggingCalledCount(4);
@@ -1017,7 +1028,7 @@ final class overrides_test extends externallib_advanced_testcase {
 
         // Step 1: Verify no overrides initially.
         $result = get_overrides::execute($data['assign']->id);
-        $result = \core_external\external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
         $this->assertCount(0, $result['overrides']);
 
         // Step 2: Create an user override with both due date and cutoff date.
@@ -1031,7 +1042,7 @@ final class overrides_test extends externallib_advanced_testcase {
                 'cutoffdate' => $initialcutoffdate,
             ]],
         ]);
-        $createresult = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $createresult);
+        $createresult = external_api::clean_returnvalue(save_overrides::execute_returns(), $createresult);
         $this->assertCount(1, $createresult['ids']);
         $overrideid = $createresult['ids'][0];
         $this->assertIsInt($overrideid);
@@ -1039,7 +1050,7 @@ final class overrides_test extends externallib_advanced_testcase {
 
         // Step 3: Get and verify override exists with correct properties.
         $result = get_overrides::execute($data['assign']->id);
-        $result = \core_external\external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
         $this->assertCount(1, $result['overrides']);
 
         $override = $result['overrides'][0];
@@ -1060,13 +1071,13 @@ final class overrides_test extends externallib_advanced_testcase {
                 // Note: not providing cutoffdate should clear it.
             ]],
         ]);
-        $updateresult = \core_external\external_api::clean_returnvalue(save_overrides::execute_returns(), $rawupdateresult);
+        $updateresult = external_api::clean_returnvalue(save_overrides::execute_returns(), $rawupdateresult);
         $this->assertCount(1, $updateresult['ids']);
         $this->assertEquals($overrideid, $updateresult['ids'][0]);
 
         // Step 5: Verify update took effect.
         $result = get_overrides::execute($data['assign']->id);
-        $result = \core_external\external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
         $this->assertCount(1, $result['overrides']);
 
         $updatedoverride = $result['overrides'][0];
@@ -1090,13 +1101,13 @@ final class overrides_test extends externallib_advanced_testcase {
             'assignid' => $data['assign']->id,
             'ids' => [$overrideid],
         ]);
-        $deleteresult = \core_external\external_api::clean_returnvalue(delete_overrides::execute_returns(), $rawdeleteresult);
+        $deleteresult = external_api::clean_returnvalue(delete_overrides::execute_returns(), $rawdeleteresult);
         $this->assertCount(1, $deleteresult['ids']);
         $this->assertEquals($overrideid, $deleteresult['ids'][0]);
 
         // Step 7: Verify deleted from both API and database.
         $result = get_overrides::execute($data['assign']->id);
-        $result = \core_external\external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
+        $result = external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
         $this->assertCount(0, $result['overrides']);
 
         $this->assertFalse(

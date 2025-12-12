@@ -490,7 +490,6 @@ $string['page-mod-assign-view'] = 'Assignment module main and submission page';
 $string['paramtimeremaining'] = '{$a} remaining';
 $string['participant'] = 'Participant';
 $string['penaltyduedatechangemessage'] = 'Some grades have already been awarded. In order to change the due date, disable/enable penalty, you must first choose whether or not to recalculate existing grades.';
-$string['penaltynotenabled'] = 'Grade recalculation is only available when grade penalties are enabled for this assignment.';
 $string['pluginadministration'] = 'Assignment administration';
 $string['pluginname'] = 'Assignment';
 $string['preventsubmissionnotingroup'] = 'Require group to make submission';

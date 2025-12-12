@@ -103,6 +103,7 @@ require_once($CFG->dirroot . '/mod/assign/renderable.php');
 require_once($CFG->dirroot . '/mod/assign/gradingtable.php');
 require_once($CFG->libdir . '/portfolio/caller.php');
 
+use core\deprecation;
 use mod_assign\downloader;
 use mod_assign\event\submission_removed;
 use mod_assign\event\submission_status_updated;
@@ -896,7 +897,7 @@ class assign {
 
         // Delete all overrides.
         $manager = new mod_assign\override_manager($this->get_instance(), $this->context);
-        $manager->delete_all_overrides(shouldlog: false);
+        $manager->delete_all_overrides();
 
         // Delete_records will throw an exception if it fails - so no need for error checking here.
         $DB->delete_records('assign_submission', array('assignment' => $this->get_instance()->id));
@@ -931,23 +932,11 @@ class assign {
         mdl: 'MDL-86513',
     )]
     public function delete_override($overrideid) {
-        \core\deprecation::emit_deprecation([self::class, __FUNCTION__]);
+        deprecation::emit_deprecation([self::class, __FUNCTION__]);
 
-        $cm = $this->get_course_module();
-        if (empty($cm)) {
-            $instance = $this->get_instance();
-            $cm = get_coursemodule_from_instance('assign', $instance->id, $instance->course);
-        }
-
-        $context = \context_module::instance($cm->id);
-        $manager = new mod_assign\override_manager($this->get_instance(), $context);
-
-        try {
-            $manager->delete_overrides_by_id([$overrideid]);
-            return true;
-        } catch (\Exception $e) {
-            return false;
-        }
+        $manager = new mod_assign\override_manager($this->get_instance(), $this->context);
+        $manager->delete_overrides_by_id([$overrideid]);
+        return true;
     }
 
     /**
@@ -962,16 +951,10 @@ class assign {
         mdl: 'MDL-86513',
     )]
     public function delete_all_overrides() {
-        \core\deprecation::emit_deprecation([self::class, __FUNCTION__]);
+        deprecation::emit_deprecation([self::class, __FUNCTION__]);
 
-        $cm = $this->get_course_module();
-        if (empty($cm)) {
-            $instance = $this->get_instance();
-            $cm = get_coursemodule_from_instance('assign', $instance->id, $instance->course);
-        }
-
-        $context = \context_module::instance($cm->id);
-        $manager = new mod_assign\override_manager($this->get_instance(), $context);
+        // Use override manager to delete all overrides.
+        $manager = new mod_assign\override_manager($this->get_instance(), $this->context);
         $manager->delete_all_overrides();
     }
 
@@ -7587,7 +7570,7 @@ class assign {
         mdl: 'MDL-82681',
     )]
     protected function process_save_grading_options() {
-        \core\deprecation::emit_deprecation([self::class, __FUNCTION__]);
+        deprecation::emit_deprecation([self::class, __FUNCTION__]);
     }
 
     /**
@@ -10325,14 +10308,14 @@ function assign_process_group_deleted_in_course($courseid, $groupid = null) {
     mdl: 'MDL-86513',
 )]
 function move_group_override($id, $move, $assignid) {
-    \core\deprecation::emit_deprecation(__FUNCTION__);
+    deprecation::emit_deprecation(__FUNCTION__);
 
     global $DB;
 
     // Get assignment and context.
     $assign = $DB->get_record('assign', ['id' => $assignid], '*', MUST_EXIST);
     $cm = get_coursemodule_from_instance('assign', $assign->id, $assign->course, false, MUST_EXIST);
-    $context = \context_module::instance($cm->id);
+    $context = context_module::instance($cm->id);
 
     // Use the manager class.
     $manager = new mod_assign\override_manager($assign, $context);
@@ -10352,14 +10335,14 @@ function move_group_override($id, $move, $assignid) {
     mdl: 'MDL-86513',
 )]
 function reorder_group_overrides($assignid) {
-    \core\deprecation::emit_deprecation(__FUNCTION__);
+    deprecation::emit_deprecation(__FUNCTION__);
 
     global $DB;
 
     // Get assignment and context.
     $assign = $DB->get_record('assign', ['id' => $assignid], '*', MUST_EXIST);
     $cm = get_coursemodule_from_instance('assign', $assign->id, $assign->course, false, MUST_EXIST);
-    $context = \context_module::instance($cm->id);
+    $context = context_module::instance($cm->id);
 
     // Use the manager class.
     $manager = new mod_assign\override_manager($assign, $context);
