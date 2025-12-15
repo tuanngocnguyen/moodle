@@ -16,6 +16,7 @@
 
 namespace mod_quiz\local;
 
+use invalid_parameter_exception;
 use mod_quiz\event\group_override_created;
 use mod_quiz\event\group_override_deleted;
 use mod_quiz\event\group_override_updated;
@@ -53,7 +54,7 @@ class override_manager {
 
         // Sanity check that the context matches the quiz.
         if (empty($quiz->cmid) || $quiz->cmid != $context->instanceid) {
-            throw new \coding_exception("Given context does not match the quiz object");
+            throw new invalid_parameter_exception("Given context does not match the quiz object");
         }
     }
 
@@ -245,7 +246,7 @@ class override_manager {
         $errors = $this->validate_data($datatoset);
         if (!empty($errors)) {
             $errorstr = implode(',', $errors);
-            throw new \invalid_parameter_exception($errorstr);
+            throw new invalid_parameter_exception($errorstr);
         }
 
         // Insert or update.
@@ -324,7 +325,7 @@ class override_manager {
         // Ensure all the given ids exist, so the user is aware if they give a dodgy id.
         $missingids = array_diff($ids, array_keys($records));
         if (!empty($missingids)) {
-            throw new \invalid_parameter_exception(get_string('overridemissingdelete', 'quiz', implode(',', $missingids)));
+            throw new invalid_parameter_exception(get_string('overridemissingdelete', 'quiz', implode(',', $missingids)));
         }
 
         $this->delete_overrides($records, $shouldlog);
@@ -407,7 +408,7 @@ class override_manager {
         $xorset = $groupset ^ $userset;
 
         if (!$xorset) {
-            throw new \coding_exception("Either userid or groupid must be specified, but not both.");
+            throw new invalid_parameter_exception("Either userid or groupid must be specified, but not both.");
         }
     }
 
