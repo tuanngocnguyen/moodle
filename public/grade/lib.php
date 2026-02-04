@@ -28,6 +28,7 @@ require_once($CFG->dirroot . '/grade/export/lib.php');
 use \core_grades\output\action_bar;
 use \core_grades\output\general_action_bar;
 use \core\output\single_select;
+use core_user\fields;
 
 /**
  * This class iterates over all users that are graded in a course.
@@ -3380,12 +3381,25 @@ abstract class grade_helper {
         require_once($CFG->dirroot.'/user/profile/lib.php');        // Loads constants, such as PROFILE_VISIBLE_ALL
         $userdefaultfields = user_get_default_fields();
 
+        // Load all fields that can be identity fields (the options for showuseridentity).
+        $allidentityfields = array_keys(fields::get_identity_field_options());
+
+        // Load identity fields that are allowed to be viewed by users via showuseridentity.
+        $allowedidentityfields = fields::get_identity_fields($context);
+
+        // Get list of identity fields that are NOT allowed to view by users.
+        $restrictedidentityfields = array_diff($allidentityfields, $allowedidentityfields);
+
         // Sets the list of profile fields
         $userprofilefields = array_map('trim', explode(',', $CFG->grade_export_userprofilefields));
         if (!empty($userprofilefields)) {
             foreach ($userprofilefields as $field) {
                 $field = trim($field);
                 if (in_array($field, $hiddenfields) || !in_array($field, $userdefaultfields)) {
+                    continue;
+                }
+                // Skip fields that are identity fields but not allowed by showuseridentity.
+                if (in_array($field, $restrictedidentityfields)) {
                     continue;
                 }
                 $obj = new stdClass();
@@ -3409,6 +3423,12 @@ abstract class grade_helper {
                 } else if (in_array($field->shortname, $hiddenfields)) {
                     continue;
                 } else if ($field->visible != PROFILE_VISIBLE_ALL && !$canseehiddenfields) {
+                    continue;
+                }
+
+                // Step 4: Skip custom fields that are identity fields but not allowed by showuseridentity.
+                $customfieldname = 'profile_field_' . $field->shortname;
+                if (in_array($customfieldname, $restrictedidentityfields)) {
                     continue;
                 }
 

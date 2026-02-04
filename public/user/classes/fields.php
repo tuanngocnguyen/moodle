@@ -16,8 +16,10 @@
 
 namespace core_user;
 
+use context_system;
 use core_text;
 use core_user;
+use lang_string;
 
 /**
  * Class for retrieving information about user fields that are needed for displaying user identity.
@@ -679,5 +681,44 @@ class fields {
         } else {
             return '';
         }
+    }
+
+    /**
+     * Returns available user identity fields (including custom profile fields) for settings.
+     *
+     * @return array Array of fieldname => displayname
+     */
+    public static function get_identity_field_options(): array {
+        global $CFG;
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+
+        // Basic fields available in user table.
+        $fields = [
+            'username'    => new lang_string('username'),
+            'idnumber'    => new lang_string('idnumber'),
+            'email'       => new lang_string('email'),
+            'phone1'      => new lang_string('phone1'),
+            'phone2'      => new lang_string('phone2'),
+            'department'  => new lang_string('department'),
+            'institution' => new lang_string('institution'),
+            'city'        => new lang_string('city'),
+            'country'     => new lang_string('country'),
+        ];
+
+        // Custom profile fields.
+        $profilefields = profile_get_custom_fields();
+        foreach ($profilefields as $field) {
+            // Only reasonable-length text fields can be used as identity fields.
+            if ($field->param2 > 255 || $field->datatype != 'text') {
+                continue;
+            }
+            $fields['profile_field_' . $field->shortname] = format_string(
+                $field->name,
+                true,
+                ['context' => context_system::instance()]
+            ) . ' *';
+        }
+
+        return $fields;
     }
 }

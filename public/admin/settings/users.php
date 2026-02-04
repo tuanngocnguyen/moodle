@@ -2,6 +2,8 @@
 
 // This file defines settingpages and externalpages under the "users" category.
 
+use core_user\fields;
+
 $ADMIN->add('users', new admin_category('accounts', new lang_string('accounts', 'admin')));
 $ADMIN->add('users', new admin_category('roles', new lang_string('permissions', 'role')));
 $ADMIN->add('users', new admin_category('privacy', new lang_string('privacyandpolicies', 'admin')));
@@ -227,39 +229,13 @@ if ($hassiteconfig || has_any_capability($capabilities, $systemcontext)) { // Sp
         // Options include fields from the user table that might be helpful to
         // distinguish when adding or listing users ('I want to add the John
         // Smith from Science faculty') and any custom profile fields.
-        $temp->add(new admin_setting_configmulticheckbox('showuseridentity',
-                new lang_string('showuseridentity', 'admin'),
-                new lang_string('showuseridentity_desc', 'admin'), ['email' => 1],
-                function() {
-                    global $CFG;
-                    require_once($CFG->dirroot.'/user/profile/lib.php');
-
-                    // Basic fields available in user table.
-                    $fields = [
-                        'username'    => new lang_string('username'),
-                        'idnumber'    => new lang_string('idnumber'),
-                        'email'       => new lang_string('email'),
-                        'phone1'      => new lang_string('phone1'),
-                        'phone2'      => new lang_string('phone2'),
-                        'department'  => new lang_string('department'),
-                        'institution' => new lang_string('institution'),
-                        'city'        => new lang_string('city'),
-                        'country'     => new lang_string('country'),
-                    ];
-
-                    // Custom profile fields.
-                    $profilefields = profile_get_custom_fields();
-                    foreach ($profilefields as $field) {
-                        // Only reasonable-length text fields can be used as identity fields.
-                        if ($field->param2 > 255 || $field->datatype != 'text') {
-                            continue;
-                        }
-                        $fields['profile_field_' . $field->shortname] = format_string($field->name, true,
-                            ['context' => context_system::instance()]) . ' *';
-                    }
-
-                    return $fields;
-                }));
+        $temp->add(new admin_setting_configmulticheckbox(
+            'showuseridentity',
+            new lang_string('showuseridentity', 'admin'),
+            new lang_string('showuseridentity_desc', 'admin'),
+            ['email' => 1],
+            fields::get_identity_field_options()
+        ));
         $setting = new admin_setting_configtext('fullnamedisplay', new lang_string('fullnamedisplay', 'admin'),
             new lang_string('configfullnamedisplay', 'admin'), 'language', PARAM_TEXT, 50);
         $setting->set_force_ltr(true);

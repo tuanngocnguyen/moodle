@@ -1033,4 +1033,212 @@ final class lib_test extends \advanced_testcase {
         $gradableusers = \grade_report::get_gradable_users($course->id, $group2->id);
         $this->assertEqualsCanonicalizing([$student3->id], array_keys($gradableusers));
     }
+
+    /**
+     * Test get_user_profile_fields respects showuseridentity setting.
+     *
+     * Tests that identity fields are filtered based on the site-wide showuseridentity setting.
+     */
+    public function test_get_user_profile_fields_respects_showuseridentity(): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        // Admin user has access to all fields in showuseridentity.
+        $this->setAdminUser();
+
+        // Create a course.
+        $course = $this->getDataGenerator()->create_course();
+
+        // Set up grade export fields to include some identity fields.
+        $CFG->grade_export_userprofilefields = 'email,idnumber,department,city';
+
+        // When showuseridentity includes all these fields, all should be returned.
+        set_config('showuseridentity', 'email,idnumber,department,city');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertContains('email', $fieldnames, 'Email should be included when in showuseridentity');
+        $this->assertContains('idnumber', $fieldnames, 'Idnumber should be included when in showuseridentity');
+        $this->assertContains('department', $fieldnames, 'Department should be included when in showuseridentity');
+        $this->assertContains('city', $fieldnames, 'City should be included when in showuseridentity');
+
+        // When showuseridentity excludes some fields, other fields should be filtered out.
+        set_config('showuseridentity', 'email,city');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, false);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertContains('email', $fieldnames, 'Email should be included when in showuseridentity');
+        $this->assertContains('city', $fieldnames, 'City should be included when in showuseridentity');
+        $this->assertNotContains('idnumber', $fieldnames, 'Idnumber should be excluded when not in showuseridentity');
+        $this->assertNotContains('department', $fieldnames, 'Department should be excluded when not in showuseridentity');
+
+        // When showuseridentity is empty, all identity fields should be filtered out.
+        set_config('showuseridentity', '');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, false);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertNotContains('email', $fieldnames, 'Email should be excluded when showuseridentity is empty');
+        $this->assertNotContains('idnumber', $fieldnames, 'Idnumber should be excluded when showuseridentity is empty');
+        $this->assertNotContains('department', $fieldnames, 'Department should be excluded when showuseridentity is empty');
+        $this->assertNotContains('city', $fieldnames, 'City should be excluded when showuseridentity is empty');
+
+        // Field in grade_export_userprofilefields but not in showuseridentity should be excluded.
+        $CFG->grade_export_userprofilefields = 'email,idnumber,department,institution,phone1';
+        set_config('showuseridentity', 'email,city');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, false);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertContains('email', $fieldnames, 'Email in both settings should be included');
+        $this->assertNotContains('idnumber', $fieldnames, 'Idnumber in export but not showuseridentity should be excluded');
+        $this->assertNotContains('department', $fieldnames, 'Department in export but not showuseridentity should be excluded');
+        $this->assertNotContains('institution', $fieldnames, 'Institution in export but not showuseridentity should be excluded');
+        $this->assertNotContains('phone1', $fieldnames, 'Phone1 in export but not showuseridentity should be excluded');
+        $this->assertNotContains('city', $fieldnames, 'City in showuseridentity but not in export should not appear');
+
+        // Export non-identity fields when showuseridentity has different fields.
+        $CFG->grade_export_userprofilefields = 'theme,timezone,email,username';
+        set_config('showuseridentity', 'idnumber,city');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, false);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        // Non-identity fields should be included.
+        $this->assertContains('theme', $fieldnames, 'Theme is not an identity field, should be included');
+        $this->assertContains('timezone', $fieldnames, 'Timezone is not an identity field, should be included');
+        // Identity fields not in showuseridentity should be excluded.
+        $this->assertNotContains('email', $fieldnames, 'Email not in showuseridentity should be excluded');
+        $this->assertNotContains('username', $fieldnames, 'Username not in showuseridentity should be excluded');
+    }
+
+    /**
+     * Test get_user_profile_fields with custom profile fields and showuseridentity.
+     *
+     * Tests that custom identity fields are filtered based on the site-wide showuseridentity setting.
+     */
+    public function test_get_user_profile_fields_custom_fields_showuseridentity(): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        // Admin user has access to all fields in showuseridentity.
+        $this->setAdminUser();
+
+        // Create a course.
+        $course = $this->getDataGenerator()->create_course();
+
+        // Create custom profile fields.
+        $this->getDataGenerator()->create_custom_profile_field([
+            'shortname' => 'studentid',
+            'name' => 'Student ID',
+            'datatype' => 'text',
+            'param2' => 100, // Max length.
+        ]);
+
+        $this->getDataGenerator()->create_custom_profile_field([
+            'shortname' => 'department',
+            'name' => 'Department Code',
+            'datatype' => 'text',
+            'param2' => 50,
+        ]);
+
+        // Set up grade export to include custom fields.
+        $CFG->grade_export_customprofilefields = 'studentid,department';
+        $CFG->hiddenuserfields = '';
+
+        // When custom fields are in showuseridentity, they should be included.
+        set_config('showuseridentity', 'email,profile_field_studentid,profile_field_department');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, true);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertContains('studentid', $fieldnames, 'Custom field studentid should be included when in showuseridentity');
+        $this->assertContains('department', $fieldnames, 'Custom field department should be included when in showuseridentity');
+
+        // When custom fields are NOT in showuseridentity, they should be excluded.
+        set_config('showuseridentity', 'email');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, true);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertNotContains('studentid', $fieldnames, 'Custom field studentid should be excluded when not in showuseridentity');
+        $this->assertNotContains('department', $fieldnames, 'Custom field department should be excluded when not in showuseridentity');
+
+        // Partial inclusion - only one custom field in showuseridentity.
+        set_config('showuseridentity', 'email,profile_field_studentid');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, true);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertContains('studentid', $fieldnames, 'Custom field studentid should be included when in showuseridentity');
+        $this->assertNotContains('department', $fieldnames, 'Custom field department should be excluded when not in showuseridentity');
+
+        // Custom field in grade_export_customprofilefields but not in showuseridentity should be excluded.
+        $CFG->grade_export_customprofilefields = 'studentid,department';
+        set_config('showuseridentity', 'email,profile_field_studentid');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, true);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertContains('studentid', $fieldnames, 'Studentid in both settings should be included');
+        $this->assertNotContains('department', $fieldnames, 'Department in export but not showuseridentity should be excluded');
+
+        // Custom field in showuseridentity but not in grade_export_customprofilefields should not appear.
+        $CFG->grade_export_customprofilefields = 'studentid';
+        set_config('showuseridentity', 'email,profile_field_studentid,profile_field_department');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, true);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertContains('studentid', $fieldnames, 'Studentid in both settings should be included');
+        $this->assertNotContains('department', $fieldnames, 'Department not in export settings should not appear');
+
+        // Empty grade_export_customprofilefields should result in no custom fields.
+        $CFG->grade_export_customprofilefields = '';
+        set_config('showuseridentity', 'email,profile_field_studentid,profile_field_department');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, true);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        $this->assertNotContains('studentid', $fieldnames, 'No custom fields when export setting is empty');
+        $this->assertNotContains('department', $fieldnames, 'No custom fields when export setting is empty');
+    }
+
+    /**
+     * Test get_user_profile_fields without moodle/site:viewuseridentity capability.
+     *
+     * Tests that users without the capability cannot see any identity fields.
+     */
+    public function test_get_user_profile_fields_without_viewuseridentity_capability(): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        // Create a course and a user without special capabilities.
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+
+        // Enrol user as student (no viewuseridentity capability by default).
+        $this->getDataGenerator()->enrol_user($user->id, $course->id, 'student');
+        $this->setUser($user);
+
+        // Set up grade export fields.
+        $CFG->grade_export_userprofilefields = 'email,idnumber,city,firstname,lastname';
+
+        // Even with showuseridentity set, user without capability should not see identity fields.
+        set_config('showuseridentity', 'email,idnumber,city');
+
+        $fields = \grade_helper::get_user_profile_fields($course->id, false);
+        $fieldnames = array_map(fn($f) => $f->shortname, $fields);
+
+        // User without capability should not see any identity fields.
+        $this->assertNotContains('email', $fieldnames, 'Email should not be visible without viewuseridentity capability');
+        $this->assertNotContains('idnumber', $fieldnames, 'Idnumber should not be visible without viewuseridentity capability');
+        $this->assertNotContains('city', $fieldnames, 'City should not be visible without viewuseridentity capability');
+
+        // Non-identity fields should still be visible.
+        $this->assertContains('firstname', $fieldnames, 'Firstname should be visible (not an identity field)');
+        $this->assertContains('lastname', $fieldnames, 'Lastname should be visible (not an identity field)');
+    }
 }
