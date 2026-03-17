@@ -43,7 +43,18 @@ use stdClass;
  */
 class override_manager {
     /** @var array assignment setting keys that can be overwritten **/
-    private const OVERRIDEABLE_ASSIGN_SETTINGS = ['duedate', 'cutoffdate', 'allowsubmissionsfromdate', 'timelimit'];
+    private const OVERRIDEABLE_ASSIGN_SETTINGS = [
+        'duedate',
+        'cutoffdate',
+        'allowsubmissionsfromdate',
+        'timelimit',
+    ];
+
+    /** @var array override-only setting keys (not present on the assignment itself) **/
+    private const OVERRIDE_ONLY_SETTINGS = [
+        'reason',
+        'reasonformat',
+    ];
 
     /**
      * Create override manager
@@ -213,11 +224,11 @@ class override_manager {
             }
         }
 
-        // Ensure at least one assign setting was provided.
+        // Ensure at least one setting was provided.
         // Use the original formdata to check what was actually sent, not the parsed version.
         // As the parsed version will clear values that match existing assignment's settings.
         $changed = false;
-        foreach (self::OVERRIDEABLE_ASSIGN_SETTINGS as $key) {
+        foreach (array_merge(self::OVERRIDEABLE_ASSIGN_SETTINGS, self::OVERRIDE_ONLY_SETTINGS) as $key) {
             if (array_key_exists($key, $originalformdata)) {
                 $changed = true;
                 break;
@@ -299,10 +310,13 @@ class override_manager {
         // Remove values that are the same as currently in the assignment.
         $settings = $this->clear_unused_values($settings);
 
+        // Get override-only settings (not present on the assignment).
+        $overrideonly = array_intersect_key($formdata, array_flip(self::OVERRIDE_ONLY_SETTINGS));
+
         // Add the user / group back as applicable.
         $userorgroupdata = array_intersect_key($formdata, array_flip(['userid', 'groupid', 'assignid', 'id']));
 
-        return array_merge($settings, $userorgroupdata);
+        return array_merge($settings, $overrideonly, $userorgroupdata);
     }
 
     /**

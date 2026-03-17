@@ -22,6 +22,7 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use core_external\util;
 use mod_assign\override_manager;
 
 /**
@@ -68,7 +69,21 @@ class get_overrides extends external_api {
         // Get all overrides that the user can access.
         $filteredoverrides = $manager->get_accessible_overrides();
 
-        return ['overrides' => $filteredoverrides];
+        // Format text fields for external output.
+        $formattedoverrides = [];
+        foreach ($filteredoverrides as $override) {
+            $override = (array) $override;
+            if (!empty($override['reason'])) {
+                [$override['reason'], $override['reasonformat']] = util::format_text(
+                    $override['reason'],
+                    $override['reasonformat'] ?? FORMAT_MOODLE,
+                    $context
+                );
+            }
+            $formattedoverrides[] = $override;
+        }
+
+        return ['overrides' => $formattedoverrides];
     }
 
     /**
@@ -87,6 +102,8 @@ class get_overrides extends external_api {
             'duedate' => new external_value(PARAM_INT, 'Override due date', VALUE_DEFAULT, null),
             'cutoffdate' => new external_value(PARAM_INT, 'Override cutoff date', VALUE_DEFAULT, null),
             'timelimit' => new external_value(PARAM_INT, 'Override time limit', VALUE_DEFAULT, null),
+            'reason' => new external_value(PARAM_RAW, 'Override reason', VALUE_DEFAULT, null),
+            'reasonformat' => new external_value(PARAM_INT, 'Override reason format', VALUE_DEFAULT, 0),
         ]);
 
         return new external_single_structure([
