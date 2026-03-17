@@ -18,6 +18,7 @@ namespace mod_assign\external;
 
 use context_module;
 use core_external\external_api;
+use core_external\external_format_value;
 use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
@@ -46,6 +47,8 @@ class save_overrides extends external_api {
             'duedate' => new external_value(PARAM_INT, 'Assignment override due date', VALUE_DEFAULT, null),
             'cutoffdate' => new external_value(PARAM_INT, 'Assignment override cutoff date', VALUE_DEFAULT, null),
             'timelimit' => new external_value(PARAM_INT, 'Assignment override time limit', VALUE_DEFAULT, null),
+            'reason' => new external_value(PARAM_RAW, 'Assignment override reason', VALUE_OPTIONAL),
+            'reasonformat' => new external_format_value('reason', VALUE_OPTIONAL),
         ]);
 
         return new external_function_parameters([

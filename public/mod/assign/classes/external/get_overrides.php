@@ -87,6 +87,8 @@ class get_overrides extends external_api {
             'duedate' => new external_value(PARAM_INT, 'Override due date', VALUE_DEFAULT, null),
             'cutoffdate' => new external_value(PARAM_INT, 'Override cutoff date', VALUE_DEFAULT, null),
             'timelimit' => new external_value(PARAM_INT, 'Override time limit', VALUE_DEFAULT, null),
+            'reason' => new external_value(PARAM_RAW, 'Override reason', VALUE_DEFAULT, null),
+            'reasonformat' => new external_value(PARAM_INT, 'Override reason format', VALUE_DEFAULT, 0),
         ]);
 
         return new external_single_structure([

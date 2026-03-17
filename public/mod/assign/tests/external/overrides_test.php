@@ -119,6 +119,38 @@ final class overrides_test extends externallib_advanced_testcase {
     }
 
     /**
+     * Test get_overrides returns reason and reasonformat fields.
+     */
+    public function test_get_overrides_returns_reason_and_reasonformat(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $data = $this->create_assign_with_overrides_test_data();
+        $this->setUser($data['teacher']);
+
+        $now = time();
+        $reason = 'Medical exemption';
+        $reasonformat = FORMAT_HTML;
+
+        // Create a user override with reason and reasonformat.
+        $override = new stdClass();
+        $override->assignid = $data['assign']->id;
+        $override->userid = $data['student1']->id;
+        $override->duedate = $now + (10 * DAYSECS);
+        $override->reason = $reason;
+        $override->reasonformat = $reasonformat;
+        $override->id = $DB->insert_record('assign_overrides', $override);
+
+        $result = get_overrides::execute($data['assign']->id);
+        $result = external_api::clean_returnvalue(get_overrides::execute_returns(), $result);
+
+        $this->assertCount(1, $result['overrides']);
+        $returnedoverride = $result['overrides'][0];
+        $this->assertEquals($reason, $returnedoverride['reason']);
+        $this->assertEquals($reasonformat, $returnedoverride['reasonformat']);
+    }
+
+    /**
      * Test get_overrides requires capability.
      */
     public function test_get_overrides_requires_capability(): void {
@@ -174,6 +206,39 @@ final class overrides_test extends externallib_advanced_testcase {
         $this->assertEquals($data['student1']->id, $override->userid);
         $this->assertEquals($duedate, $override->duedate);
         $this->assertEquals($cutoffdate, $override->cutoffdate);
+    }
+
+    /**
+     * Test save_overrides stores reason and reasonformat.
+     */
+    public function test_save_overrides_with_reason_and_reasonformat(): void {
+        $this->resetAfterTest();
+        global $DB;
+
+        $data = $this->create_assign_with_overrides_test_data();
+        $this->setUser($data['teacher']);
+
+        $reason = 'Medical exemption';
+        $reasonformat = FORMAT_HTML;
+
+        $result = save_overrides::execute([
+            'assignid' => $data['assign']->id,
+            'overrides' => [[
+                'userid' => $data['student1']->id,
+                'duedate' => time() + (10 * DAYSECS),
+                'reason' => $reason,
+                'reasonformat' => $reasonformat,
+            ]],
+        ]);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+
+        $this->assertCount(1, $result['ids']);
+
+        // Verify reason and reasonformat are stored in database.
+        $override = $DB->get_record('assign_overrides', ['id' => $result['ids'][0]]);
+        $this->assertNotFalse($override);
+        $this->assertEquals($reason, $override->reason);
+        $this->assertEquals($reasonformat, $override->reasonformat);
     }
 
     /**
@@ -332,6 +397,37 @@ final class overrides_test extends externallib_advanced_testcase {
                 'duedate' => $now + (8 * DAYSECS),
             ]],
         ]);
+    }
+
+    /**
+     * Test save_overrides defaults reasonformat to FORMAT_MOODLE when reason is set without reasonformat.
+     */
+    public function test_save_overrides_reason_defaults_reasonformat_to_format_moodle(): void {
+        $this->resetAfterTest();
+        global $DB;
+
+        $data = $this->create_assign_with_overrides_test_data();
+        $this->setUser($data['teacher']);
+
+        // Save override with reason but without reasonformat - should default to FORMAT_MOODLE.
+        $result = save_overrides::execute([
+            'assignid' => $data['assign']->id,
+            'overrides' => [[
+                'userid' => $data['student1']->id,
+                'duedate' => time() + (10 * DAYSECS),
+                'reason' => 'Medical exemption',
+                // Note: reasonformat intentionally omitted - should default to FORMAT_MOODLE.
+            ]],
+        ]);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+
+        $this->assertCount(1, $result['ids']);
+
+        // Verify the override was saved with FORMAT_MOODLE as the default reasonformat.
+        $override = $DB->get_record('assign_overrides', ['id' => $result['ids'][0]]);
+        $this->assertNotFalse($override);
+        $this->assertEquals('Medical exemption', $override->reason);
+        $this->assertEquals(FORMAT_MOODLE, $override->reasonformat);
     }
 
     /**

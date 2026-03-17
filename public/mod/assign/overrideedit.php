@@ -166,6 +166,8 @@ if ($mform->is_cancelled()) {
         'cutoffdate' => $fromform->cutoffdate ?? null,
         'allowsubmissionsfromdate' => $fromform->allowsubmissionsfromdate ?? null,
         'timelimit' => $fromform->timelimit ?? null,
+        'reason' => $fromform->reason ?? null,
+        'reasonformat' => $fromform->reasonformat ?? FORMAT_MOODLE,
     ];
 
     // If updating an existing override, include the ID.

@@ -43,7 +43,19 @@ use stdClass;
  */
 class override_manager {
     /** @var array assignment setting keys that can be overwritten **/
-    private const OVERRIDEABLE_ASSIGN_SETTINGS = ['duedate', 'cutoffdate', 'allowsubmissionsfromdate', 'timelimit'];
+    private const OVERRIDEABLE_ASSIGN_SETTINGS = [
+        'duedate',
+        'cutoffdate',
+        'allowsubmissionsfromdate',
+        'timelimit',
+    ];
+
+    /** @var array override-only setting keys (not present on the assignment itself) **/
+    private const OVERRIDE_ONLY_SETTINGS = [
+        // Fields and default values.
+        'reason' => null,
+        'reasonformat' => FORMAT_MOODLE,
+    ];
 
     /**
      * Create override manager
@@ -213,11 +225,11 @@ class override_manager {
             }
         }
 
-        // Ensure at least one assign setting was provided.
+        // Ensure at least one setting was provided.
         // Use the original formdata to check what was actually sent, not the parsed version.
         // As the parsed version will clear values that match existing assignment's settings.
         $changed = false;
-        foreach (self::OVERRIDEABLE_ASSIGN_SETTINGS as $key) {
+        foreach (array_merge(self::OVERRIDEABLE_ASSIGN_SETTINGS, array_keys(self::OVERRIDE_ONLY_SETTINGS)) as $key) {
             if (array_key_exists($key, $originalformdata)) {
                 $changed = true;
                 break;
@@ -299,10 +311,15 @@ class override_manager {
         // Remove values that are the same as currently in the assignment.
         $settings = $this->clear_unused_values($settings);
 
+        // Get override-only settings (not present on the assignment, so no comparison needed).
+        $overrideonly = array_intersect_key($formdata, array_flip(array_keys(self::OVERRIDE_ONLY_SETTINGS)));
+        $overrideonly = $this->apply_override_only_defaults($overrideonly);
+
+
         // Add the user / group back as applicable.
         $userorgroupdata = array_intersect_key($formdata, array_flip(['userid', 'groupid', 'assignid', 'id']));
 
-        return array_merge($settings, $userorgroupdata);
+        return array_merge($settings, $overrideonly, $userorgroupdata);
     }
 
     /**
@@ -382,7 +399,7 @@ class override_manager {
                 // Don't delete the override we're currently updating.
                 if (empty($existingoverride) || $oldoverride->id != $existingoverride->id) {
                     // Merge with old override.
-                    foreach (self::OVERRIDEABLE_ASSIGN_SETTINGS as $key) {
+                    foreach (array_merge(self::OVERRIDEABLE_ASSIGN_SETTINGS, array_keys(self::OVERRIDE_ONLY_SETTINGS)) as $key) {
                         if (is_null($datatoset->{$key})) {
                             $datatoset->{$key} = $oldoverride->{$key};
                         }
@@ -749,6 +766,22 @@ class override_manager {
             $params['other']['groupid'] = $groupid;
             group_override_updated::create($params)->trigger();
         }
+    }
+
+    /**
+     * Applies the default values defined in OVERRIDE_ONLY_SETTINGS for any keys
+     * that are not already present in the given override data.
+     *
+     * @param array $override override data, usually from a webservice call or moodleform.
+     * @return array override data with defaults applied for any missing OVERRIDE_ONLY_SETTINGS keys.
+     */
+    private function apply_override_only_defaults(array $override): array {
+        foreach (self::OVERRIDE_ONLY_SETTINGS as $key => $default) {
+            if (!isset($override[$key])) {
+                $override[$key] = $default;
+            }
+        }
+        return $override;
     }
 
     /**
