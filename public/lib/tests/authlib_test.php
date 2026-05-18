@@ -439,6 +439,59 @@ final class authlib_test extends \advanced_testcase {
         unset($CFG->enableloginrecaptcha);
     }
 
+    /**
+     * Test that SSO auth plugins (non-internal) do not trigger the password policy check
+     * when $CFG->passwordpolicycheckonlogin is enabled. Only internal auth plugins that
+     * manage passwords (e.g. manual) should be subject to the policy check.
+     *
+     * @covers ::authenticate_user_login
+     */
+    public function test_authenticate_user_login_sso_null_password_skips_policy_check(): void {
+        global $CFG;
+
+        $this->resetAfterTest();
+
+        $oldlog = ini_get('error_log');
+        ini_set('error_log', "$CFG->dataroot/testlog.log");
+
+        $_SERVER['HTTP_USER_AGENT'] = 'no browser';
+
+        // Enable password policy and policy-check-on-login.
+        $CFG->passwordpolicy = 1;
+        $CFG->passwordpolicycheckonlogin = 1;
+
+        // Enable the fake SSO auth plugin (which accepts null passwords).
+        set_config('auth', 'fakesso');
+
+        // Create a user with the fake SSO auth type; password is irrelevant for SSO.
+        $user = $this->getDataGenerator()->create_user([
+            'username' => 'ssouser',
+            'auth'     => 'fakesso',
+        ]);
+
+        $reason = null;
+        $sink = $this->redirectEvents();
+        $result = authenticate_user_login('ssouser', null, false, $reason);
+        $events = $sink->get_events();
+        $sink->close();
+
+        // Login should succeed.
+        $this->assertInstanceOf('stdClass', $result);
+        $this->assertEquals(AUTH_LOGIN_OK, $reason);
+
+        // No password policy failure event should be fired.
+        $policyevents = array_filter($events, function($e) {
+            return $e->eventname === '\core\event\user_password_policy_failed';
+        });
+        $this->assertEmpty($policyevents, 'No password policy failed event should be fired for SSO null password login');
+
+        // No notification should be shown to the user.
+        $notifications = \core\notification::fetch();
+        $this->assertEmpty($notifications, 'No notification should be shown to SSO users with null passwords');
+
+        ini_set('error_log', $oldlog);
+    }
+
     public function test_user_loggedin_event_exceptions(): void {
         try {
             $event = \core\event\user_loggedin::create(array('objectid' => 1));

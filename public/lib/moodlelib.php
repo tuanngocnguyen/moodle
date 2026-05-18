@@ -3938,7 +3938,8 @@ function authenticate_user_login(
         }
 
         // Before performing login actions, check if user still passes password policy, if admin setting is enabled.
-        if (!empty($CFG->passwordpolicycheckonlogin)) {
+        // Only applies to internal auth plugins that manage passwords; SSO plugins (saml2, oidc, mnet, etc.) are skipped.
+        if (!empty($CFG->passwordpolicycheckonlogin) && $authplugin->is_internal()) {
             $errmsg = '';
             $passed = check_password_policy($password, $errmsg, $user);
             if (!$passed) {
