@@ -958,14 +958,14 @@ class assign {
     /**
      * Deletes a assign override from the database and clears any corresponding calendar events
      *
-     * @deprecated since Moodle 5.2 MDL-86513 - use \mod_assign\local\override_manager::delete_overrides_by_id() instead
+     * @deprecated since Moodle 5.3 MDL-86513 - use \mod_assign\local\override_manager::delete_overrides_by_id() instead
      * @todo MDL-87324 This will be removed in Moodle 6.0
      * @param int $overrideid The id of the override being deleted
      * @return bool true on success
      */
     #[\core\attribute\deprecated(
         replacement: '\mod_assign\local\override_manager::delete_overrides_by_id',
-        since: '5.2',
+        since: '5.3',
         mdl: 'MDL-86513',
     )]
     public function delete_override($overrideid) {
@@ -979,12 +979,12 @@ class assign {
     /**
      * Deletes all assign overrides from the database and clears any corresponding calendar events
      *
-     * @deprecated since Moodle 5.2 MDL-86513 - use \mod_assign\local\override_manager::delete_all_overrides() instead
+     * @deprecated since Moodle 5.3 MDL-86513 - use \mod_assign\local\override_manager::delete_all_overrides() instead
      * @todo MDL-87324 This will be removed in Moodle 6.0
      */
     #[\core\attribute\deprecated(
         replacement: '\mod_assign\local\override_manager::delete_all_overrides',
-        since: '5.2',
+        since: '5.3',
         mdl: 'MDL-86513',
     )]
     public function delete_all_overrides() {
@@ -10912,7 +10912,7 @@ function assign_process_group_deleted_in_course($courseid, $groupid = null) {
 /**
  * Change the sort order of an override
  *
- * @deprecated since Moodle 5.2 MDL-86513 - use \mod_assign\local\override_manager::move_group_override() instead
+ * @deprecated since Moodle 5.3 MDL-86513 - use \mod_assign\local\override_manager::move_group_override() instead
  * @todo MDL-87324 This will be removed in Moodle 6.0
  * @param int $id of the override
  * @param string $move direction of move
@@ -10921,7 +10921,7 @@ function assign_process_group_deleted_in_course($courseid, $groupid = null) {
  */
 #[\core\attribute\deprecated(
     replacement: '\mod_assign\local\override_manager::move_group_override',
-    since: '5.2',
+    since: '5.3',
     mdl: 'MDL-86513',
 )]
 function move_group_override($id, $move, $assignid) {
@@ -10942,13 +10942,13 @@ function move_group_override($id, $move, $assignid) {
 /**
  * Reorder the overrides starting at the override at the given startorder.
  *
- * @deprecated since Moodle 5.2 MDL-86513 - use \mod_assign\local\override_manager::reorder_group_overrides() instead
+ * @deprecated since Moodle 5.3 MDL-86513 - use \mod_assign\local\override_manager::reorder_group_overrides() instead
  * @todo MDL-87324 This will be removed in Moodle 6.0
  * @param int $assignid of the assignment
  */
 #[\core\attribute\deprecated(
     replacement: '\mod_assign\local\override_manager::reorder_group_overrides',
-    since: '5.2',
+    since: '5.3',
     mdl: 'MDL-86513',
 )]
 function reorder_group_overrides($assignid) {
