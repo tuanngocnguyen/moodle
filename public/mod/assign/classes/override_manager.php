@@ -91,6 +91,8 @@ class override_manager {
     public function get_accessible_overrides(): array {
         global $DB;
 
+        $this->require_manage_capability();
+
         $cm = get_coursemodule_from_instance('assign', $this->assign->id, $this->assign->course, false, MUST_EXIST);
         $course = $DB->get_record('course', ['id' => $this->assign->course], '*', MUST_EXIST);
 
@@ -327,6 +329,7 @@ class override_manager {
      * @return array array of updated/inserted record ids
      */
     public function save_overrides(array $overridesdata, bool $recalculatepenalties = false): array {
+        $this->require_manage_capability();
         $ids = [];
         foreach ($overridesdata as $override) {
             $overrideid = $this->save_override($override);
@@ -487,6 +490,8 @@ class override_manager {
      */
     public function delete_overrides_by_id(array $ids, bool $shouldlog = true, bool $recalculatepenalties = false): void {
         global $DB;
+
+        $this->require_manage_capability();
 
         // Early return if no IDs provided.
         if (empty($ids)) {

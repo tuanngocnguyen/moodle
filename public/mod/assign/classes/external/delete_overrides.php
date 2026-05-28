@@ -72,7 +72,6 @@ class delete_overrides extends external_api {
 
         // Create override manager.
         $manager = new override_manager($assign, $context);
-        $manager->require_manage_capability();
 
         // Delete the overrides using the manager (handles recalculation internally).
         $recalculatepenalties = $params['recalculatepenalties'] ?? false;

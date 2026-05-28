@@ -86,7 +86,6 @@ class save_overrides extends external_api {
 
         // Create override manager.
         $manager = new override_manager($assign, $context);
-        $manager->require_manage_capability();
 
         // Save all overrides with recalculate flag.
         $recalculatepenalties = $params['recalculatepenalties'] ?? false;
