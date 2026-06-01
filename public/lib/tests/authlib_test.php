@@ -111,6 +111,30 @@ final class authlib_test extends \advanced_testcase {
         ini_set('error_log', $oldlog);
     }
 
+    /**
+     * Test should_check_password_policy_on_login uses the site config value.
+     *
+     * @covers \auth_plugin_base::should_check_password_policy_on_login
+     */
+    public function test_should_check_password_policy_on_login(): void {
+        global $CFG;
+
+        $this->resetAfterTest();
+        require_once("$CFG->libdir/authlib.php");
+
+        $plugin = new class extends \auth_plugin_base {
+        };
+
+        unset($CFG->passwordpolicycheckonlogin);
+        $this->assertFalse($plugin->should_check_password_policy_on_login());
+
+        set_config('passwordpolicycheckonlogin', 0);
+        $this->assertFalse($plugin->should_check_password_policy_on_login());
+
+        set_config('passwordpolicycheckonlogin', 1);
+        $this->assertTrue($plugin->should_check_password_policy_on_login());
+    }
+
     public function test_authenticate_user_login(): void {
         global $CFG;
 

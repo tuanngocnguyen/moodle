@@ -3938,7 +3938,7 @@ function authenticate_user_login(
         }
 
         // Before performing login actions, check if user still passes password policy, if admin setting is enabled.
-        if (!empty($CFG->passwordpolicycheckonlogin)) {
+        if ($authplugin->should_check_password_policy_on_login()) {
             $errmsg = '';
             $passed = check_password_policy($password, $errmsg, $user);
             if (!$passed) {

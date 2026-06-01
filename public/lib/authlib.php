@@ -224,6 +224,16 @@ class auth_plugin_base {
     }
 
     /**
+     * Indicate if password policy should be checked on login
+     *
+     * @return bool true means password will be checked.
+     */
+    function should_check_password_policy_on_login(): bool {
+        global $CFG;
+        return !empty($CFG->passwordpolicycheckonlogin);
+    }
+
+    /**
      * Indicates if moodle should automatically update internal user
      * records with data from external sources using the information
      * from get_userinfo() method.
