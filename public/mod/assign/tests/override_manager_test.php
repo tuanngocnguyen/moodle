@@ -472,6 +472,40 @@ final class override_manager_test extends externallib_advanced_testcase {
     }
 
     /**
+     * Test save_overrides merge with existing override.
+     */
+    public function test_save_overrides_merges_with_existing_same_user(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $data = $this->create_test_data();
+        $manager = $data['manager'];
+        $this->setUser($data['teacher']);
+
+        // Create initial override with cutoffdate.
+        $manager->save_overrides([[
+            'userid' => $data['student1']->id,
+            'cutoffdate' => time() + (20 * DAYSECS),
+        ]]);
+
+        // Create a new override for the same user with only duedate.
+        // Should merge and delete the old one.
+        $ids = $manager->save_overrides([[
+            'userid' => $data['student1']->id,
+            'duedate' => time() + (10 * DAYSECS),
+        ]]);
+
+        // Should have exactly 1 override (old deleted, new contains merged values).
+        $overrides = $DB->get_records('assign_overrides', ['assignid' => $data['assign']->id]);
+        $this->assertCount(1, $overrides);
+
+        $override = reset($overrides);
+        $this->assertEquals($ids[0], $override->id);
+        $this->assertNotNull($override->cutoffdate); // Merged from old override.
+        $this->assertNotNull($override->duedate);
+    }
+
+    /**
      * Test delete_overrides_by_id removes overrides.
      */
     public function test_delete_overrides_by_id(): void {

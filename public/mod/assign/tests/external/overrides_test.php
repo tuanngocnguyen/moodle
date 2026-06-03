@@ -386,6 +386,61 @@ final class overrides_test extends externallib_advanced_testcase {
     }
 
     /**
+     * Test save_overrides merge with existing override.
+     */
+    public function test_save_overrides_merges_with_existing_same_user(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $data = $this->create_assign_with_overrides_test_data();
+        $this->setUser($data['teacher']);
+        $now = time();
+
+        // Create initial override.
+        $newduedate = $now + (12 * DAYSECS);
+        $cutoffdate = $newduedate + DAYSECS;
+        $result = save_overrides::execute([
+            'assignid' => $data['assign']->id,
+            'overrides' => [[
+                'userid' => $data['student1']->id,
+                'duedate' => $newduedate,
+                'cutoffdate' => $cutoffdate,
+            ]],
+        ]);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+
+        $this->assertCount(1, $result['ids']);
+
+        // Verify update in database.
+        $oldid = $result['ids'][0];
+        $updated = $DB->get_record('assign_overrides', ['id' => $oldid]);
+        $this->assertEquals($newduedate, $updated->duedate);
+        $this->assertEquals($cutoffdate, $updated->cutoffdate);
+
+        // Create new override without cutoffdate.
+        $newduedate = $newduedate + DAYSECS;
+        $result = save_overrides::execute([
+            'assignid' => $data['assign']->id,
+            'overrides' => [[
+                'userid' => $data['student1']->id,
+                'duedate' => $newduedate,
+            ]],
+        ]);
+        $result = external_api::clean_returnvalue(save_overrides::execute_returns(), $result);
+
+        $this->assertCount(1, $result['ids']);
+
+        // Verify new override in database.
+        $newid = $result['ids'][0];
+        // The id should be different.
+        $this->assertNotEquals($oldid, $newid);
+        $updated = $DB->get_record('assign_overrides', ['id' => $newid]);
+        $this->assertEquals($newduedate, $updated->duedate);
+        // Cutoffdate should be merged with existing one.
+        $this->assertEquals($cutoffdate, $updated->cutoffdate);
+    }
+
+    /**
      * Test save_overrides with batch creation.
      */
     public function test_save_overrides_batch_create(): void {
