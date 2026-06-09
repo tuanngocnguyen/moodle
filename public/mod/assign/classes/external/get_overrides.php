@@ -64,6 +64,7 @@ class get_overrides extends external_api {
 
         // Create override manager.
         $manager = new override_manager($assign, $context);
+        $manager->require_manage_capability();
 
         // Get all overrides that the user can access.
         $filteredoverrides = $manager->get_accessible_overrides();

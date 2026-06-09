@@ -85,13 +85,12 @@ class override_manager {
 
     /**
      * Returns all overrides for the linked assignment that the user can access.
+     * Note, capabilities are not checked, {@see require_manage_capability()}
      *
      * @return array of assign_override records that are accessible by the current user
      */
     public function get_accessible_overrides(): array {
         global $DB;
-
-        $this->require_manage_capability();
 
         $cm = get_coursemodule_from_instance('assign', $this->assign->id, $this->assign->course, false, MUST_EXIST);
         $course = $DB->get_record('course', ['id' => $this->assign->course], '*', MUST_EXIST);
@@ -265,7 +264,7 @@ class override_manager {
      */
     private function get_existing(int $id): false|stdClass {
         global $DB;
-        return $DB->get_record('assign_overrides', ['id' => $id]);
+        return $DB->get_record('assign_overrides', ['id' => $id, 'assignid' => $this->assign->id]);
     }
 
     /**
@@ -323,13 +322,13 @@ class override_manager {
 
     /**
      * Saves multiple overrides at once. Each override can contain an id for updating existing overrides.
+     * Note, capabilities are not checked, {@see require_manage_capability()}
      *
      * @param array $overridesdata array of override data, where each element is data usually from moodleform or webservice call.
      * @param bool $recalculatepenalties If true, recalculate penalties for all affected users after saving overrides.
      * @return array array of updated/inserted record ids
      */
     public function save_overrides(array $overridesdata, bool $recalculatepenalties = false): array {
-        $this->require_manage_capability();
         $ids = [];
         foreach ($overridesdata as $override) {
             $overrideid = $this->save_override($override);
@@ -468,7 +467,7 @@ class override_manager {
 
     /**
      * Deletes all the overrides for the linked assignment that the user can access.
-     * Capabilities are checked internally.
+     * Note, capabilities are not checked, {@see require_manage_capability()}
      *
      * @param bool $shouldlog If true, will log a override_deleted event
      * @param bool $recalculatepenalties If true, recalculate penalties for affected users after deletion
@@ -482,7 +481,7 @@ class override_manager {
     /**
      * Deletes overrides given just their ID.
      * Note, the given IDs must exist and user must have access to them otherwise an exception will be thrown.
-     * Capabilities are checked internally.
+     * Capabilities are not checked, {@see require_manage_capability()}
      *
      * @param array $ids IDs of overrides to delete
      * @param bool $shouldlog If true, will log a override_deleted event
@@ -490,8 +489,6 @@ class override_manager {
      */
     public function delete_overrides_by_id(array $ids, bool $shouldlog = true, bool $recalculatepenalties = false): void {
         global $DB;
-
-        $this->require_manage_capability();
 
         // Early return if no IDs provided.
         if (empty($ids)) {
@@ -925,6 +922,7 @@ class override_manager {
 
     /**
      * Move a group override up or down in the sort order.
+     * Note, capabilities are not checked, {@see require_manage_capability()}
      *
      * @param int $overrideid ID of the override to move
      * @param string $direction Direction to move ('up' or 'down')
