@@ -1671,6 +1671,44 @@ abstract class repository implements cacheable_object {
     }
 
     /**
+     * Whether FILE_REFERENCE aliases served by this repository may have their physical
+     * content copied into a course backup file, and reused as a standalone file when
+     * restoring on a site where the original source file is not available.
+     *
+     * This must only return true for repository types that both store their content in
+     * Moodle's own file pool (see {@see self::has_moodle_files()}) AND whose content is
+     * not tied to a particular user's private data. For example, {@see repository_user}
+     * (Private files) and {@see repository_recent} also report has_moodle_files() = true,
+     * but must not have their bytes embedded into someone else's course backup for
+     * privacy/ownership reasons, so they do not override this method.
+     *
+     * Subclasses should override this method, but callers must use
+     * {@see self::can_copy_backup_bytes()} instead, which also enforces that
+     * {@see self::has_moodle_files()} is true.
+     *
+     * @return bool
+     */
+    protected function supports_backup_bytes_copy() {
+        return false;
+    }
+
+    /**
+     * Whether it is safe for backup/restore code to physically copy this repository's
+     * FILE_REFERENCE alias content into/out of a course backup file.
+     *
+     * This is the method backup/restore code must call. It combines
+     * {@see self::has_moodle_files()} with {@see self::supports_backup_bytes_copy()} so
+     * that a repository type can never opt in to byte-copying without also being a
+     * "moodle files" repository, even if a subclass overrides supports_backup_bytes_copy()
+     * incorrectly.
+     *
+     * @return bool
+     */
+    final public function can_copy_backup_bytes() {
+        return $this->has_moodle_files() && $this->supports_backup_bytes_copy();
+    }
+
+    /**
      * Return file URL, for most plugins, the parameter is the original
      * url, but some plugins use a file id, so we need this function to
      * convert file id to original url.
