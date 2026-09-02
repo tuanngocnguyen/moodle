@@ -6066,10 +6066,22 @@ class restore_process_file_aliases_queue extends restore_execution_step {
                             $this->notify_failure($info, 'referenced file not found');
                             continue;
                         }
-
-                    // If we are at other site, we can't restore this alias.
                     } else {
-                        $this->notify_failure($info, 'referenced file not included');
+                        // If we are at other site, the original source file was not included in the
+                        // backup. However, when the alias is a contentbank reference, the backup may
+                        // still contain the physical bytes (content-addressed by contenthash) because
+                        // repository_contentbank::has_moodle_files() = true and the bytes are stored
+                        // locally. Try to restore as a standalone file from those bytes.
+                        $backuppath = $this->get_basepath() . '/files/' .
+                            backup_file_manager::get_backup_content_file_location($info->oldfile->contenthash);
+                        if (!empty($info->oldfile->contenthash) && file_exists($backuppath)) {
+                            // The alias target is unavailable on the destination site,
+                            // but the content bytes are present in the backup.
+                            $fs->create_file_from_pathname($info->newfile, $backuppath);
+                            $this->notify_success($info);
+                        } else {
+                            $this->notify_failure($info, 'referenced file not included');
+                        }
                         continue;
                     }
                 }

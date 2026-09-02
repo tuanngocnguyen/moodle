@@ -253,6 +253,34 @@ class file_nested_element extends backup_nested_element {
     }
 
     public function fill_values($values) {
+        global $CFG;
+
+        // For FILE_REFERENCE aliases live in Moodle's own file pool
+        // (e.g. repository_contentbank) the files table row
+        // may still carry the placeholder hash (SHA1 of empty string) if sync has not
+        // yet been triggered for this alias.  Ensure the contenthash is up-to-date
+        // before we write it to files.xml and before we copy the physical bytes,
+        // otherwise both the XML metadata and the backup files/ directory will be
+        // inconsistent and the restore will fail to locate the content.
+        if (!empty($values->repositoryid)) {
+            require_once($CFG->dirroot . '/repository/lib.php');
+            try {
+                $repo = repository::get_repository_by_id($values->repositoryid, SYSCONTEXTID);
+                // Only bother refreshing the contenthash for repository types whose physical
+                // bytes we will actually copy into the backup (see
+                // repository::can_copy_backup_bytes()). Other has_moodle_files()
+                // repositories, such as "user" (Private files) and "recent", are never copied
+                // physically, so there is no point syncing their contenthash here.
+                if ($repo->can_copy_backup_bytes()) {
+                    $fs = get_file_storage();
+                    $file = $fs->get_file_instance($values);
+                    $values->contenthash = $file->get_contenthash();
+                }
+            } catch (\Exception $e) {
+                debugging('Unable to refresh alias contenthash for backup: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+        }
+
         // Fill values
         parent::fill_values($values);
         // Do our own tasks (copy file from moodle to backup)

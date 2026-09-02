@@ -99,6 +99,15 @@ class repository_contentbank extends repository {
     }
 
     /**
+     * Tells if the repository supports backup and restore aliasing of files.
+     *
+     * @return boolean
+     */
+    protected function supports_backup_bytes_copy() {
+        return true;
+    }
+
+    /**
      * Tells how the file can be picked from this repository.
      *
      * @return int
