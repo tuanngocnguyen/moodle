@@ -253,6 +253,31 @@ class file_nested_element extends backup_nested_element {
     }
 
     public function fill_values($values) {
+        global $CFG;
+
+        // For FILE_REFERENCE aliases whose bytes live in Moodle's own file pool
+        // (e.g. repository_contentbank, repository_coursefiles) the files table row
+        // may still carry the placeholder hash (SHA1 of empty string) if sync has not
+        // yet been triggered for this alias.  Ensure the contenthash is up-to-date
+        // *before* we write it to files.xml and before we copy the physical bytes,
+        // otherwise both the XML metadata and the backup files/ directory will be
+        // inconsistent and the restore will fail to locate the content.
+        if (!empty($values->repositoryid)) {
+            require_once($CFG->dirroot . '/repository/lib.php');
+            try {
+                $repo = repository::get_repository_by_id($values->repositoryid, SYSCONTEXTID);
+                if ($repo->has_moodle_files()) {
+                    $fs = get_file_storage();
+                    $file = $fs->get_file_instance($values);
+                    // get_contenthash() triggers sync_external_file() on the first call.
+                    $values->contenthash = $file->get_contenthash();
+                }
+            } catch (\Exception $e) {
+                // Repository or file unavailable — leave $values as-is and let the
+                // normal missing-file handling report the problem.
+            }
+        }
+
         // Fill values
         parent::fill_values($values);
         // Do our own tasks (copy file from moodle to backup)

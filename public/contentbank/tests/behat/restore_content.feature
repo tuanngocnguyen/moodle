@@ -31,3 +31,31 @@ Feature: Content bank contents are retained when course is restored
     And I wait until "h5p-player" iframe is interactable and switch to it
     And I wait until "h5p-iframe" iframe is interactable and switch to it
     Then I should see "Of which countries are Berlin, Washington, Beijing, Canberra and Brasilia the capitals?"
+
+  @javascript
+  Scenario: Restoring a course keeps a cross-course content bank file reference usable
+    Given the following "courses" exist:
+      | fullname | shortname |
+      | Course 2 | C2        |
+    And the following "course enrolments" exist:
+      | user  | course | role           |
+      | admin | C2     | editingteacher |
+    And the following "activities" exist:
+      | activity | name         | intro        | introformat | course | idnumber |
+      | folder   | Shared files | Shared files | 1           | C2     | folder1  |
+    And I am on the Folder "Shared files" page
+    And I click on "Edit" "button"
+    And I click on "Add..." "button"
+    And I should see "Content bank" in the ".fp-repo-area" "css_element"
+    And I select "Content bank" repository in file picker
+    And I click on "Course 1" "folder" in repository content area
+    And I click on "filltheblanks.h5p" "file" in repository content area
+    And I click on "Select this file" "button"
+    Then I should see "1" elements in "Files" filemanager
+    And I should see "filltheblanks.h5p" in the ".fp-content .fp-file" "css_element"
+    When I backup "Course 2" course using this options:
+      | Confirmation | Filename | alias_contentbank_backup.mbz |
+    And I restore "alias_contentbank_backup.mbz" backup into a new course using this options:
+      | Initial | Include content bank content | 1 |
+    Then I should see "Shared files"
+    And I should see "filltheblanks.h5p"

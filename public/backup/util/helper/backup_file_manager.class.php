@@ -79,9 +79,19 @@ class backup_file_manager {
 
         $fs = get_file_storage();
         $file = $fs->get_file_instance($filerecorid);
-        // If the file is external file, skip copying.
+        // If the file is an external file, skip copying — unless the repository stores its
+        // content in Moodle's own file pool (e.g. contentbank, coursefiles). Those repositories
+        // create FILE_REFERENCE aliases (so repositoryid is set and is_external_file() returns
+        // true), but the contenthash is synced to local filedir and the bytes ARE available.
+        // Truly external repositories (Dropbox, Google Drive, …) have has_moodle_files()=false
+        // and must still be skipped.
         if ($file->is_external_file()) {
-            return;
+            global $CFG;
+            require_once($CFG->dirroot . '/repository/lib.php');
+            $repo = repository::get_repository_by_id($file->get_repository_id(), SYSCONTEXTID);
+            if (!$repo->has_moodle_files()) {
+                return;
+            }
         }
 
         // Calculate source and target paths (use same subdirs strategy for both)
