@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace repository_contentbank;
+namespace repository_coursefiles;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -32,10 +32,10 @@ require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 
 /**
- * Tests that a FILE_REFERENCE alias to a cross-course content bank file is
+ * Tests that a FILE_REFERENCE alias via the legacy coursefiles repository is
  * correctly included in the backup and correctly restored.
  *
- * @package    repository_contentbank
+ * @package    repository_coursefiles
  * @copyright  2026 Catalyst IT
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \backup_file_manager::copy_file_moodle2backup
@@ -43,21 +43,20 @@ require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
  */
 final class backup_alias_test extends \advanced_testcase {
     /**
-     * Create an H5P file in Course A's content bank, add a FILE_REFERENCE alias
-     * to it inside Course 2's mod_resource, then backup Course 2 with
+     * Create a file in Course 1's legacy files, add a FILE_REFERENCE alias to it
+     * in Course 2's mod_resource using the coursefiles repository, then backup Course 2 with
      * MODE_GENERAL (which physically copies file bytes).
      *
-     * Asserts that the backup's files/ directory contains the actual H5P bytes
+     * Asserts that the backup's files/ directory contains the actual file bytes.
      */
-    public function test_backup_includes_physical_bytes_for_cross_course_contentbank_alias(): void {
+    public function test_backup_includes_physical_bytes_for_cross_course_coursefiles_alias(): void {
         global $CFG, $USER;
 
         $this->resetAfterTest();
         $this->setAdminUser();
 
         $CFG->backup_file_logger_level = backup::LOG_NONE;
-        // Prevent deleting the temp dir so we can
-        // inspect the files/ directory after execute_plan() returns.
+        // Prevent deleting the temp dir so we can inspect the files/ directory after execute_plan() returns.
         $CFG->keeptempdirectoriesonbackup = true;
 
         [, $course2, $contenthash] = $this->setup_cross_course_alias_scenario();
@@ -82,21 +81,15 @@ final class backup_alias_test extends \advanced_testcase {
 
         $this->assertFileExists(
             $expectedpath,
-            "Physical H5P bytes (contenthash={$contenthash}) must be present in the backup files/ directory. " .
-            "Before the fix, is_external_file() caused the copy to be skipped for contentbank aliases."
+            "Physical file bytes (contenthash={$contenthash}) must be present in the backup files/ directory."
         );
     }
 
     /**
      * Create the same cross-course alias scenario, backup Course 2, then
-     * restore to a new course. The alias's H5P content must survive the round-trip
-     * even though the original source (Course 1's content bank) is not included
-     * in the backup.
-     *
-     * Before the fix, restore logged "referenced file not included" and the
-     * activity had no usable H5P file.
+     * restore to a new course. The alias content must survive the round-trip.
      */
-    public function test_restore_creates_file_from_cross_course_contentbank_alias(): void {
+    public function test_restore_creates_file_from_cross_course_coursefiles_alias(): void {
         global $CFG, $DB, $USER;
 
         $this->resetAfterTest();
@@ -106,7 +99,7 @@ final class backup_alias_test extends \advanced_testcase {
 
         [$course1, $course2, $contenthash] = $this->setup_cross_course_alias_scenario();
 
-        // Backup.
+        // Backup Course 2.
         $bc = new backup_controller(
             backup::TYPE_1COURSE,
             $course2->id,
@@ -149,6 +142,7 @@ final class backup_alias_test extends \advanced_testcase {
             $USER->id,
             backup::TARGET_NEW_COURSE
         );
+
         $this->assertTrue($rc->execute_precheck());
         $rc->execute_plan();
         $rc->destroy();
@@ -159,47 +153,27 @@ final class backup_alias_test extends \advanced_testcase {
             get_coursemodule_from_instance('resource', $restoredresource->id, $newcourseid)->id
         );
 
-        $fs = get_file_storage();
-        $files = $fs->get_area_files(
+        $restoredfile = $fs->get_file(
             $newcmcontext->id,
             'mod_resource',
             'content',
-            false,
-            'filename',
-            false
+            0,
+            '/',
+            'samplelegacyfile.txt'
         );
-
-        $this->assertNotEmpty(
-            $files,
-            'The restored resource must contain at least one file. ' .
-            'Before the fix, the contentbank files were not in the backup, so restore left the area empty.'
-        );
-
-        $restoredfile = reset($files);
-        $this->assertEquals(
-            $contenthash,
-            $restoredfile->get_contenthash(),
-            'The restored file must have the same contenthash as the original H5P, ' .
-            'confirming the files were preserved through backup and restore.'
-        );
-
-        // The file must be readable — confirming bytes are actually in the file pool.
-        $this->assertTrue(
-            $restoredfile->get_filesize() > 0,
-            'Restored file must have a non-zero size (actual H5P bytes).'
-        );
+        $this->assertNotEmpty($restoredfile, 'The restored resource must contain the samplelegacyfile.txt file.');
+        $this->assertEquals($contenthash, $restoredfile->get_contenthash());
     }
 
     /**
      * Create the same cross-course alias scenario, backup Course 2, then
-     * restore to a new course on a DIFFERENT site (simulated by altering
-     * the original_site_identifier_hash in moodle_backup.xml).
+     * restore to a new course on a DIFFERENT site.
      *
      * On cross-site restore (is_samesite is false), the alias cannot point to
      * the original site's reference, so it must be converted into a real,
      * standalone stored file using the physical bytes included in the backup.
      */
-    public function test_cross_site_restore_creates_file_from_contentbank_alias(): void {
+    public function test_cross_site_restore_creates_file_from_coursefiles_alias(): void {
         global $CFG, $DB, $USER;
 
         $this->resetAfterTest();
@@ -209,7 +183,7 @@ final class backup_alias_test extends \advanced_testcase {
 
         [, $course2, $contenthash] = $this->setup_cross_course_alias_scenario();
 
-        // Backup.
+        // Backup Course 2.
         $bc = new backup_controller(
             backup::TYPE_1COURSE,
             $course2->id,
@@ -271,25 +245,23 @@ final class backup_alias_test extends \advanced_testcase {
             get_coursemodule_from_instance('resource', $restoredresource->id, $newcourseid)->id
         );
 
-        $files = $fs->get_area_files(
+        $restoredfile = $fs->get_file(
             $newcmcontext->id,
             'mod_resource',
             'content',
-            false,
-            'filename',
-            false
+            0,
+            '/',
+            'samplelegacyfile.txt'
         );
-
         $this->assertNotEmpty(
-            $files,
-            'The restored resource must contain at least one file on cross-site restore.'
+            $restoredfile,
+            'The restored resource must contain the samplelegacyfile.txt file on cross-site restore.'
         );
 
-        $restoredfile = reset($files);
         $this->assertEquals(
             $contenthash,
             $restoredfile->get_contenthash(),
-            'The restored file must have the same contenthash as the original H5P.'
+            'The restored file must have the same contenthash as the original file.'
         );
 
         $this->assertGreaterThan(
@@ -305,73 +277,55 @@ final class backup_alias_test extends \advanced_testcase {
     }
 
     /**
-     * Build the cross-course alias scenario:
+     * Build the cross-course alias scenario using repository_coursefiles:
      *
-     *   Course 1 - content bank - H5P file (the "source")
-     *   Course 2 - mod_resource - FILE_REFERENCE alias - Course 1's H5P
+     *   Course 1 - legacy course files area - stored file
+     *   Course 2 - mod_resource - FILE_REFERENCE alias pointing to Course 1's legacy course file
      *
-     * This mirrors the user-facing workflow:
-     *   1. Upload H5P to Course 1's content bank.
-     *   2. In Course 2, add a resource and pick the file via
-     *      File picker - Content bank (creates a FILE_REFERENCE alias).
-     *
-     * @return array  [$course1, $course2, $contenthash, $resourcecmid]
+     * @return array [$course1, $course2, $contenthash, $resourcecmid]
      */
     private function setup_cross_course_alias_scenario(): array {
-        global $CFG, $DB, $USER;
+        global $DB;
 
         $generator = $this->getDataGenerator();
-        $cbgenerator = $generator->get_plugin_generator('core_contentbank');
 
-        // Course 1: upload H5P to the content bank.
-        $course1 = $generator->create_course();
-        $context1 = context_course::instance($course1->id);
-        $h5pfile = $CFG->dirroot . '/h5p/tests/fixtures/filltheblanks.h5p';
+        // Enable coursefiles repository type if not already created.
+        $generator->create_repository_type('coursefiles');
 
-        $contents = $cbgenerator->generate_contentbank_data(
-            'contenttype_h5p',
-            1,
-            $USER->id,
-            $context1,
-            false,
-            $h5pfile
-        );
-        // Retrieve the stored_file for the content bank item so we can read its contenthash.
-        $cbcontent = reset($contents);
+        // Course 1: enable legacy files and create a file in legacy files area.
+        $course1 = $generator->create_course(['legacyfiles' => 2]);
+        $cmcontext1 = context_course::instance($course1->id);
+
         $fs = get_file_storage();
-        $cbfiles = $fs->get_area_files(
-            $context1->id,
-            'contentbank',
-            'public',
-            $cbcontent->id,
-            'filename',
-            false
-        );
-        $this->assertNotEmpty($cbfiles, 'Content bank must contain the uploaded H5P file.');
-        $originalfile = reset($cbfiles);
+        $originalfile = $fs->create_file_from_string([
+            'contextid' => $cmcontext1->id,
+            'component' => 'course',
+            'filearea'  => 'legacy',
+            'itemid'    => 0,
+            'filepath'  => '/',
+            'filename'  => 'samplelegacyfile.txt',
+        ], 'Sample content for legacy course file');
         $contenthash = $originalfile->get_contenthash();
 
-        // Get the system-level content bank repository instance.
-        // The repository_contentbank is registered at SYSCONTEXTID and has a single instance.
+        // Get instance ID for coursefiles repository.
         $sql = "SELECT ri.id
                   FROM {repository} r
                   JOIN {repository_instances} ri ON ri.typeid = r.id
-                 WHERE r.type = :type AND ri.contextid = :ctx";
-        $repoid = $DB->get_field_sql($sql, ['type' => 'contentbank', 'ctx' => SYSCONTEXTID]);
-        $this->assertNotEmpty($repoid, 'The contentbank repository must be installed and have a system instance.');
+                 WHERE r.type = :type";
+        $repoid = $DB->get_field_sql($sql, ['type' => 'coursefiles']);
+        $this->assertNotEmpty($repoid, 'The coursefiles repository must be installed and have an instance.');
 
-        // Course 2: create a resource activity.
+        // Course 2: create resource activity.
         $course2 = $generator->create_course();
-        $resourcecm = $generator->create_module('resource', ['course' => $course2->id]);
-        $cmcontext = context_module::instance($resourcecm->cmid);
+        $resourcecm2 = $generator->create_module('resource', ['course' => $course2->id]);
+        $cmcontext2 = context_module::instance($resourcecm2->cmid);
 
-        // Build a FILE_REFERENCE alias in Course 2's resource that points to Course 1's H5P.
-        // This is what happens when a teacher uses File picker - Content bank in the editor.
+        // Build FILE_REFERENCE alias in Course 2's resource pointing to Course 1's legacy course file.
         $filerecord = $DB->get_record('files', ['id' => $originalfile->get_id()]);
         $reference = file_storage::pack_reference($filerecord);
 
         $aliasrecord = [
-            'contextid' => $cmcontext->id,
+            'contextid' => $cmcontext2->id,
             'component' => 'mod_resource',
             'filearea'  => 'content',
             'itemid'    => 0,
@@ -380,6 +334,6 @@ final class backup_alias_test extends \advanced_testcase {
         ];
         $fs->create_file_from_reference($aliasrecord, $repoid, $reference);
 
-        return [$course1, $course2, $contenthash, $resourcecm->cmid];
+        return [$course1, $course2, $contenthash, $resourcecm2->cmid];
     }
 }

@@ -6023,8 +6023,7 @@ class restore_process_file_aliases_queue extends restore_execution_step {
                 continue;
             }
 
-            if ($info->oldfile->repositorytype === 'local' || $info->oldfile->repositorytype === 'coursefiles'
-                    || $info->oldfile->repositorytype === 'contentbank') {
+            if ($repository->can_copy_backup_bytes()) {
                 // Aliases to Server files and Legacy course files may refer to a file
                 // contained in the backup file or to some existing file (if we are on the
                 // same site).
@@ -6075,23 +6074,25 @@ class restore_process_file_aliases_queue extends restore_execution_step {
                     // This is a reference to some moodle file that was not contained in the backup
                     // file. If we are restoring to the same site, keep the reference untouched
                     // and restore the alias as is if the referenced file exists.
-                    if ($this->task->is_samesite()) {
-                        if ($fs->file_exists($reference['contextid'], $reference['component'], $reference['filearea'],
-                                $reference['itemid'], $reference['filepath'], $reference['filename'])) {
-                            $reference = file_storage::pack_reference($reference);
-                            $fs->create_file_from_reference($info->newfile, $repository->id, $reference);
-                            $this->notify_success($info);
-                            continue;
-                        } else {
-                            $this->notify_failure($info, 'referenced file not found');
-                            continue;
-                        }
+                    if (
+                        $this->task->is_samesite() &&
+                        $fs->file_exists(
+                            $reference['contextid'],
+                            $reference['component'],
+                            $reference['filearea'],
+                            $reference['itemid'],
+                            $reference['filepath'],
+                            $reference['filename']
+                        )
+                    ) {
+                        $reference = file_storage::pack_reference($reference);
+                        $fs->create_file_from_reference($info->newfile, $repository->id, $reference);
+                        $this->notify_success($info);
+                        continue;
                     } else {
-                        // If we are at other site, the original source file was not included in the
-                        // backup. However, when the alias is a contentbank reference, the backup may
-                        // still contain the physical bytes (content-addressed by contenthash) because
-                        // repository_contentbank::has_moodle_files() = true and the bytes are stored
-                        // locally. Try to restore as a standalone file from those bytes.
+                        // If we are at another site (or the reference target is unavailable), try to restore
+                        // as a standalone file from physical bytes included in the backup (for repositories
+                        // that support backup byte copying, such as contentbank).
                         $backuppath = $this->get_basepath() . '/files/' .
                             backup_file_manager::get_backup_content_file_location($info->oldfile->contenthash);
                         if (!empty($info->oldfile->contenthash) && file_exists($backuppath)) {
@@ -6157,8 +6158,8 @@ class restore_process_file_aliases_queue extends restore_execution_step {
      * Choose the repository instance that should handle the alias.
      *
      * At the same site, we can rely on repository instance id and we just
-     * check it still exists. On other site, try to find matching Server files or
-     * Legacy course files repository instance. Return null if no matching
+     * check it still exists. On other site, try to find a matching repository
+     * instance that supports byte copying. Return null if no matching
      * repository instance can be found.
      *
      * @param stdClass $info
@@ -6198,23 +6199,21 @@ class restore_process_file_aliases_queue extends restore_execution_step {
 
             $this->log('looking for repository instance by type', backup::LOG_DEBUG, $info->oldfile->repositorytype, 1);
 
-            // Both Server files and Legacy course files repositories have a single
-            // instance at the system context to use. Let us try to find it.
-            if ($info->oldfile->repositorytype === 'local' || $info->oldfile->repositorytype === 'coursefiles'
-                    || $info->oldfile->repositorytype === 'contentbank') {
-                $sql = "SELECT ri.id
-                          FROM {repository} r
-                          JOIN {repository_instances} ri ON ri.typeid = r.id
-                         WHERE r.type = ? AND ri.contextid = ?";
-                $ris = $DB->get_records_sql($sql, array($info->oldfile->repositorytype, SYSCONTEXTID));
-                if (empty($ris)) {
-                    return null;
-                }
+            // Look for a system-level repository instance of this type that supports byte copying.
+            $sql = "SELECT ri.id
+                      FROM {repository} r
+                      JOIN {repository_instances} ri ON ri.typeid = r.id
+                     WHERE r.type = ? AND ri.contextid = ?";
+            $ris = $DB->get_records_sql($sql, [$info->oldfile->repositorytype, SYSCONTEXTID]);
+            if (!empty($ris)) {
                 $repoids = array_keys($ris);
                 $repoid = reset($repoids);
                 try {
-                    $this->cachereposbytype[$info->oldfile->repositorytype] = repository::get_repository_by_id($repoid, SYSCONTEXTID);
-                    return $this->cachereposbytype[$info->oldfile->repositorytype];
+                    $repo = repository::get_repository_by_id($repoid, SYSCONTEXTID);
+                    if ($repo->can_copy_backup_bytes()) {
+                        $this->cachereposbytype[$info->oldfile->repositorytype] = $repo;
+                        return $this->cachereposbytype[$info->oldfile->repositorytype];
+                    }
                 } catch (Exception $e) {
                     $this->cachereposbytype[$info->oldfile->repositorytype] = null;
                     return null;

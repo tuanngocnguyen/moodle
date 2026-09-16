@@ -91,8 +91,13 @@ class backup_file_manager {
         if ($file->is_external_file()) {
             global $CFG;
             require_once($CFG->dirroot . '/repository/lib.php');
-            $repo = repository::get_repository_by_id($file->get_repository_id(), SYSCONTEXTID);
-            if (!$repo->can_copy_backup_bytes()) {
+            try {
+                $repo = repository::get_repository_by_id($file->get_repository_id(), SYSCONTEXTID);
+                if (!$repo->can_copy_backup_bytes()) {
+                    return;
+                }
+            } catch (\Exception $e) {
+                debugging('Unable to retrieve repository for backup file: ' . $e->getMessage(), DEBUG_DEVELOPER);
                 return;
             }
         }

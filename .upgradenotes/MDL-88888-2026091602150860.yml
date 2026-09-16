@@ -1,0 +1,9 @@
+issueNumber: MDL-88888
+notes:
+  core_repository:
+    - message: >+
+        New `\repository::supports_backup_bytes_copy()` and `\repository::can_copy_backup_bytes()`
+        to allow repositories storing files in Moodle's file pool to indicate
+        if their FILE_REFERENCE alias content can be physically copied into course backup files.
+
+      type: improved
