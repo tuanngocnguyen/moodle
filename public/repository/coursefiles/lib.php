@@ -211,6 +211,15 @@ class repository_coursefiles extends repository {
     }
 
     /**
+     * Tells if the repository supports backup and restore aliasing of files.
+     *
+     * @return boolean
+     */
+    protected function supports_backup_bytes_copy() {
+        return true;
+    }
+
+    /**
      * Is this repository accessing private data?
      *
      * @return bool

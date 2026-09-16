@@ -127,6 +127,15 @@ class repository_local extends repository {
     }
 
     /**
+     * Tells if the repository supports backup and restore aliasing of files.
+     *
+     * @return boolean
+     */
+    protected function supports_backup_bytes_copy() {
+        return true;
+    }
+
+    /**
      * Returns all children elements that have one of the specified extensions
      *
      * This function may skip subfolders and recursively add their children

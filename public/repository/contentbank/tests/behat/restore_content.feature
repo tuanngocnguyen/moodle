@@ -43,6 +43,11 @@ Feature: Restoring a course keeps a cross-course content bank file reference usa
     And I press "Save changes"
     When I backup "Course 2" course using this options:
       | Confirmation | Filename | alias_contentbank_backup.mbz |
+    And I go to the courses management page
+    And I click on "delete" action for "Course 1" in management course listing
+    And I click on "Delete" "button" in the "Confirm" "dialogue"
+    And I press "Continue"
+    And I am on the "Course 2" "restore" page
     And I restore "alias_contentbank_backup.mbz" backup into a new course using this options:
       | Schema | Course name | Course 2 restored |
     Then I should see "Shared files"

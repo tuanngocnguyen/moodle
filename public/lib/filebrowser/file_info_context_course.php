@@ -249,8 +249,9 @@ class file_info_context_course extends file_info {
             return null;
         }
 
-        if ($this->course->id != SITEID and $this->course->legacyfiles != 2) {
+        if ($this->course->id != SITEID && isset($this->course->legacyfiles) && $this->course->legacyfiles != 2) {
             // bad luck, legacy course files not used any more
+            return null;
         }
 
         if (is_null($itemid)) {

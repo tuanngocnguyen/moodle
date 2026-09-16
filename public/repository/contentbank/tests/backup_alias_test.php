@@ -60,7 +60,7 @@ final class backup_alias_test extends \advanced_testcase {
         // inspect the files/ directory after execute_plan() returns.
         $CFG->keeptempdirectoriesonbackup = true;
 
-        [$course2, $contenthash] = $this->setup_cross_course_alias_scenario();
+        [, $course2, $contenthash] = $this->setup_cross_course_alias_scenario();
 
         // Backup Course 2 with MODE_GENERAL so files are included.
         $bc = new backup_controller(
@@ -104,7 +104,7 @@ final class backup_alias_test extends \advanced_testcase {
 
         $CFG->backup_file_logger_level = backup::LOG_NONE;
 
-        [$course2, $contenthash, $resourcecmid] = $this->setup_cross_course_alias_scenario();
+        [$course1, $course2, $contenthash] = $this->setup_cross_course_alias_scenario();
 
         // Backup.
         $bc = new backup_controller(
@@ -118,6 +118,9 @@ final class backup_alias_test extends \advanced_testcase {
         $bc->execute_plan();
         $backupid = $bc->get_backupid();
         $bc->destroy();
+
+        // Delete course 1 before restore a backup of course 2.
+        delete_course($course1, false);
 
         // The backup file is now stored in Moodle's file pool. Extract it back to the restore temp dir
         // so restore_controller can find it — this mirrors what the UI restore flow does.
@@ -188,6 +191,120 @@ final class backup_alias_test extends \advanced_testcase {
     }
 
     /**
+     * Create the same cross-course alias scenario, backup Course 2, then
+     * restore to a new course on a DIFFERENT site (simulated by altering
+     * the original_site_identifier_hash in moodle_backup.xml).
+     *
+     * On cross-site restore (is_samesite is false), the alias cannot point to
+     * the original site's reference, so it must be converted into a real,
+     * standalone stored file using the physical bytes included in the backup.
+     */
+    public function test_cross_site_restore_creates_file_from_contentbank_alias(): void {
+        global $CFG, $DB, $USER;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $CFG->backup_file_logger_level = backup::LOG_NONE;
+
+        [, $course2, $contenthash] = $this->setup_cross_course_alias_scenario();
+
+        // Backup.
+        $bc = new backup_controller(
+            backup::TYPE_1COURSE,
+            $course2->id,
+            backup::FORMAT_MOODLE,
+            backup::INTERACTIVE_NO,
+            backup::MODE_GENERAL,
+            $USER->id
+        );
+        $bc->execute_plan();
+        $backupid = $bc->get_backupid();
+        $bc->destroy();
+
+        // Extract the .mbz to the temp dir so restore_controller can use it.
+        $fs = get_file_storage();
+        $coursecontext = context_course::instance($course2->id);
+        $backupfiles = $fs->get_area_files($coursecontext->id, 'backup', 'course', false, 'id ASC', false);
+        $this->assertNotEmpty($backupfiles, 'Backup file must be stored in the Moodle file pool.');
+        $backupfile = reset($backupfiles);
+
+        $restorepath = $CFG->tempdir . DIRECTORY_SEPARATOR . 'backup' . DIRECTORY_SEPARATOR . $backupid;
+        $fp = get_file_packer('application/vnd.moodle.backup');
+        $fp->extract_to_pathname($backupfile, $restorepath);
+
+        // Modify moodle_backup.xml to simulate a cross-site restore.
+        $xmlpath = $restorepath . DIRECTORY_SEPARATOR . 'moodle_backup.xml';
+        $this->assertFileExists($xmlpath);
+        $xmlcontent = file_get_contents($xmlpath);
+        $fakesitehash = md5('https://other-moodle-site.example.com');
+        $xmlcontent = preg_replace(
+            '/<original_site_identifier_hash>[^<]*<\/original_site_identifier_hash>/',
+            '<original_site_identifier_hash>' . $fakesitehash . '</original_site_identifier_hash>',
+            $xmlcontent
+        );
+        file_put_contents($xmlpath, $xmlcontent);
+
+        // Restore to a new course.
+        $newcourseid = restore_dbops::create_new_course(
+            $course2->fullname,
+            $course2->shortname . '_crosssite',
+            $course2->category
+        );
+        $rc = new restore_controller(
+            $backupid,
+            $newcourseid,
+            backup::INTERACTIVE_NO,
+            backup::MODE_GENERAL,
+            $USER->id,
+            backup::TARGET_NEW_COURSE
+        );
+
+        $this->assertFalse($rc->is_samesite(), 'Restore controller must recognize this as a cross-site restore.');
+        $this->assertTrue($rc->execute_precheck());
+        $rc->execute_plan();
+        $rc->destroy();
+
+        // Find the restored resource module in the new course.
+        $restoredresource = $DB->get_record('resource', ['course' => $newcourseid], '*', MUST_EXIST);
+        $newcmcontext = context_module::instance(
+            get_coursemodule_from_instance('resource', $restoredresource->id, $newcourseid)->id
+        );
+
+        $files = $fs->get_area_files(
+            $newcmcontext->id,
+            'mod_resource',
+            'content',
+            false,
+            'filename',
+            false
+        );
+
+        $this->assertNotEmpty(
+            $files,
+            'The restored resource must contain at least one file on cross-site restore.'
+        );
+
+        $restoredfile = reset($files);
+        $this->assertEquals(
+            $contenthash,
+            $restoredfile->get_contenthash(),
+            'The restored file must have the same contenthash as the original H5P.'
+        );
+
+        $this->assertGreaterThan(
+            0,
+            $restoredfile->get_filesize(),
+            'Restored file must have a non-zero size.'
+        );
+
+        $this->assertFalse(
+            $restoredfile->is_external_file(),
+            'Restored file on cross-site restore must be a real stored file, not an external reference alias.'
+        );
+    }
+
+    /**
      * Build the cross-course alias scenario:
      *
      *   Course 1 - content bank - H5P file (the "source")
@@ -198,7 +315,7 @@ final class backup_alias_test extends \advanced_testcase {
      *   2. In Course 2, add a resource and pick the file via
      *      File picker - Content bank (creates a FILE_REFERENCE alias).
      *
-     * @return array  [$courseB, $contenthash, $resourcecmid]
+     * @return array  [$course1, $course2, $contenthash, $resourcecmid]
      */
     private function setup_cross_course_alias_scenario(): array {
         global $CFG, $DB, $USER;
@@ -263,6 +380,6 @@ final class backup_alias_test extends \advanced_testcase {
         ];
         $fs->create_file_from_reference($aliasrecord, $repoid, $reference);
 
-        return [$course2, $contenthash, $resourcecm->cmid];
+        return [$course1, $course2, $contenthash, $resourcecm->cmid];
     }
 }
