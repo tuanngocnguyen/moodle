@@ -364,6 +364,7 @@ class assign {
      */
     public function set_instance(stdClass $data) {
         $this->instance = $data;
+        unset($this->cache['scale'], $this->cache['grades_menu']);
     }
 
     /**
@@ -5067,6 +5068,60 @@ class assign {
                 has_capability('moodle/course:viewsuspendedusers', $this->get_context())) {
             // Save the 'suspendedparticipantsfilter' value as a user preference.
             set_user_preference('grade_report_showonlyactiveenrol', !$suspendedparticipantsfilter);
+        }
+
+        // Retrieve grade filter parameters if provided.
+        $gradefiltergteenabled = optional_param('gradefilter_greater_than_or_equal_enabled', null, PARAM_BOOL);
+        $gradefiltergte = optional_param('gradefilter_greater_than_or_equal', null, PARAM_RAW);
+        $gradefilterlteenabled = optional_param('gradefilter_less_than_or_equal_enabled', null, PARAM_BOOL);
+        $gradefilterlte = optional_param('gradefilter_less_than_or_equal', null, PARAM_RAW);
+
+        if (
+            $this->get_instance()->grade != GRADE_TYPE_NONE && (
+                $gradefiltergteenabled !== null ||
+                $gradefiltergte !== null ||
+                $gradefilterlteenabled !== null ||
+                $gradefilterlte !== null
+            )
+        ) {
+            $grade = (int)$this->get_instance()->grade;
+            $savedgrade = get_user_preferences('assign_gradefilter_grade', null);
+            if ($savedgrade === null || (int)$savedgrade !== $grade) {
+                // Discard values saved for a different grading configuration.
+                foreach (['greater_than_or_equal', 'less_than_or_equal'] as $name) {
+                    unset_user_preference("assign_gradefilter_{$name}_enabled");
+                    unset_user_preference("assign_gradefilter_{$name}");
+                }
+            }
+            set_user_preference('assign_gradefilter_grade', $grade);
+
+            if ($gradefiltergteenabled !== null) {
+                set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', $gradefiltergteenabled);
+            }
+            if ($gradefiltergte !== null) {
+                set_user_preference(
+                    'assign_gradefilter_greater_than_or_equal',
+                    $this->normalise_grade_filter_value($gradefiltergte)
+                );
+            }
+            if ($gradefilterlteenabled !== null) {
+                set_user_preference('assign_gradefilter_less_than_or_equal_enabled', $gradefilterlteenabled);
+            }
+            if ($gradefilterlte !== null) {
+                set_user_preference(
+                    'assign_gradefilter_less_than_or_equal',
+                    $this->normalise_grade_filter_value($gradefilterlte)
+                );
+            }
+
+            $filters = $this->get_grade_filters(false);
+            if (
+                !empty($filters) &&
+                $filters['greaterthanorequal']['enabled'] && $filters['lessthanorequal']['enabled'] &&
+                $filters['lessthanorequal']['value'] < $filters['greaterthanorequal']['value']
+            ) {
+                \core\notification::warning(get_string('gradefilterrangeinvalid', 'mod_assign'));
+            }
         }
 
         $controller = $gradingmanager->get_active_controller();
@@ -11077,6 +11132,108 @@ class assign {
      */
     public function set_most_recent_team_submission($submission) {
         $this->mostrecentteamsubmission = $submission;
+    }
+
+    /**
+     * Parse a grade filter value into a float, validating it against the assignment grade type.
+     *
+     * @param mixed $value Raw value (a number in the non-localised format, or a localised string from user input).
+     * @param bool $localised Whether the value may use the current language's decimal separator.
+     * @return float|null Null if the value is not a valid grade for this assignment.
+     */
+    protected function parse_grade_filter_value($value, bool $localised = false): ?float {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return null;
+        }
+        $float = $localised ? unformat_float($value, true) : (is_numeric($value) ? (float)$value : false);
+        if ($float === false || $float === null) {
+            return null;
+        }
+        $grade = $this->get_instance()->grade;
+        if ($grade == GRADE_TYPE_NONE) {
+            return null;
+        }
+        if ($grade > 0 && ($float < 0 || $float > $grade)) {
+            return null;
+        }
+        if ($grade < 0 && (floor($float) !== $float || !array_key_exists((int)$float, $this->get_grades_menu()))) {
+            return null;
+        }
+        return $float;
+    }
+
+    /**
+     * Return the grades/scale menu for this assignment instance.
+     *
+     * @return array
+     */
+    public function get_grades_menu(): array {
+        if (!isset($this->cache['grades_menu'])) {
+            $this->cache['grades_menu'] = make_grades_menu($this->get_instance()->grade);
+        }
+        return $this->cache['grades_menu'];
+    }
+
+    /**
+     * Normalise a submitted grade filter value for storage in a user preference.
+     *
+     * @param string $value Submitted value.
+     * @return string The value in the non-localised format, or an empty string if invalid.
+     */
+    public function normalise_grade_filter_value(string $value): string {
+        $float = $this->parse_grade_filter_value($value, true);
+        return $float === null ? '' : (string)$float;
+    }
+
+    /**
+     * Return the grade filters currently stored in the user preferences.
+     *
+     * @param bool $ignoreinvalidrange Whether to disable the 'less than or equal' filter when its grade is below the
+     *                                 'greater than or equal' grade.
+     * @return array Empty if the assignment is not graded, otherwise keyed by 'greaterthanorequal' and 'lessthanorequal',
+     *               each with: 'enabled' (bool, enabled and valid), 'value' (float|null, parsed valid value)
+     *               and 'raw' (string, stored value).
+     */
+    public function get_grade_filters(bool $ignoreinvalidrange = true): array {
+        if ($this->get_instance()->grade == GRADE_TYPE_NONE) {
+            return [];
+        }
+        $filters = $this->load_grade_filters();
+        // A 'less than or equal' grade below the 'greater than or equal' grade can never match, so ignore it.
+        if (
+            $ignoreinvalidrange &&
+            $filters['greaterthanorequal']['enabled'] && $filters['lessthanorequal']['enabled'] &&
+            $filters['lessthanorequal']['value'] < $filters['greaterthanorequal']['value']
+        ) {
+            $filters['lessthanorequal']['enabled'] = false;
+        }
+        return $filters;
+    }
+
+    /**
+     * Load the grade filters from the user preferences.
+     *
+     * @return array See {@see get_grade_filters()}.
+     */
+    protected function load_grade_filters(): array {
+        $savedgrade = get_user_preferences('assign_gradefilter_grade', null);
+        $iscompatible = ($savedgrade !== null) && ((int)$savedgrade === (int)$this->get_instance()->grade);
+
+        $filters = [];
+        $names = ['greaterthanorequal' => 'greater_than_or_equal', 'lessthanorequal' => 'less_than_or_equal'];
+        foreach ($names as $key => $name) {
+            $raw = $iscompatible ? (string)get_user_preferences("assign_gradefilter_{$name}", '') : '';
+            $value = $iscompatible ? $this->parse_grade_filter_value($raw) : null;
+            $filters[$key] = [
+                'enabled' => $iscompatible &&
+                    (bool)get_user_preferences("assign_gradefilter_{$name}_enabled", 0) &&
+                    $value !== null,
+                'value' => $value,
+                'raw' => $raw,
+            ];
+        }
+        return $filters;
     }
 
     /**

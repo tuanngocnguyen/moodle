@@ -381,6 +381,22 @@ class assign_grading_table extends table_sql implements renderable {
             }
         }
 
+        // Filter by grade if assignment has point or scale grading.
+        $gradefilters = $this->assignment->get_grade_filters();
+        if ($gradefilters) {
+            // Ungraded submissions are stored as -1, so exclude them from the upper bound; scales start at 1, points at 0.
+            $minimumgrade = $this->assignment->get_instance()->grade < 0 ? 1 : 0;
+            if ($gradefilters['greaterthanorequal']['enabled']) {
+                $where .= ' AND g.grade >= :gradefiltergte';
+                $params['gradefiltergte'] = $gradefilters['greaterthanorequal']['value'];
+            }
+            if ($gradefilters['lessthanorequal']['enabled']) {
+                $where .= ' AND g.grade <= :gradefilterlte AND g.grade >= :minimumgradelte';
+                $params['gradefilterlte'] = $gradefilters['lessthanorequal']['value'];
+                $params['minimumgradelte'] = $minimumgrade;
+            }
+        }
+
         $this->set_sql($fields, $from, $where, $params);
 
         if ($downloadfilename) {

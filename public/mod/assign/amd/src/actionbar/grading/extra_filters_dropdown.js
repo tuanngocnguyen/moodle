@@ -14,7 +14,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 import {getDropdownDialog} from 'core/local/dropdown/dialog';
-import {getUserPreference} from 'core_user/repository';
+import {getString} from 'core/str';
+import {prefetchStrings} from 'core/prefetch';
+import Notification from 'core/notification';
 
 /**
  * Module for the extra filters dropdown on the submissions page.
@@ -24,14 +26,24 @@ import {getUserPreference} from 'core_user/repository';
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+prefetchStrings('mod_assign', ['gradefilterrangeinvalid']);
+
+let rangeInvalidMessage = '';
+getString('gradefilterrangeinvalid', 'mod_assign').then((message) => {
+    rangeInvalidMessage = message;
+    return message;
+}).catch(Notification.exception);
+
 /** @constant {Object} The object containing the relevant selectors. */
 const Selectors = {
     extraFiltersDropdown: '.dropdown.extrafilters',
     extraFiltersClose: 'a[data-action="close"]',
-    workflowFilterElement: 'select[name="workflowfilter"]',
-    markerFilterElement: 'select[name="markingallocationfilter"]',
     suspendedParticipantsFilterCheckbox: 'input[type="checkbox"][name="suspendedparticipantsfilter"]',
-    suspendedParticipantsFilterHidden: 'input[type="hidden"][name="suspendedparticipantsfilter"]'
+    suspendedParticipantsFilterHidden: 'input[type="hidden"][name="suspendedparticipantsfilter"]',
+    gradeFilterElements: '[name^="gradefilter_"]',
+    gradeFilterGte: '[name="gradefilter_greater_than_or_equal"]',
+    gradeFilterLte: '[name="gradefilter_less_than_or_equal"]',
+    gradeFilterCheckbox: 'input[type="checkbox"][name^="gradefilter_"][name$="_enabled"]',
 };
 
 /**
@@ -40,8 +52,10 @@ const Selectors = {
  * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
  */
 const registerEventListeners = (extraFiltersDropdown) => {
+    const dropdownElement = extraFiltersDropdown.getElement();
+
     // Click event listener to the extra filters dropdown element.
-    extraFiltersDropdown.getElement().addEventListener('click', e => {
+    dropdownElement.addEventListener('click', e => {
         // The target is the 'Close' button.
         if (e.target.closest(Selectors.extraFiltersClose)) {
             e.preventDefault();
@@ -50,7 +64,7 @@ const registerEventListeners = (extraFiltersDropdown) => {
     });
 
     // Change event listener to the extra filters dropdown element.
-    extraFiltersDropdown.getElement().addEventListener('change', e => {
+    dropdownElement.addEventListener('change', e => {
         const suspendedParticipantsFilterCheckbox = e.target.closest(Selectors.suspendedParticipantsFilterCheckbox);
         // The target is the 'Suspended participants' filter checkbox.
         if (suspendedParticipantsFilterCheckbox) {
@@ -61,56 +75,137 @@ const registerEventListeners = (extraFiltersDropdown) => {
                 .querySelector(Selectors.suspendedParticipantsFilterHidden);
             suspendedParticipantsFilterHidden.disabled = suspendedParticipantsFilterCheckbox.checked;
         }
+
+        const gradeFilterCheckbox = e.target.closest(Selectors.gradeFilterCheckbox);
+        if (gradeFilterCheckbox) {
+            const {hidden, input} = getGradeFilterElements(gradeFilterCheckbox);
+            hidden.disabled = gradeFilterCheckbox.checked;
+            input.disabled = !gradeFilterCheckbox.checked;
+            if (gradeFilterCheckbox.checked) {
+                if (input.tagName === 'SELECT' && input.selectedIndex === -1) {
+                    input.selectedIndex = 0;
+                }
+                input.focus();
+            }
+        }
+
+        if (e.target.closest(Selectors.gradeFilterElements)) {
+            validateGradeFilterRange(extraFiltersDropdown);
+        }
+    });
+
+    // Input event listener to clear or update validity as the user types.
+    dropdownElement.addEventListener('input', e => {
+        if (e.target.closest(Selectors.gradeFilterElements)) {
+            validateGradeFilterRange(extraFiltersDropdown, false);
+        }
+    });
+
+    let isSubmitting = false;
+
+    // Submit event listener to the extra filters dropdown form.
+    const form = dropdownElement.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', e => {
+            if (!validateGradeFilterRange(extraFiltersDropdown)) {
+                e.preventDefault();
+                return;
+            }
+            isSubmitting = true;
+        });
+    }
+
+    // Reset submission state when the dropdown is shown.
+    dropdownElement.addEventListener('show.bs.dropdown', () => {
+        isSubmitting = false;
     });
 
     // Event listener triggered upon hiding of the dropdown.
-    extraFiltersDropdown.getElement().addEventListener('hide.bs.dropdown', () => {
-        // Restore the filters to their stored preference values once the dropdown is closed.
-        restoreAppliedWorkflowFilter(extraFiltersDropdown);
-        restoreAppliedMarkerFilter(extraFiltersDropdown);
-        restoreAppliedSuspendedParticipantsFilter(extraFiltersDropdown);
+    dropdownElement.addEventListener('hide.bs.dropdown', () => {
+        if (isSubmitting) {
+            return;
+        }
+        // Restore the filters to their applied values once the dropdown is closed.
+        restoreAppliedFilters(extraFiltersDropdown);
     });
 };
 
 /**
- * Restores the currently applied workflow filter to its stored preference value.
+ * Restores the filters in the dropdown to their applied values for the current page.
  *
  * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
  */
-const restoreAppliedWorkflowFilter = async(extraFiltersDropdown) => {
-    const workflowFilterSelect = extraFiltersDropdown.getElement().querySelector(Selectors.workflowFilterElement);
-    if (workflowFilterSelect) {
-        workflowFilterSelect.value = await getUserPreference('assign_workflowfilter');
+const restoreAppliedFilters = (extraFiltersDropdown) => {
+    const dropdownElement = extraFiltersDropdown.getElement();
+    const form = dropdownElement.querySelector('form');
+    if (!form) {
+        return;
     }
-};
 
-/**
- * Restores the currently applied marker filter to its stored preference value.
- *
- * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
- */
-const restoreAppliedMarkerFilter = async(extraFiltersDropdown) => {
-    const markerFilterSelect = extraFiltersDropdown.getElement().querySelector(Selectors.markerFilterElement);
-    if (markerFilterSelect) {
-        markerFilterSelect.value = await getUserPreference('assign_markerfilter');
-    }
-};
+    form.reset();
 
-/**
- * Restores the currently suspended participants filter to its stored preference value.
- *
- * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
- */
-const restoreAppliedSuspendedParticipantsFilter = async(extraFiltersDropdown) => {
-    const suspendedParticipantsFilterCheckbox = extraFiltersDropdown.getElement()
+    const suspendedParticipantsFilterCheckbox = dropdownElement
         .querySelector(Selectors.suspendedParticipantsFilterCheckbox);
     if (suspendedParticipantsFilterCheckbox) {
         const suspendedParticipantsFilterHidden = suspendedParticipantsFilterCheckbox.parentNode
             .querySelector(Selectors.suspendedParticipantsFilterHidden);
-        const showOnlyActiveParticipants = await getUserPreference('grade_report_showonlyactiveenrol');
-        suspendedParticipantsFilterCheckbox.checked = !showOnlyActiveParticipants;
-        suspendedParticipantsFilterHidden.disabled = !showOnlyActiveParticipants;
+        if (suspendedParticipantsFilterHidden) {
+            suspendedParticipantsFilterHidden.disabled = suspendedParticipantsFilterCheckbox.checked;
+        }
     }
+
+    const gradeFilterCheckboxes = dropdownElement.querySelectorAll(Selectors.gradeFilterCheckbox);
+    gradeFilterCheckboxes.forEach((checkbox) => {
+        const {hidden, input} = getGradeFilterElements(checkbox);
+        if (hidden) {
+            hidden.disabled = checkbox.checked;
+        }
+        if (input) {
+            input.disabled = !checkbox.checked;
+        }
+    });
+
+    const lte = dropdownElement.querySelector(Selectors.gradeFilterLte);
+    lte?.setCustomValidity('');
+};
+
+/**
+ * Get the hidden and value elements that accompany a grade filter checkbox.
+ *
+ * @param {HTMLInputElement} checkbox The grade filter enabled checkbox.
+ * @returns {{hidden: HTMLInputElement, input: HTMLElement}}
+ */
+const getGradeFilterElements = (checkbox) => ({
+    hidden: checkbox.parentNode.querySelector(`input[type="hidden"][name="${checkbox.name}"]`),
+    input: checkbox.parentNode.querySelector(`[name="${checkbox.name.replace(/_enabled$/, '')}"]`),
+});
+
+/**
+ * Ensure the 'less than or equal' grade is not less than the 'greater than or equal' grade when both filters are enabled.
+ *
+ * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
+ * @param {boolean} [report=true] Whether to report the validity to the user.
+ * @returns {boolean} True if valid, false otherwise.
+ */
+const validateGradeFilterRange = (extraFiltersDropdown, report = true) => {
+    const element = extraFiltersDropdown.getElement();
+    const gte = element.querySelector(Selectors.gradeFilterGte);
+    const lte = element.querySelector(Selectors.gradeFilterLte);
+    if (!gte || !lte) {
+        return true;
+    }
+    const isInvalid = !gte.disabled && !lte.disabled && gte.value !== '' && lte.value !== '' &&
+        Number(lte.value) < Number(gte.value);
+    // A non-empty message is needed to grade the field invalid even if the string has not loaded yet.
+    const message = isInvalid ? (rangeInvalidMessage || ' ') : '';
+    lte.setCustomValidity(message);
+    if (isInvalid) {
+        if (report) {
+            lte.reportValidity();
+        }
+        return false;
+    }
+    return true;
 };
 
 /**

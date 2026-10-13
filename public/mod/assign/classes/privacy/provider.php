@@ -132,6 +132,26 @@ class provider implements
         $collection->add_user_preference('assign_filter', 'privacy:metadata:assignfilter');
         $collection->add_user_preference('assign_markerfilter', 'privacy:metadata:assignmarkerfilter');
         $collection->add_user_preference('assign_workflowfilter', 'privacy:metadata:assignworkflowfilter');
+        $collection->add_user_preference(
+            'assign_gradefilter_grade',
+            'privacy:metadata:assigngradefiltergrade'
+        );
+        $collection->add_user_preference(
+            'assign_gradefilter_greater_than_or_equal',
+            'privacy:metadata:assigngradefiltergreaterthanorequal'
+        );
+        $collection->add_user_preference(
+            'assign_gradefilter_greater_than_or_equal_enabled',
+            'privacy:metadata:assigngradefiltergreaterthanorequalenabled'
+        );
+        $collection->add_user_preference(
+            'assign_gradefilter_less_than_or_equal',
+            'privacy:metadata:assigngradefilterlessthanorequal'
+        );
+        $collection->add_user_preference(
+            'assign_gradefilter_less_than_or_equal_enabled',
+            'privacy:metadata:assigngradefilterlessthanorequalenabled'
+        );
         $collection->add_user_preference('assign_quickgrading', 'privacy:metadata:assignquickgrading');
         $collection->add_user_preference('assign_downloadasfolders', 'privacy:metadata:assigndownloadasfolders');
 
@@ -667,6 +687,26 @@ class provider implements
             'assign_markerfilter' => ['string' => get_string('privacy:metadata:assignmarkerfilter', 'mod_assign'), 'bool' => true],
             'assign_workflowfilter' => ['string' => get_string('privacy:metadata:assignworkflowfilter', 'mod_assign'),
                     'bool' => true],
+            'assign_gradefilter_grade' => [
+                'string' => get_string('privacy:metadata:assigngradefiltergrade', 'mod_assign'),
+                'bool' => false,
+            ],
+            'assign_gradefilter_greater_than_or_equal' => [
+                'string' => get_string('privacy:metadata:assigngradefiltergreaterthanorequal', 'mod_assign'),
+                'bool' => false,
+            ],
+            'assign_gradefilter_greater_than_or_equal_enabled' => [
+                'string' => get_string('privacy:metadata:assigngradefiltergreaterthanorequalenabled', 'mod_assign'),
+                'bool' => true,
+            ],
+            'assign_gradefilter_less_than_or_equal' => [
+                'string' => get_string('privacy:metadata:assigngradefilterlessthanorequal', 'mod_assign'),
+                'bool' => false,
+            ],
+            'assign_gradefilter_less_than_or_equal_enabled' => [
+                'string' => get_string('privacy:metadata:assigngradefilterlessthanorequalenabled', 'mod_assign'),
+                'bool' => true,
+            ],
             'assign_quickgrading' => ['string' => get_string('privacy:metadata:assignquickgrading', 'mod_assign'), 'bool' => true],
             'assign_downloadasfolders' => ['string' => get_string('privacy:metadata:assigndownloadasfolders', 'mod_assign'),
                     'bool' => true]

@@ -53,6 +53,11 @@ require_once($CFG->dirroot . '/mod/assign/tests/generator.php');
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'is_userid_filtered')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'get_error_messages')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'gradebook_item_update')]
+#[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'normalise_grade_filter_value')]
+#[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'get_grade_filters')]
+#[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'get_grades_menu')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\assign_grading_table::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_assign\output\grading_actionmenu::class)]
 final class locallib_test extends \advanced_testcase {
     // Use the generator helper.
     use mod_assign_test_generator;
@@ -5428,5 +5433,500 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->setUser($student);
         $history = $assign->get_assign_attempt_history_renderable($student);
         $this->assertEmpty($history->grades);
+    }
+
+    /**
+     * Test the grade filter in the grading table.
+     */
+    public function test_gradingtable_grade_filter(): void {
+        global $PAGE;
+
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_and_enrol(
+            $course,
+            'teacher'
+        );
+        $student1 = $this->getDataGenerator()->create_and_enrol(
+            $course,
+            'student',
+            ['firstname' => 'Alice', 'lastname' => 'One']
+        );
+        $student2 = $this->getDataGenerator()->create_and_enrol(
+            $course,
+            'student',
+            ['firstname' => 'Bob', 'lastname' => 'Two']
+        );
+        $student3 = $this->getDataGenerator()->create_and_enrol(
+            $course,
+            'student',
+            ['firstname' => 'Charlie', 'lastname' => 'Three']
+        );
+        $student4 = $this->getDataGenerator()->create_and_enrol(
+            $course,
+            'student',
+            ['firstname' => 'David', 'lastname' => 'Four']
+        );
+
+        $assign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => 100,
+        ]);
+
+        $PAGE->set_url(new \moodle_url('/mod/assign/view.php', [
+            'id' => $assign->get_course_module()->id,
+            'action' => 'grading',
+        ]));
+
+        // Student 1: grade 40.
+        $this->add_submission($student1, $assign);
+        $this->submit_for_grading($student1, $assign);
+        $this->grade_submission($teacher, $assign, $student1, 40.0);
+
+        // Student 2: grade 75.5.
+        $this->add_submission($student2, $assign);
+        $this->submit_for_grading($student2, $assign);
+        $this->grade_submission($teacher, $assign, $student2, 75.5);
+
+        // Student 3: grade 90.
+        $this->add_submission($student3, $assign);
+        $this->submit_for_grading($student3, $assign);
+        $this->grade_submission($teacher, $assign, $student3, 90.0);
+
+        // Student 4: submitted, but ungraded.
+        $this->add_submission($student4, $assign);
+        $this->submit_for_grading($student4, $assign);
+
+        $this->setUser($teacher);
+
+        // Without any grade filter, all 4 students should be listed.
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringContainsString('David Four', $output);
+
+        // Filter Greater than or equal to 75.5.
+        set_user_preference('assign_gradefilter_grade', 100);
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '75.5');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // Filter Less than or equal to 75 (should return Alice 40, but NOT David Four who is ungraded).
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '75');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // Combined range: >= 50 and <= 90 (Bob 75.5 and Charlie 90, as the upper bound is inclusive).
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '50');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '90');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // Checkbox unticked (disabled) ignores the entered value.
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '50');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '90');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringContainsString('David Four', $output);
+
+        // Boundaries are inclusive: >= 40 and <= 40 only returns Alice.
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '40');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '40');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // An inverted range (<= 50 and >= 90) ignores the 'less than or equal' filter.
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '90');
+        set_user_preference('assign_gradefilter_less_than_or_equal', '50');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // Filters saved for a different grade configuration are ignored.
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '90');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_grade', 10);
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringContainsString('David Four', $output);
+
+        // Scale assignment: grade filter should apply with scale values.
+        $scalerecord = $this->getDataGenerator()->create_scale(['scale' => 'Fail,Pass,Distinction']);
+        $scaleassign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => -$scalerecord->id,
+        ]);
+
+        $this->add_submission($student1, $scaleassign);
+        $this->submit_for_grading($student1, $scaleassign);
+        $this->grade_submission($teacher, $scaleassign, $student1, 1.0);
+
+        $this->add_submission($student2, $scaleassign);
+        $this->submit_for_grading($student2, $scaleassign);
+        $this->grade_submission($teacher, $scaleassign, $student2, 2.0);
+
+        $this->add_submission($student3, $scaleassign);
+        $this->submit_for_grading($student3, $scaleassign);
+        $this->grade_submission($teacher, $scaleassign, $student3, 3.0);
+
+        $this->add_submission($student4, $scaleassign);
+        $this->submit_for_grading($student4, $scaleassign);
+
+        // Scale filter: >= 2 (Pass). Bob (Pass) and Charlie (Distinction) match.
+        set_user_preference('assign_gradefilter_grade', -$scalerecord->id);
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '2');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '');
+
+        $gradingtable = new \assign_grading_table($scaleassign, 10, '', 0, false);
+        $output = $scaleassign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // Scale filter: <= 1 (Fail). Only Alice (Fail, 1) matches; David (ungraded) does NOT match.
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '1');
+
+        $gradingtable = new \assign_grading_table($scaleassign, 10, '', 0, false);
+        $output = $scaleassign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+    }
+
+    /**
+     * Test the action menu extra filters dropdown and preference handling for grade filter.
+     */
+    public function test_grading_actionmenu_grade_filter(): void {
+        global $PAGE;
+
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+        $this->setUser($teacher);
+
+        $assign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => 100,
+        ]);
+
+        $PAGE->set_url(new \moodle_url('/mod/assign/view.php', [
+            'id' => $assign->get_course_module()->id,
+            'action' => 'grading',
+        ]));
+
+        // Set preferences.
+        set_user_preference('assign_gradefilter_grade', 100);
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '50.5');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '90');
+
+        $actionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $assign->get_course_module()->id,
+            assign: $assign,
+        );
+        $renderer = $assign->get_renderer();
+        $data = $actionmenu->export_for_template($renderer);
+
+        $this->assertArrayHasKey('extrafiltersdropdown', $data);
+        $this->assertStringContainsString('max="100"', $data['extrafiltersdropdown']['dialogcontent']);
+        $this->assertStringContainsString('data-grade="100"', $data['extrafiltersdropdown']['dialogcontent']);
+        $this->assertArrayHasKey('pagereset', $data);
+        $this->assertStringContainsString('gradefilter_greater_than_or_equal_enabled=0', $data['pagereset']);
+        $this->assertStringContainsString('gradefilter_less_than_or_equal_enabled=0', $data['pagereset']);
+
+        // Empty or whitespace grade filter value should not be active even if enabled is set.
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '   ');
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '');
+        $emptymenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $assign->get_course_module()->id,
+            assign: $assign,
+        );
+        $emptydata = $emptymenu->export_for_template($renderer);
+        $this->assertArrayNotHasKey('pagereset', $emptydata);
+
+        // For scale assignment, grade filter should be shown with scale options in dropdown content.
+        // Out-of-scale filter values (50.5, 90) should not be considered active/applied on scale assignment.
+        $scalerecord = $this->getDataGenerator()->create_scale(['scale' => 'Fail,Pass,Distinction']);
+        $scaleassign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => -$scalerecord->id,
+        ]);
+        $scaleactionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $scaleassign->get_course_module()->id,
+            assign: $scaleassign,
+        );
+        $scaledata = $scaleactionmenu->export_for_template($renderer);
+        $this->assertArrayHasKey('extrafiltersdropdown', $scaledata);
+        $this->assertArrayNotHasKey('pagereset', $scaledata);
+        $dialogcontent = $scaledata['extrafiltersdropdown']['dialogcontent'];
+        $this->assertStringContainsString('data-grade="-' . $scalerecord->id . '"', $dialogcontent);
+        $this->assertStringContainsString('name="gradefilter_greater_than_or_equal"', $dialogcontent);
+        $this->assertStringContainsString('Fail', $dialogcontent);
+        $this->assertStringContainsString('Pass', $dialogcontent);
+        $this->assertStringContainsString('Distinction', $dialogcontent);
+
+        // When valid scale preferences are set, the filter is active and pagereset is present.
+        set_user_preference('assign_gradefilter_grade', -$scalerecord->id);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '2');
+        set_user_preference('assign_gradefilter_less_than_or_equal', '3');
+        $scaleactionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $scaleassign->get_course_module()->id,
+            assign: $scaleassign,
+        );
+        $scaledata = $scaleactionmenu->export_for_template($renderer);
+        $this->assertArrayHasKey('pagereset', $scaledata);
+        $this->assertStringContainsString('gradefilter_greater_than_or_equal_enabled=0', $scaledata['pagereset']);
+
+        // For assignment with no grading, extra filters dropdown should not be shown.
+        $nogradeassign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => GRADE_TYPE_NONE,
+        ]);
+        $nogradeactionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $nogradeassign->get_course_module()->id,
+            assign: $nogradeassign,
+        );
+        $nogradedata = $nogradeactionmenu->export_for_template($renderer);
+        $this->assertArrayNotHasKey('extrafiltersdropdown', $nogradedata);
+        $this->assertArrayNotHasKey('pagereset', $nogradedata);
+
+        // If another filter is active on an ungraded assignment, pagereset should not include grade filter parameters.
+        set_user_preference('assign_filter', ASSIGN_FILTER_SUBMITTED);
+        $nogradedata = $nogradeactionmenu->export_for_template($renderer);
+        $this->assertArrayHasKey('pagereset', $nogradedata);
+        $this->assertStringNotContainsString('gradefilter', $nogradedata['pagereset']);
+        unset_user_preference('assign_filter');
+
+        // Verify preferences are properly registered in mod_assign_user_preferences.
+        $preferences = mod_assign_user_preferences();
+        $this->assertArrayHasKey('assign_gradefilter_grade', $preferences);
+        $this->assertArrayHasKey('assign_gradefilter_greater_than_or_equal_enabled', $preferences);
+        $this->assertArrayHasKey('assign_gradefilter_greater_than_or_equal', $preferences);
+        $this->assertArrayHasKey('assign_gradefilter_less_than_or_equal_enabled', $preferences);
+        $this->assertArrayHasKey('assign_gradefilter_less_than_or_equal', $preferences);
+    }
+
+    /**
+     * Test normalising grade filter values for point and scale assignments.
+     */
+    public function test_normalise_grade_filter_value(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+
+        // 1. Point assignment.
+        $assign = $this->create_instance($course, [
+            'grade' => 100,
+        ]);
+
+        $this->assertSame('75.5', $assign->normalise_grade_filter_value('75.5'));
+        $this->assertSame('75.5', $assign->normalise_grade_filter_value(' 75.5 '));
+        $this->assertSame('0', $assign->normalise_grade_filter_value('0'));
+        $this->assertSame('100', $assign->normalise_grade_filter_value('100'));
+        $this->assertSame('', $assign->normalise_grade_filter_value(''));
+        $this->assertSame('', $assign->normalise_grade_filter_value('   '));
+        $this->assertSame('', $assign->normalise_grade_filter_value('invalid'));
+        $this->assertSame('', $assign->normalise_grade_filter_value('-5'));
+
+        // 2. Scale assignment.
+        $scalerecord = $this->getDataGenerator()->create_scale(['scale' => 'Fail,Pass,Distinction']);
+        $scaleassign = $this->create_instance($course, [
+            'grade' => -$scalerecord->id,
+        ]);
+
+        $this->assertSame(make_grades_menu(-$scalerecord->id), $scaleassign->get_grades_menu());
+        $this->assertSame('1', $scaleassign->normalise_grade_filter_value('1'));
+        $this->assertSame('2', $scaleassign->normalise_grade_filter_value('2'));
+        $this->assertSame('3', $scaleassign->normalise_grade_filter_value('3'));
+        $this->assertSame('', $scaleassign->normalise_grade_filter_value('0'));
+        $this->assertSame('', $scaleassign->normalise_grade_filter_value('4'));
+        $this->assertSame('', $scaleassign->normalise_grade_filter_value('1.5'));
+        $this->assertSame('', $scaleassign->normalise_grade_filter_value('invalid'));
+        $this->assertSame('', $scaleassign->normalise_grade_filter_value('-1'));
+
+        // 3. Ungraded assignment (GRADE_TYPE_NONE).
+        $nogradeassign = $this->create_instance($course, [
+            'grade' => GRADE_TYPE_NONE,
+        ]);
+        $this->assertSame('', $nogradeassign->normalise_grade_filter_value('50'));
+        $this->assertSame('', $nogradeassign->normalise_grade_filter_value('0'));
+    }
+
+    /**
+     * Test that grade filter preferences are only shared across assignments with compatible grading configurations.
+     */
+    public function test_grade_filter_configuration_compatibility(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+        $this->setUser($teacher);
+
+        $scale1 = $this->getDataGenerator()->create_scale(['scale' => 'Fail,Pass,Distinction']);
+        $scale2 = $this->getDataGenerator()->create_scale(['scale' => 'Poor,Good,Excellent']);
+
+        $pointassign100a = $this->create_instance($course, ['grade' => 100]);
+        $pointassign100b = $this->create_instance($course, ['grade' => 100]);
+        $pointassign50 = $this->create_instance($course, ['grade' => 50]);
+        $scaleassign1a = $this->create_instance($course, ['grade' => -$scale1->id]);
+        $scaleassign1b = $this->create_instance($course, ['grade' => -$scale1->id]);
+        $scaleassign2 = $this->create_instance($course, ['grade' => -$scale2->id]);
+
+        // 1. When a scale threshold (Pass = 2) is saved on scaleassign1a.
+        set_user_preference('assign_gradefilter_grade', -$scale1->id);
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '2');
+
+        // Compatible on scaleassign1a (the same assignment).
+        $filters = $scaleassign1a->get_grade_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(2.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('2', $filters['greaterthanorequal']['raw']);
+
+        // Compatible on scaleassign1b (another assignment using the exact same scale).
+        $filters = $scaleassign1b->get_grade_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(2.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('2', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on scaleassign2 (uses a different scale).
+        $filters = $scaleassign2->get_grade_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on pointassign100a: "Pass" (2) must NOT be applied as 2 points.
+        $filters = $pointassign100a->get_grade_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on pointassign50.
+        $filters = $pointassign50->get_grade_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // 2. When a point threshold (75 points) is saved on pointassign100a.
+        set_user_preference('assign_gradefilter_grade', 100);
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '75');
+
+        // Compatible on pointassign100a.
+        $filters = $pointassign100a->get_grade_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(75.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('75', $filters['greaterthanorequal']['raw']);
+
+        // Compatible on pointassign100b (matching max points = 100).
+        $filters = $pointassign100b->get_grade_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(75.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('75', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on pointassign50 (different max points = 50).
+        $filters = $pointassign50->get_grade_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on scale assignments.
+        $filters = $scaleassign1a->get_grade_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+    }
+
+    /**
+     * Test viewing the grading table for an assignment with GRADE_TYPE_NONE when grade filter params are passed.
+     */
+    public function test_view_grading_table_no_grade_with_grade_filter_params(): void {
+        global $PAGE;
+
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+        $this->setUser($teacher);
+
+        $assign = $this->create_instance($course, [
+            'grade' => GRADE_TYPE_NONE,
+        ]);
+
+        $PAGE->set_url(new \moodle_url('/mod/assign/view.php', [
+            'id' => $assign->get_course_module()->id,
+            'action' => 'grading',
+        ]));
+
+        // Simulate passing grade filter reset parameters as if pagereset was invoked.
+        $_GET['gradefilter_greater_than_or_equal_enabled'] = '0';
+        $_GET['gradefilter_greater_than_or_equal'] = '';
+        $_GET['gradefilter_less_than_or_equal_enabled'] = '0';
+        $_GET['gradefilter_less_than_or_equal'] = '';
+
+        // Calling view('grading') should not produce any warnings/notices or save grade filter preferences.
+        $output = $assign->view('grading');
+        $this->assertNotEmpty($output);
+        $this->assertNull(get_user_preferences('assign_gradefilter_grade', null));
+        $this->assertNull(get_user_preferences('assign_gradefilter_greater_than_or_equal_enabled', null));
+        $this->assertNull(get_user_preferences('assign_gradefilter_greater_than_or_equal', null));
+        $this->assertNull(get_user_preferences('assign_gradefilter_less_than_or_equal_enabled', null));
+        $this->assertNull(get_user_preferences('assign_gradefilter_less_than_or_equal', null));
     }
 }

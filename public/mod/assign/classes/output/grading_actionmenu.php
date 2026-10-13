@@ -159,7 +159,7 @@ class grading_actionmenu implements templatable, renderable {
         $hasuserfilter = get_user_preferences('assign_filter');
         $hasextrafilters = $this->get_applied_extra_filters_count() > 0;
         if ($activitygroup || $hasuserfilter || $hasextrafilters || $hasinitials) {
-            $url = new moodle_url('/mod/assign/view.php', [
+            $resetparams = [
                 'id' => $this->cmid,
                 'action' => 'grading',
                 'group' => 0,
@@ -169,7 +169,14 @@ class grading_actionmenu implements templatable, renderable {
                 'suspendedparticipantsfilter' => 0,
                 'tifirst' => '',
                 'tilast' => '',
-            ]);
+            ];
+            if ($this->assign->get_instance()->grade != GRADE_TYPE_NONE) {
+                $resetparams['gradefilter_greater_than_or_equal_enabled'] = 0;
+                $resetparams['gradefilter_greater_than_or_equal'] = '';
+                $resetparams['gradefilter_less_than_or_equal_enabled'] = 0;
+                $resetparams['gradefilter_less_than_or_equal'] = '';
+            }
+            $url = new moodle_url('/mod/assign/view.php', $resetparams);
             $data['pagereset'] = $url->out(false);
         }
 
@@ -379,6 +386,42 @@ class grading_actionmenu implements templatable, renderable {
             ];
         }
 
+        // If the assignment uses grading (points or scale).
+        $gradefilters = $this->assign->get_grade_filters();
+        if ($gradefilters) {
+            $gradeinstance = $this->assign->get_instance()->grade;
+            $isscale = $gradeinstance < 0;
+            $scaleoptions = ['greaterthanorequal' => [], 'lessthanorequal' => []];
+            if ($isscale) {
+                $gradesmenu = $this->assign->get_grades_menu();
+                foreach ($scaleoptions as $key => $unused) {
+                    $selectedvalue = $gradefilters[$key]['value'];
+                    $first = true;
+                    foreach ($gradesmenu as $value => $label) {
+                        $scaleoptions[$key][] = [
+                            'value' => $value,
+                            'name' => $label,
+                            'label' => $label,
+                            'selected' => $selectedvalue !== null ? ((int)$selectedvalue === $value) : $first,
+                        ];
+                        $first = false;
+                    }
+                }
+            }
+
+            $dropdowncontentdata['filters']['gradefilter'] = [
+                'grade' => (int)$gradeinstance,
+                'isscale' => $isscale,
+                'maxgrade' => $isscale ? null : (float)$gradeinstance,
+                'scale_options_greater_than_or_equal' => $scaleoptions['greaterthanorequal'],
+                'scale_options_less_than_or_equal' => $scaleoptions['lessthanorequal'],
+                'greater_than_or_equal_active' => $gradefilters['greaterthanorequal']['enabled'],
+                'greater_than_or_equal_value' => $gradefilters['greaterthanorequal']['raw'],
+                'less_than_or_equal_active' => $gradefilters['lessthanorequal']['enabled'],
+                'less_than_or_equal_value' => $gradefilters['lessthanorequal']['raw'],
+            ];
+        }
+
         // If there are no available filters, return null.
         if (empty($dropdowncontentdata['filters'])) {
             return null;
@@ -432,6 +475,13 @@ class grading_actionmenu implements templatable, renderable {
         // If suspended participants are included.
         if (!$this->assign->show_only_active_users()) {
             $appliedextrafilterscount++;
+        }
+
+        // If grade/scale filters are applied on an assignment using grading.
+        foreach ($this->assign->get_grade_filters() as $gradefilter) {
+            if ($gradefilter['enabled']) {
+                $appliedextrafilterscount++;
+            }
         }
 
         return $appliedextrafilterscount;

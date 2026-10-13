@@ -903,4 +903,70 @@ final class provider_test extends provider_testcase {
         $data = $DB->get_records('assign_mark');
         $this->assertCount(1, $data);
     }
+
+    /**
+     * Test that export_user_preferences exports user preferences correctly.
+     */
+    public function test_export_user_preferences(): void {
+        $this->resetAfterTest();
+
+        $user1 = $this->getDataGenerator()->create_user();
+
+        set_user_preference('assign_gradefilter_grade', 75, $user1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal', '50.00', $user1);
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 1, $user1);
+        set_user_preference('assign_gradefilter_less_than_or_equal', '90.00', $user1);
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 0, $user1);
+
+        provider::export_user_preferences($user1->id);
+
+        $writer = writer::with_context(\context_system::instance());
+        $this->assertTrue($writer->has_any_data());
+
+        $preferences = $writer->get_user_preferences('mod_assign');
+
+        $this->assertEquals(75, $preferences->assign_gradefilter_grade->value);
+        $this->assertEquals(
+            get_string('privacy:metadata:assigngradefiltergrade', 'mod_assign'),
+            $preferences->assign_gradefilter_grade->description
+        );
+
+        $this->assertEquals('50.00', $preferences->assign_gradefilter_greater_than_or_equal->value);
+        $this->assertEquals(
+            get_string('privacy:metadata:assigngradefiltergreaterthanorequal', 'mod_assign'),
+            $preferences->assign_gradefilter_greater_than_or_equal->description
+        );
+
+        $this->assertEquals(get_string('yes'), $preferences->assign_gradefilter_greater_than_or_equal_enabled->value);
+        $this->assertEquals(
+            get_string('privacy:metadata:assigngradefiltergreaterthanorequalenabled', 'mod_assign'),
+            $preferences->assign_gradefilter_greater_than_or_equal_enabled->description
+        );
+
+        $this->assertEquals('90.00', $preferences->assign_gradefilter_less_than_or_equal->value);
+        $this->assertEquals(
+            get_string('privacy:metadata:assigngradefilterlessthanorequal', 'mod_assign'),
+            $preferences->assign_gradefilter_less_than_or_equal->description
+        );
+
+        $this->assertEquals(get_string('no'), $preferences->assign_gradefilter_less_than_or_equal_enabled->value);
+        $this->assertEquals(
+            get_string('privacy:metadata:assigngradefilterlessthanorequalenabled', 'mod_assign'),
+            $preferences->assign_gradefilter_less_than_or_equal_enabled->description
+        );
+
+        // Verify alternate boolean values for enabled flags with a second user.
+        writer::reset();
+        $user2 = $this->getDataGenerator()->create_user();
+        set_user_preference('assign_gradefilter_greater_than_or_equal_enabled', 0, $user2);
+        set_user_preference('assign_gradefilter_less_than_or_equal_enabled', 1, $user2);
+
+        provider::export_user_preferences($user2->id);
+
+        $writer = writer::with_context(\context_system::instance());
+        $preferences = $writer->get_user_preferences('mod_assign');
+
+        $this->assertEquals(get_string('no'), $preferences->assign_gradefilter_greater_than_or_equal_enabled->value);
+        $this->assertEquals(get_string('yes'), $preferences->assign_gradefilter_less_than_or_equal_enabled->value);
+    }
 }
