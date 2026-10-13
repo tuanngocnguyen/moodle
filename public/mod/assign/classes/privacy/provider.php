@@ -132,6 +132,10 @@ class provider implements
         $collection->add_user_preference('assign_filter', 'privacy:metadata:assignfilter');
         $collection->add_user_preference('assign_markerfilter', 'privacy:metadata:assignmarkerfilter');
         $collection->add_user_preference('assign_workflowfilter', 'privacy:metadata:assignworkflowfilter');
+        $collection->add_user_preference('assign_markfilter_greater_than_or_equal', 'privacy:metadata:assignmarkfiltergreaterthanorequal');
+        $collection->add_user_preference('assign_markfilter_greater_than_or_equal_enabled', 'privacy:metadata:assignmarkfiltergreaterthanorequalenabled');
+        $collection->add_user_preference('assign_markfilter_less_than', 'privacy:metadata:assignmarkfilterlessthan');
+        $collection->add_user_preference('assign_markfilter_less_than_enabled', 'privacy:metadata:assignmarkfilterlessthanenabled');
         $collection->add_user_preference('assign_quickgrading', 'privacy:metadata:assignquickgrading');
         $collection->add_user_preference('assign_downloadasfolders', 'privacy:metadata:assigndownloadasfolders');
 
@@ -667,6 +671,22 @@ class provider implements
             'assign_markerfilter' => ['string' => get_string('privacy:metadata:assignmarkerfilter', 'mod_assign'), 'bool' => true],
             'assign_workflowfilter' => ['string' => get_string('privacy:metadata:assignworkflowfilter', 'mod_assign'),
                     'bool' => true],
+            'assign_markfilter_greater_than_or_equal' => [
+                'string' => get_string('privacy:metadata:assignmarkfiltergreaterthanorequal', 'mod_assign'),
+                'bool' => false,
+            ],
+            'assign_markfilter_greater_than_or_equal_enabled' => [
+                'string' => get_string('privacy:metadata:assignmarkfiltergreaterthanorequalenabled', 'mod_assign'),
+                'bool' => true,
+            ],
+            'assign_markfilter_less_than' => [
+                'string' => get_string('privacy:metadata:assignmarkfilterlessthan', 'mod_assign'),
+                'bool' => false,
+            ],
+            'assign_markfilter_less_than_enabled' => [
+                'string' => get_string('privacy:metadata:assignmarkfilterlessthanenabled', 'mod_assign'),
+                'bool' => true,
+            ],
             'assign_quickgrading' => ['string' => get_string('privacy:metadata:assignquickgrading', 'mod_assign'), 'bool' => true],
             'assign_downloadasfolders' => ['string' => get_string('privacy:metadata:assigndownloadasfolders', 'mod_assign'),
                     'bool' => true]

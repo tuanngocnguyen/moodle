@@ -167,6 +167,10 @@ class grading_actionmenu implements templatable, renderable {
                 'workflowfilter' => '',
                 'markingallocationfilter' => '',
                 'suspendedparticipantsfilter' => 0,
+                'markfilter_greater_than_or_equal_enabled' => 0,
+                'markfilter_greater_than_or_equal' => '',
+                'markfilter_less_than_enabled' => 0,
+                'markfilter_less_than' => '',
                 'tifirst' => '',
                 'tilast' => '',
             ]);
@@ -379,6 +383,65 @@ class grading_actionmenu implements templatable, renderable {
             ];
         }
 
+        // If the assignment uses grading (points or scale).
+        $gradeinstance = $this->assign->get_instance()->grade;
+        if ($gradeinstance != GRADE_TYPE_NONE) {
+            $isscale = $gradeinstance < 0;
+            $scaleoptionsgreaterthanorequal = [];
+            $scaleoptionslessthan = [];
+            $markfilter_greater_than_or_equal = get_user_preferences('assign_markfilter_greater_than_or_equal', '');
+            $markfilter_less_than = get_user_preferences('assign_markfilter_less_than', '');
+            $greater_than_or_equal_active = (bool)get_user_preferences('assign_markfilter_greater_than_or_equal_enabled', 0);
+            $less_than_active = (bool)get_user_preferences('assign_markfilter_less_than_enabled', 0);
+
+            $greater_than_or_equal_float = ($markfilter_greater_than_or_equal !== '' && $markfilter_greater_than_or_equal !== null)
+                ? unformat_float($markfilter_greater_than_or_equal, true) : false;
+            $less_than_float = ($markfilter_less_than !== '' && $markfilter_less_than !== null)
+                ? unformat_float($markfilter_less_than, true) : false;
+            $greater_than_or_equal_float_valid = $greater_than_or_equal_float !== false && $greater_than_or_equal_float !== null;
+            $less_than_float_valid = $less_than_float !== false && $less_than_float !== null;
+
+            if ($isscale) {
+                $gradesmenu = make_grades_menu($gradeinstance);
+                $greater_than_or_equal_in_scale = $greater_than_or_equal_float_valid
+                    && array_key_exists((int)$greater_than_or_equal_float, $gradesmenu);
+                $less_than_in_scale = $less_than_float_valid
+                    && array_key_exists((int)$less_than_float, $gradesmenu);
+                $greater_than_or_equal_active = $greater_than_or_equal_active && $greater_than_or_equal_in_scale;
+                $less_than_active = $less_than_active && $less_than_in_scale;
+
+                $first = true;
+                foreach ($gradesmenu as $value => $label) {
+                    $scaleoptionsgreaterthanorequal[] = [
+                        'value' => $value,
+                        'name' => $label,
+                        'label' => $label,
+                        'selected' => $greater_than_or_equal_in_scale ? ((int)$greater_than_or_equal_float === $value) : $first,
+                    ];
+                    $scaleoptionslessthan[] = [
+                        'value' => $value,
+                        'name' => $label,
+                        'label' => $label,
+                        'selected' => $less_than_in_scale ? ((int)$less_than_float === $value) : $first,
+                    ];
+                    $first = false;
+                }
+            } else {
+                $greater_than_or_equal_active = $greater_than_or_equal_active && $greater_than_or_equal_float_valid;
+                $less_than_active = $less_than_active && $less_than_float_valid;
+            }
+
+            $dropdowncontentdata['filters']['markfilter'] = [
+                'isscale' => $isscale,
+                'scale_options_greater_than_or_equal' => $scaleoptionsgreaterthanorequal,
+                'scale_options_less_than' => $scaleoptionslessthan,
+                'greater_than_or_equal_active' => $greater_than_or_equal_active,
+                'greater_than_or_equal_value' => $markfilter_greater_than_or_equal,
+                'less_than_active' => $less_than_active,
+                'less_than_value' => $markfilter_less_than,
+            ];
+        }
+
         // If there are no available filters, return null.
         if (empty($dropdowncontentdata['filters'])) {
             return null;
@@ -432,6 +495,35 @@ class grading_actionmenu implements templatable, renderable {
         // If suspended participants are included.
         if (!$this->assign->show_only_active_users()) {
             $appliedextrafilterscount++;
+        }
+
+        // If mark/scale filter is applied on an assignment using grading.
+        if ($this->assign->get_instance()->grade != GRADE_TYPE_NONE) {
+            $isscale = $this->assign->get_instance()->grade < 0;
+            $gradesmenu = $isscale ? make_grades_menu($this->assign->get_instance()->grade) : [];
+
+            $markfilter_greater_than_or_equal = get_user_preferences('assign_markfilter_greater_than_or_equal', '');
+            $markfilter_greater_than_or_equal_enabled = get_user_preferences(
+                'assign_markfilter_greater_than_or_equal_enabled',
+                0
+            );
+            $greater_than_or_equal_float = ($markfilter_greater_than_or_equal !== '' && $markfilter_greater_than_or_equal !== null)
+                ? unformat_float($markfilter_greater_than_or_equal, true) : false;
+            $greater_than_or_equal_float_valid = $greater_than_or_equal_float !== false && $greater_than_or_equal_float !== null;
+            if ($markfilter_greater_than_or_equal_enabled && $greater_than_or_equal_float_valid
+                    && (!$isscale || array_key_exists((int)$greater_than_or_equal_float, $gradesmenu))) {
+                $appliedextrafilterscount++;
+            }
+
+            $markfilter_less_than = get_user_preferences('assign_markfilter_less_than', '');
+            $markfilter_less_than_enabled = get_user_preferences('assign_markfilter_less_than_enabled', 0);
+            $less_than_float = ($markfilter_less_than !== '' && $markfilter_less_than !== null)
+                ? unformat_float($markfilter_less_than, true) : false;
+            $less_than_float_valid = $less_than_float !== false && $less_than_float !== null;
+            if ($markfilter_less_than_enabled && $less_than_float_valid
+                    && (!$isscale || array_key_exists((int)$less_than_float, $gradesmenu))) {
+                $appliedextrafilterscount++;
+            }
         }
 
         return $appliedextrafilterscount;

@@ -5057,6 +5057,35 @@ class assign {
             set_user_preference('grade_report_showonlyactiveenrol', !$suspendedparticipantsfilter);
         }
 
+        // Retrieve mark filter parameters if provided.
+        $markfilter_greater_than_or_equal_enabled = optional_param('markfilter_greater_than_or_equal_enabled', null, PARAM_BOOL);
+        if ($markfilter_greater_than_or_equal_enabled !== null) {
+            set_user_preference('assign_markfilter_greater_than_or_equal_enabled', $markfilter_greater_than_or_equal_enabled);
+        }
+        $markfilter_greater_than_or_equal = optional_param('markfilter_greater_than_or_equal', null, PARAM_RAW);
+        if ($markfilter_greater_than_or_equal !== null) {
+            $markfilter_greater_than_or_equal = trim($markfilter_greater_than_or_equal);
+            if ($markfilter_greater_than_or_equal !== '' && unformat_float($markfilter_greater_than_or_equal, true) !== false) {
+                set_user_preference('assign_markfilter_greater_than_or_equal', $markfilter_greater_than_or_equal);
+            } else {
+                set_user_preference('assign_markfilter_greater_than_or_equal', '');
+            }
+        }
+
+        $markfilter_less_than_enabled = optional_param('markfilter_less_than_enabled', null, PARAM_BOOL);
+        if ($markfilter_less_than_enabled !== null) {
+            set_user_preference('assign_markfilter_less_than_enabled', $markfilter_less_than_enabled);
+        }
+        $markfilter_less_than = optional_param('markfilter_less_than', null, PARAM_RAW);
+        if ($markfilter_less_than !== null) {
+            $markfilter_less_than = trim($markfilter_less_than);
+            if ($markfilter_less_than !== '' && unformat_float($markfilter_less_than, true) !== false) {
+                set_user_preference('assign_markfilter_less_than', $markfilter_less_than);
+            } else {
+                set_user_preference('assign_markfilter_less_than', '');
+            }
+        }
+
         $controller = $gradingmanager->get_active_controller();
         $showquickgrading = empty($controller) && $this->can_grade();
         $quickgrading = get_user_preferences('assign_quickgrading', false);

@@ -381,6 +381,42 @@ class assign_grading_table extends table_sql implements renderable {
             }
         }
 
+        // Filter by mark / agreed mark if assignment has point or scale grading.
+        $gradeinstance = $this->assignment->get_instance()->grade;
+        if ($gradeinstance != GRADE_TYPE_NONE) {
+            $isscale = $gradeinstance < 0;
+            $gradesmenu = $isscale ? make_grades_menu($gradeinstance) : [];
+            $minimumgrade = $isscale ? 1 : 0;
+
+            $markfilter_greater_than_or_equal_enabled = get_user_preferences('assign_markfilter_greater_than_or_equal_enabled', 0);
+            $markfilter_greater_than_or_equal = get_user_preferences('assign_markfilter_greater_than_or_equal', '');
+            $greater_than_or_equal_float = ($markfilter_greater_than_or_equal !== '' && $markfilter_greater_than_or_equal !== null)
+                ? unformat_float($markfilter_greater_than_or_equal, true) : false;
+            $greater_than_or_equal_valid = $greater_than_or_equal_float !== false && $greater_than_or_equal_float !== null
+                && (!$isscale || array_key_exists((int)$greater_than_or_equal_float, $gradesmenu));
+
+            if ($markfilter_greater_than_or_equal_enabled && $greater_than_or_equal_valid) {
+                $where .= ' AND g.grade >= :markfilter_greater_than_or_equal AND g.grade IS NOT NULL'
+                    . ' AND g.grade >= :minimumgrade_greater_than_or_equal';
+                $params['markfilter_greater_than_or_equal'] = $greater_than_or_equal_float;
+                $params['minimumgrade_greater_than_or_equal'] = $minimumgrade;
+            }
+
+            $markfilter_less_than_enabled = get_user_preferences('assign_markfilter_less_than_enabled', 0);
+            $markfilter_less_than = get_user_preferences('assign_markfilter_less_than', '');
+            $less_than_float = ($markfilter_less_than !== '' && $markfilter_less_than !== null)
+                ? unformat_float($markfilter_less_than, true) : false;
+            $less_than_valid = $less_than_float !== false && $less_than_float !== null
+                && (!$isscale || array_key_exists((int)$less_than_float, $gradesmenu));
+
+            if ($markfilter_less_than_enabled && $less_than_valid) {
+                $where .= ' AND g.grade < :markfilter_less_than AND g.grade IS NOT NULL'
+                    . ' AND g.grade >= :minimumgrade_less_than';
+                $params['markfilter_less_than'] = $less_than_float;
+                $params['minimumgrade_less_than'] = $minimumgrade;
+            }
+        }
+
         $this->set_sql($fields, $from, $where, $params);
 
         if ($downloadfilename) {

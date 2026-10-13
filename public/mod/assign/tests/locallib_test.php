@@ -53,6 +53,8 @@ require_once($CFG->dirroot . '/mod/assign/tests/generator.php');
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'is_userid_filtered')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'get_error_messages')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'gradebook_item_update')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\assign_grading_table::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_assign\output\grading_actionmenu::class)]
 final class locallib_test extends \advanced_testcase {
     // Use the generator helper.
     use mod_assign_test_generator;
@@ -5360,5 +5362,264 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         // Make sure the grade has been pushed to the gradebook.
         $gradinginfo = grade_get_grades($course->id, 'mod', 'assign', $assign->get_instance()->id, $student->id);
         $this->assertEquals(50, (int)$gradinginfo->items[0]->grades[$student->id]->grade);
+    }
+
+    /**
+     * Test the mark / agreed mark filter in the grading table.
+     */
+    public function test_gradingtable_mark_filter(): void {
+        global $PAGE;
+
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+        $student1 = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Alice', 'lastname' => 'One']);
+        $student2 = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Two']);
+        $student3 = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Charlie', 'lastname' => 'Three']);
+        $student4 = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'David', 'lastname' => 'Four']);
+
+        $assign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => 100,
+        ]);
+
+        $PAGE->set_url(new \moodle_url('/mod/assign/view.php', [
+            'id' => $assign->get_course_module()->id,
+            'action' => 'grading',
+        ]));
+
+        // Student 1: grade 40.
+        $this->add_submission($student1, $assign);
+        $this->submit_for_grading($student1, $assign);
+        $this->grade_submission($teacher, $assign, $student1, 40.0);
+
+        // Student 2: grade 75.5.
+        $this->add_submission($student2, $assign);
+        $this->submit_for_grading($student2, $assign);
+        $this->grade_submission($teacher, $assign, $student2, 75.5);
+
+        // Student 3: grade 90.
+        $this->add_submission($student3, $assign);
+        $this->submit_for_grading($student3, $assign);
+        $this->grade_submission($teacher, $assign, $student3, 90.0);
+
+        // Student 4: submitted, but ungraded.
+        $this->add_submission($student4, $assign);
+        $this->submit_for_grading($student4, $assign);
+
+        $this->setUser($teacher);
+
+        // 1. Without any mark filter, all 4 students should be listed.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '');
+        set_user_preference('assign_markfilter_less_than_enabled', 0);
+        set_user_preference('assign_markfilter_less_than', '');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringContainsString('David Four', $output);
+
+        // 2. Filter Greater than or equal to 75.5.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '75.5');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // 3. Filter Less than 75.5 (should return Alice 40, but NOT David Four who is ungraded).
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '');
+        set_user_preference('assign_markfilter_less_than_enabled', 1);
+        set_user_preference('assign_markfilter_less_than', '75.5');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // 4. Combined range: >= 50 and < 90 (only Bob 75.5).
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '50');
+        set_user_preference('assign_markfilter_less_than_enabled', 1);
+        set_user_preference('assign_markfilter_less_than', '90');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // 5. Checkbox unticked (disabled) ignores the entered value.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '50');
+        set_user_preference('assign_markfilter_less_than_enabled', 0);
+        set_user_preference('assign_markfilter_less_than', '90');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringContainsString('David Four', $output);
+
+        // 6. Scale assignment: mark filter should apply with scale values.
+        $scalerecord = $this->getDataGenerator()->create_scale(['scale' => 'Fail,Pass,Distinction']);
+        $scaleassign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => -$scalerecord->id,
+        ]);
+
+        $this->add_submission($student1, $scaleassign);
+        $this->submit_for_grading($student1, $scaleassign);
+        $this->grade_submission($teacher, $scaleassign, $student1, 1.0); // Fail
+
+        $this->add_submission($student2, $scaleassign);
+        $this->submit_for_grading($student2, $scaleassign);
+        $this->grade_submission($teacher, $scaleassign, $student2, 2.0); // Pass
+
+        $this->add_submission($student3, $scaleassign);
+        $this->submit_for_grading($student3, $scaleassign);
+        $this->grade_submission($teacher, $scaleassign, $student3, 3.0); // Distinction
+
+        $this->add_submission($student4, $scaleassign);
+        $this->submit_for_grading($student4, $scaleassign); // Ungraded
+
+        // Scale filter: >= 2 (Pass). Bob (Pass) and Charlie (Distinction) match.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '2');
+        set_user_preference('assign_markfilter_less_than_enabled', 0);
+        set_user_preference('assign_markfilter_less_than', '');
+
+        $gradingtable = new \assign_grading_table($scaleassign, 10, '', 0, false);
+        $output = $scaleassign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // Scale filter: < 2 (Pass). Only Alice (Fail, 1) matches; David (ungraded) does NOT match.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '');
+        set_user_preference('assign_markfilter_less_than_enabled', 1);
+        set_user_preference('assign_markfilter_less_than', '2');
+
+        $gradingtable = new \assign_grading_table($scaleassign, 10, '', 0, false);
+        $output = $scaleassign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+    }
+
+    /**
+     * Test the action menu extra filters dropdown and preference handling for mark filter.
+     */
+    public function test_grading_actionmenu_mark_filter(): void {
+        global $PAGE;
+
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+        $this->setUser($teacher);
+
+        $assign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => 100,
+        ]);
+
+        $PAGE->set_url(new \moodle_url('/mod/assign/view.php', [
+            'id' => $assign->get_course_module()->id,
+            'action' => 'grading',
+        ]));
+
+        // Set preferences.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '50.5');
+        set_user_preference('assign_markfilter_less_than_enabled', 1);
+        set_user_preference('assign_markfilter_less_than', '90');
+
+        $actionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $assign->get_course_module()->id,
+            assign: $assign,
+        );
+        $renderer = $assign->get_renderer();
+        $data = $actionmenu->export_for_template($renderer);
+
+        $this->assertArrayHasKey('extrafiltersdropdown', $data);
+        $this->assertArrayHasKey('pagereset', $data);
+        $this->assertStringContainsString('markfilter_greater_than_or_equal_enabled=0', $data['pagereset']);
+        $this->assertStringContainsString('markfilter_less_than_enabled=0', $data['pagereset']);
+
+        // Empty or whitespace mark filter value should not be active even if enabled is set.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '   ');
+        set_user_preference('assign_markfilter_less_than_enabled', 0);
+        set_user_preference('assign_markfilter_less_than', '');
+        $emptymenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $assign->get_course_module()->id,
+            assign: $assign,
+        );
+        $emptydata = $emptymenu->export_for_template($renderer);
+        $this->assertArrayNotHasKey('pagereset', $emptydata);
+
+        // For scale assignment, mark filter should be shown with scale options in dropdown content.
+        // Out-of-scale filter values (50.5, 90) should not be considered active/applied on scale assignment.
+        $scalerecord = $this->getDataGenerator()->create_scale(['scale' => 'Fail,Pass,Distinction']);
+        $scaleassign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => -$scalerecord->id,
+        ]);
+        $scaleactionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $scaleassign->get_course_module()->id,
+            assign: $scaleassign,
+        );
+        $scaledata = $scaleactionmenu->export_for_template($renderer);
+        $this->assertArrayHasKey('extrafiltersdropdown', $scaledata);
+        $this->assertArrayNotHasKey('pagereset', $scaledata);
+        $dialogcontent = $scaledata['extrafiltersdropdown']['dialogcontent'];
+        $this->assertStringContainsString('name="markfilter_greater_than_or_equal"', $dialogcontent);
+        $this->assertStringContainsString('Fail', $dialogcontent);
+        $this->assertStringContainsString('Pass', $dialogcontent);
+        $this->assertStringContainsString('Distinction', $dialogcontent);
+
+        // When valid scale preferences are set, the filter is active and pagereset is present.
+        set_user_preference('assign_markfilter_greater_than_or_equal', '2');
+        set_user_preference('assign_markfilter_less_than', '3');
+        $scaleactionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $scaleassign->get_course_module()->id,
+            assign: $scaleassign,
+        );
+        $scaledata = $scaleactionmenu->export_for_template($renderer);
+        $this->assertArrayHasKey('pagereset', $scaledata);
+        $this->assertStringContainsString('markfilter_greater_than_or_equal_enabled=0', $scaledata['pagereset']);
+
+        // For assignment with no grading, extra filters dropdown should not be shown.
+        $nogradeassign = $this->create_instance($course, [
+            'assignsubmission_onlinetext_enabled' => 1,
+            'grade' => GRADE_TYPE_NONE,
+        ]);
+        $nogradeactionmenu = new \mod_assign\output\grading_actionmenu(
+            cmid: $nogradeassign->get_course_module()->id,
+            assign: $nogradeassign,
+        );
+        $nogradedata = $nogradeactionmenu->export_for_template($renderer);
+        $this->assertArrayNotHasKey('extrafiltersdropdown', $nogradedata);
+
+        // Verify preferences are properly registered in mod_assign_user_preferences.
+        $preferences = mod_assign_user_preferences();
+        $this->assertArrayHasKey('assign_markfilter_greater_than_or_equal_enabled', $preferences);
+        $this->assertArrayHasKey('assign_markfilter_greater_than_or_equal', $preferences);
+        $this->assertArrayHasKey('assign_markfilter_less_than_enabled', $preferences);
+        $this->assertArrayHasKey('assign_markfilter_less_than', $preferences);
     }
 }

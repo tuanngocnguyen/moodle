@@ -32,6 +32,14 @@
                 * active - Whether the marking allocation filter option is currently active
         * suspendedparticipants
             * active - Whether the suspended participants filter is currently active
+        * markfilter
+            * isscale - Whether the filter is for a scale grade
+            * scale_options_greater_than_or_equal - Array of options for greater than or equal scale filter
+            * scale_options_less_than - Array of options for less than scale filter
+            * greater_than_or_equal_active - Whether the greater than or equal filter is enabled
+            * greater_than_or_equal_value - The value for the greater than or equal filter
+            * less_than_active - Whether the less than filter is enabled
+            * less_than_value - The value for the less than filter
 
     Example context (json):
     {
@@ -60,6 +68,15 @@
                 },
                 "suspendedparticipants": {
                     "active": true
+                },
+                "markfilter": {
+                    "isscale": false,
+                    "scale_options_greater_than_or_equal": [],
+                    "scale_options_less_than": [],
+                    "greater_than_or_equal_active": false,
+                    "greater_than_or_equal_value": "",
+                    "less_than_active": false,
+                    "less_than_value": ""
                 }
             }
         ]
@@ -101,6 +118,43 @@
                     <label for="filter-suspended-participants-{{uniqid}}" class='m-0' >{{#str}} includesuspendedparticipants, mod_assign {{/str}}</label>
                 </div>
             {{/suspendedparticipants}}
+            {{#markfilter}}
+                <div class="d-flex flex-column gap-2 m-0 pb-3 pt-2">
+                    <span class="w-100 fw-bold">{{#str}}marknoun, mod_assign{{/str}}</span>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <input type="hidden" name="markfilter_greater_than_or_equal_enabled" value="0" {{#greater_than_or_equal_active}}disabled{{/greater_than_or_equal_active}}>
+                        <input type="checkbox" id="filter-mark-greater-than-or-equal-enabled-{{uniqid}}" name="markfilter_greater_than_or_equal_enabled" value="1" {{#greater_than_or_equal_active}}checked{{/greater_than_or_equal_active}}>
+                        <label for="filter-mark-greater-than-or-equal-enabled-{{uniqid}}" class="visually-hidden">{{#str}}enablemarkfiltergreaterthanorequal, mod_assign{{/str}}</label>
+                        <label for="filter-mark-greater-than-or-equal-{{uniqid}}" class="m-0">{{#str}}markfiltergreaterthanorequal, mod_assign{{/str}}</label>
+                        {{#isscale}}
+                            <select id="filter-mark-greater-than-or-equal-{{uniqid}}" name="markfilter_greater_than_or_equal" class="form-select w-100" {{^greater_than_or_equal_active}}disabled{{/greater_than_or_equal_active}}>
+                                {{#scale_options_greater_than_or_equal}}
+                                    <option value="{{value}}" {{#selected}}selected="selected"{{/selected}}>{{label}}</option>
+                                {{/scale_options_greater_than_or_equal}}
+                            </select>
+                        {{/isscale}}
+                        {{^isscale}}
+                            <input type="number" step="any" id="filter-mark-greater-than-or-equal-{{uniqid}}" name="markfilter_greater_than_or_equal" class="form-control w-100" value="{{greater_than_or_equal_value}}" {{^greater_than_or_equal_active}}disabled{{/greater_than_or_equal_active}}>
+                        {{/isscale}}
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <input type="hidden" name="markfilter_less_than_enabled" value="0" {{#less_than_active}}disabled{{/less_than_active}}>
+                        <input type="checkbox" id="filter-mark-less-than-enabled-{{uniqid}}" name="markfilter_less_than_enabled" value="1" {{#less_than_active}}checked{{/less_than_active}}>
+                        <label for="filter-mark-less-than-enabled-{{uniqid}}" class="visually-hidden">{{#str}}enablemarkfilterlessthan, mod_assign{{/str}}</label>
+                        <label for="filter-mark-less-than-{{uniqid}}" class="m-0">{{#str}}markfilterlessthan, mod_assign{{/str}}</label>
+                        {{#isscale}}
+                            <select id="filter-mark-less-than-{{uniqid}}" name="markfilter_less_than" class="form-select w-100" {{^less_than_active}}disabled{{/less_than_active}}>
+                                {{#scale_options_less_than}}
+                                    <option value="{{value}}" {{#selected}}selected="selected"{{/selected}}>{{label}}</option>
+                                {{/scale_options_less_than}}
+                            </select>
+                        {{/isscale}}
+                        {{^isscale}}
+                            <input type="number" step="any" id="filter-mark-less-than-{{uniqid}}" name="markfilter_less_than" class="form-control w-100" value="{{less_than_value}}" {{^less_than_active}}disabled{{/less_than_active}}>
+                        {{/isscale}}
+                    </div>
+                </div>
+            {{/markfilter}}
         {{/filters}}
         <div class="d-flex flex-row justify-content-end align-items-center pt-2">
             <a href="#" class="pull-right mx-3 text-decoration-none text-dark" data-action="close">{{#str}}closebuttontitle{{/str}}</a>
