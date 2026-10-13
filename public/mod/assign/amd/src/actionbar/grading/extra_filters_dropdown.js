@@ -15,6 +15,7 @@
 
 import {getDropdownDialog} from 'core/local/dropdown/dialog';
 import {getUserPreference} from 'core_user/repository';
+import {get_string as getString} from 'core/str';
 
 /**
  * Module for the extra filters dropdown on the submissions page.
@@ -31,7 +32,11 @@ const Selectors = {
     workflowFilterElement: 'select[name="workflowfilter"]',
     markerFilterElement: 'select[name="markingallocationfilter"]',
     suspendedParticipantsFilterCheckbox: 'input[type="checkbox"][name="suspendedparticipantsfilter"]',
-    suspendedParticipantsFilterHidden: 'input[type="hidden"][name="suspendedparticipantsfilter"]'
+    suspendedParticipantsFilterHidden: 'input[type="hidden"][name="suspendedparticipantsfilter"]',
+    markFilterElements: '[name^="markfilter_"]',
+    markFilterGte: '[name="markfilter_greater_than_or_equal"]',
+    markFilterLt: '[name="markfilter_less_than"]',
+    markFilterCheckbox: 'input[type="checkbox"][name^="markfilter_"][name$="_enabled"]',
 };
 
 /**
@@ -61,6 +66,23 @@ const registerEventListeners = (extraFiltersDropdown) => {
                 .querySelector(Selectors.suspendedParticipantsFilterHidden);
             suspendedParticipantsFilterHidden.disabled = suspendedParticipantsFilterCheckbox.checked;
         }
+
+        if (e.target.closest(Selectors.markFilterElements)) {
+            validateMarkFilterRange(extraFiltersDropdown);
+        }
+
+        const markFilterCheckbox = e.target.closest(Selectors.markFilterCheckbox);
+        if (markFilterCheckbox) {
+            const {hidden, input} = getMarkFilterElements(markFilterCheckbox);
+            hidden.disabled = markFilterCheckbox.checked;
+            input.disabled = !markFilterCheckbox.checked;
+            if (markFilterCheckbox.checked) {
+                if (input.tagName === 'SELECT' && input.selectedIndex === -1) {
+                    input.selectedIndex = 0;
+                }
+                input.focus();
+            }
+        }
     });
 
     // Event listener triggered upon hiding of the dropdown.
@@ -69,6 +91,7 @@ const registerEventListeners = (extraFiltersDropdown) => {
         restoreAppliedWorkflowFilter(extraFiltersDropdown);
         restoreAppliedMarkerFilter(extraFiltersDropdown);
         restoreAppliedSuspendedParticipantsFilter(extraFiltersDropdown);
+        restoreAppliedMarkFilter(extraFiltersDropdown);
     });
 };
 
@@ -111,6 +134,80 @@ const restoreAppliedSuspendedParticipantsFilter = async(extraFiltersDropdown) =>
         suspendedParticipantsFilterCheckbox.checked = !showOnlyActiveParticipants;
         suspendedParticipantsFilterHidden.disabled = !showOnlyActiveParticipants;
     }
+};
+
+/**
+ * Get the hidden and value elements that accompany a mark filter checkbox.
+ *
+ * @param {HTMLInputElement} checkbox The mark filter enabled checkbox.
+ * @returns {{hidden: HTMLInputElement, input: HTMLElement}}
+ */
+const getMarkFilterElements = (checkbox) => ({
+    hidden: checkbox.parentNode.querySelector(`input[type="hidden"][name="${checkbox.name}"]`),
+    input: checkbox.parentNode.querySelector(`[name="${checkbox.name.replace(/_enabled$/, '')}"]`),
+});
+
+/**
+ * Ensure the 'less than' mark is greater than the 'greater than or equal' mark when both filters are enabled.
+ *
+ * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
+ */
+const validateMarkFilterRange = async(extraFiltersDropdown) => {
+    const element = extraFiltersDropdown.getElement();
+    const gte = element.querySelector(Selectors.markFilterGte);
+    const lt = element.querySelector(Selectors.markFilterLt);
+    if (!gte || !lt) {
+        return;
+    }
+    let message = '';
+    if (!gte.disabled && !lt.disabled && gte.value !== '' && lt.value !== '' &&
+            Number(lt.value) <= Number(gte.value)) {
+        message = await getString('markfilterrangeinvalid', 'mod_assign');
+    }
+    lt.setCustomValidity(message);
+    lt.reportValidity();
+};
+
+/**
+ * Restores the currently applied mark filters to their stored preference values.
+ *
+ * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
+ */
+const restoreAppliedMarkFilter = async(extraFiltersDropdown) => {
+    const checkboxes = extraFiltersDropdown.getElement().querySelectorAll(Selectors.markFilterCheckbox);
+
+    await Promise.all(Array.from(checkboxes).map(async(checkbox) => {
+        const {hidden, input} = getMarkFilterElements(checkbox);
+        const name = checkbox.name.replace(/_enabled$/, '');
+        const [enabledValue, value] = await Promise.all([
+            getUserPreference(`assign_${name}_enabled`),
+            getUserPreference(`assign_${name}`),
+        ]);
+        let enabled = enabledValue === '1' || enabledValue === 1 || enabledValue === true;
+
+        if (input.tagName === 'SELECT') {
+            const option = Array.from(input.options).find((opt) => opt.value === String(value));
+            if (option) {
+                input.value = option.value;
+            } else {
+                // The stored value is no longer a valid option, so the filter cannot be applied.
+                enabled = false;
+                input.selectedIndex = 0;
+            }
+        } else {
+            if (value === null || value === '' || isNaN(Number(value))) {
+                enabled = false;
+            }
+            input.value = value ?? '';
+        }
+
+        checkbox.checked = enabled;
+        hidden.disabled = enabled;
+        input.disabled = !enabled;
+    }));
+
+    const lt = extraFiltersDropdown.getElement().querySelector(Selectors.markFilterLt);
+    lt?.setCustomValidity('');
 };
 
 /**

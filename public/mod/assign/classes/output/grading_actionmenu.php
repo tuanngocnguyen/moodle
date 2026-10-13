@@ -167,6 +167,10 @@ class grading_actionmenu implements templatable, renderable {
                 'workflowfilter' => '',
                 'markingallocationfilter' => '',
                 'suspendedparticipantsfilter' => 0,
+                'markfilter_greater_than_or_equal_enabled' => 0,
+                'markfilter_greater_than_or_equal' => '',
+                'markfilter_less_than_enabled' => 0,
+                'markfilter_less_than' => '',
                 'tifirst' => '',
                 'tilast' => '',
             ]);
@@ -379,6 +383,39 @@ class grading_actionmenu implements templatable, renderable {
             ];
         }
 
+        // If the assignment uses grading (points or scale).
+        $markfilters = $this->assign->get_mark_filters();
+        if ($markfilters) {
+            $gradeinstance = $this->assign->get_instance()->grade;
+            $isscale = $gradeinstance < 0;
+            $scaleoptions = ['greaterthanorequal' => [], 'lessthan' => []];
+            if ($isscale) {
+                foreach ($scaleoptions as $key => $unused) {
+                    $selectedvalue = $markfilters[$key]['value'];
+                    $first = true;
+                    foreach (make_grades_menu($gradeinstance) as $value => $label) {
+                        $scaleoptions[$key][] = [
+                            'value' => $value,
+                            'name' => $label,
+                            'label' => $label,
+                            'selected' => $selectedvalue !== null ? ((int)$selectedvalue === $value) : $first,
+                        ];
+                        $first = false;
+                    }
+                }
+            }
+
+            $dropdowncontentdata['filters']['markfilter'] = [
+                'isscale' => $isscale,
+                'scale_options_greater_than_or_equal' => $scaleoptions['greaterthanorequal'],
+                'scale_options_less_than' => $scaleoptions['lessthan'],
+                'greater_than_or_equal_active' => $markfilters['greaterthanorequal']['enabled'],
+                'greater_than_or_equal_value' => $markfilters['greaterthanorequal']['raw'],
+                'less_than_active' => $markfilters['lessthan']['enabled'],
+                'less_than_value' => $markfilters['lessthan']['raw'],
+            ];
+        }
+
         // If there are no available filters, return null.
         if (empty($dropdowncontentdata['filters'])) {
             return null;
@@ -432,6 +469,13 @@ class grading_actionmenu implements templatable, renderable {
         // If suspended participants are included.
         if (!$this->assign->show_only_active_users()) {
             $appliedextrafilterscount++;
+        }
+
+        // If mark/scale filters are applied on an assignment using grading.
+        foreach ($this->assign->get_mark_filters() as $markfilter) {
+            if ($markfilter['enabled']) {
+                $appliedextrafilterscount++;
+            }
         }
 
         return $appliedextrafilterscount;

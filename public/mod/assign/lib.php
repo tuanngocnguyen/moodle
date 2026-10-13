@@ -1815,6 +1815,30 @@ function mod_assign_user_preferences(): array {
         'default' => '',
         'permissioncallback' => [core_user::class, 'is_current_user'],
     );
+    $preferences['assign_markfilter_greater_than_or_equal_enabled'] = [
+        'type' => PARAM_BOOL,
+        'null' => NULL_NOT_ALLOWED,
+        'default' => false,
+        'permissioncallback' => [core_user::class, 'is_current_user'],
+    ];
+    $preferences['assign_markfilter_greater_than_or_equal'] = [
+        'type' => PARAM_RAW,
+        'null' => NULL_NOT_ALLOWED,
+        'default' => '',
+        'permissioncallback' => [core_user::class, 'is_current_user'],
+    ];
+    $preferences['assign_markfilter_less_than_enabled'] = [
+        'type' => PARAM_BOOL,
+        'null' => NULL_NOT_ALLOWED,
+        'default' => false,
+        'permissioncallback' => [core_user::class, 'is_current_user'],
+    ];
+    $preferences['assign_markfilter_less_than'] = [
+        'type' => PARAM_RAW,
+        'null' => NULL_NOT_ALLOWED,
+        'default' => '',
+        'permissioncallback' => [core_user::class, 'is_current_user'],
+    ];
 
     return $preferences;
 }
