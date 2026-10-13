@@ -5069,6 +5069,31 @@ class assign {
             set_user_preference('grade_report_showonlyactiveenrol', !$suspendedparticipantsfilter);
         }
 
+        // Retrieve mark filter parameters if provided.
+        $markfiltergteenabled = optional_param('markfilter_greater_than_or_equal_enabled', null, PARAM_BOOL);
+        if ($markfiltergteenabled !== null) {
+            set_user_preference('assign_markfilter_greater_than_or_equal_enabled', $markfiltergteenabled);
+        }
+        $markfiltergte = optional_param('markfilter_greater_than_or_equal', null, PARAM_RAW);
+        if ($markfiltergte !== null) {
+            set_user_preference(
+                'assign_markfilter_greater_than_or_equal',
+                $this->normalise_mark_filter_value($markfiltergte)
+            );
+        }
+
+        $markfilterltenabled = optional_param('markfilter_less_than_enabled', null, PARAM_BOOL);
+        if ($markfilterltenabled !== null) {
+            set_user_preference('assign_markfilter_less_than_enabled', $markfilterltenabled);
+        }
+        $markfilterlt = optional_param('markfilter_less_than', null, PARAM_RAW);
+        if ($markfilterlt !== null) {
+            set_user_preference(
+                'assign_markfilter_less_than',
+                $this->normalise_mark_filter_value($markfilterlt)
+            );
+        }
+
         $controller = $gradingmanager->get_active_controller();
         $showquickgrading = empty($controller) && $this->can_grade();
         $quickgrading = get_user_preferences('assign_quickgrading', false);
@@ -11077,6 +11102,77 @@ class assign {
      */
     public function set_most_recent_team_submission($submission) {
         $this->mostrecentteamsubmission = $submission;
+    }
+
+    /**
+     * Parse a mark filter value into a float, validating it against the assignment grade type.
+     *
+     * @param mixed $value Raw value (a number in the non-localised format, or a localised string from user input).
+     * @param bool $localised Whether the value may use the current language's decimal separator.
+     * @return float|null Null if the value is not a valid mark for this assignment.
+     */
+    protected function parse_mark_filter_value($value, bool $localised = false): ?float {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return null;
+        }
+        $float = $localised ? unformat_float($value, true) : (is_numeric($value) ? (float)$value : false);
+        if ($float === false || $float === null) {
+            return null;
+        }
+        $grade = $this->get_instance()->grade;
+        if ($grade == GRADE_TYPE_NONE) {
+            return null;
+        }
+        if ($grade > 0 && ($float < 0 || $float > $grade)) {
+            return null;
+        }
+        if ($grade < 0 && (floor($float) !== $float || !array_key_exists((int)$float, make_grades_menu($grade)))) {
+            return null;
+        }
+        return $float;
+    }
+
+    /**
+     * Normalise a submitted mark filter value for storage in a user preference.
+     *
+     * @param string $value Submitted value.
+     * @return string The value in the non-localised format, or an empty string if invalid.
+     */
+    public function normalise_mark_filter_value(string $value): string {
+        $float = $this->parse_mark_filter_value($value, true);
+        return $float === null ? '' : (string)$float;
+    }
+
+    /**
+     * Return the mark filters currently stored in the user preferences.
+     *
+     * @return array Empty if the assignment is not graded, otherwise keyed by 'greaterthanorequal' and 'lessthan', each with:
+     *               'enabled' (bool, enabled and valid), 'value' (float|null, parsed valid value) and 'raw' (string, stored value).
+     */
+    public function get_mark_filters(): array {
+        if ($this->get_instance()->grade == GRADE_TYPE_NONE) {
+            return [];
+        }
+        $filters = [];
+        $names = ['greaterthanorequal' => 'greater_than_or_equal', 'lessthan' => 'less_than'];
+        foreach ($names as $key => $name) {
+            $raw = (string)get_user_preferences("assign_markfilter_{$name}", '');
+            $value = $this->parse_mark_filter_value($raw);
+            $filters[$key] = [
+                'enabled' => (bool)get_user_preferences("assign_markfilter_{$name}_enabled", 0) && $value !== null,
+                'value' => $value,
+                'raw' => $raw,
+            ];
+        }
+        // A 'less than' mark that is not above the 'greater than or equal' mark can never match, so ignore it.
+        if (
+            $filters['greaterthanorequal']['enabled'] && $filters['lessthan']['enabled'] &&
+            $filters['lessthan']['value'] <= $filters['greaterthanorequal']['value']
+        ) {
+            $filters['lessthan']['enabled'] = false;
+        }
+        return $filters;
     }
 
     /**
