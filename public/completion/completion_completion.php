@@ -69,6 +69,9 @@ class completion_completion extends data_object {
     /** @var float user's course grade. */
     public $gradefinal;
 
+    /** @var bool Flag indicating whether the completion record was already completed in the database. */
+    protected bool $wasalreadycompleted = false;
+
     /**
      * Finds and returns a data_object instance based on params.
      *
@@ -168,47 +171,62 @@ class completion_completion extends data_object {
             $timecomplete = time();
         }
 
+        $previouscompletiontime = $this->timecompleted;
+
         // Set time complete.
         $this->timecompleted = $timecomplete;
-        // Save record.
-        if ($result = $this->_save()) {
+        try {
+            $result = $this->_save();
+        } catch (\Throwable $e) {
+            $this->timecompleted = $previouscompletiontime;
+            throw $e;
+        }
+        if ($result) {
+            if ($this->wasalreadycompleted) {
+                return null;
+            }
+
             $data = $this->get_record_data();
             \core\event\course_completed::create_from_completion($data)->trigger();
-        }
 
-        // Notify user.
-        $course = get_course($data->course);
-        $messagesubject = get_string('coursecompleted', 'completion');
-        $options = new stdClass();
-        $options->context = context_course::instance($course->id);
-        $a = [
-            'coursename' => format_string(get_course_display_name_for_list($course), true, $options),
-            'courselink' => (string) new moodle_url('/course/view.php', array('id' => $course->id)),
-        ];
-        $messagebody = get_string('coursecompletedmessage', 'completion', $a);
-        $messageplaintext = html_to_text($messagebody);
-
-        $eventdata = new \core\message\message();
-        $eventdata->courseid          = $course->id;
-        $eventdata->component         = 'moodle';
-        $eventdata->name              = 'coursecompleted';
-        $eventdata->userfrom          = core_user::get_noreply_user();
-        $eventdata->userto            = $data->userid;
-        $eventdata->notification      = 1;
-        $eventdata->subject           = $messagesubject;
-        $eventdata->fullmessage       = $messageplaintext;
-        $eventdata->fullmessageformat = FORMAT_HTML;
-        $eventdata->fullmessagehtml   = $messagebody;
-        $eventdata->smallmessage      = $messageplaintext;
-
-        if ($courseimage = \core_course\external\course_summary_exporter::get_course_image($course)) {
-            $eventdata->customdata  = [
-                'notificationpictureurl' => $courseimage,
+            // Notify user.
+            $course = get_course($data->course);
+            $messagesubject = get_string('coursecompleted', 'completion');
+            $options = new stdClass();
+            $options->context = context_course::instance($course->id);
+            $a = [
+                'coursename' => format_string(get_course_display_name_for_list($course), true, $options),
+                'courselink' => (string) new moodle_url('/course/view.php', array('id' => $course->id)),
             ];
-        }
-        message_send($eventdata);
+            $messagebody = get_string('coursecompletedmessage', 'completion', $a);
+            $messageplaintext = html_to_text($messagebody);
 
-        return $result;
+            $eventdata = new \core\message\message();
+            $eventdata->courseid          = $course->id;
+            $eventdata->component         = 'moodle';
+            $eventdata->name              = 'coursecompleted';
+            $eventdata->userfrom          = core_user::get_noreply_user();
+            $eventdata->userto            = $data->userid;
+            $eventdata->notification      = 1;
+            $eventdata->subject           = $messagesubject;
+            $eventdata->fullmessage       = $messageplaintext;
+            $eventdata->fullmessageformat = FORMAT_HTML;
+            $eventdata->fullmessagehtml   = $messagebody;
+            $eventdata->smallmessage      = $messageplaintext;
+
+            if ($courseimage = \core_course\external\course_summary_exporter::get_course_image($course)) {
+                $eventdata->customdata  = [
+                    'notificationpictureurl' => $courseimage,
+                ];
+            }
+            message_send($eventdata);
+
+            return $result;
+        } else {
+            $this->timecompleted = $previouscompletiontime;
+        }
+
+        return null;
     }
 
     /**
@@ -219,13 +237,29 @@ class completion_completion extends data_object {
      * @return  int|null id of completion record on successful update.
      */
     private function _save() {
+        global $DB;
+
         if ($this->timeenrolled === null) {
             $this->timeenrolled = 0;
         }
 
+        $this->wasalreadycompleted = false;
+
         // Save record
         if (isset($this->id)) {
-            $success = $this->update();
+            if ($this->timecompleted) {
+                $success = $this->with_lock(function () use ($DB) {
+                    $timecompleted = $DB->get_field($this->table, 'timecompleted', ['id' => $this->id]);
+                    if (!empty($timecompleted)) {
+                        $this->wasalreadycompleted = true;
+                        $this->timecompleted = $timecompleted;
+                        return true;
+                    }
+                    return $this->update();
+                });
+            } else {
+                $success = $this->update();
+            }
         } else {
             // Make sure reaggregate field is not null
             if (!$this->reaggregate) {
@@ -237,7 +271,26 @@ class completion_completion extends data_object {
                 $this->timestarted = 0;
             }
 
-            $success = $this->insert();
+            $success = $this->with_lock(function () use ($DB) {
+                $params = ['userid' => $this->userid, 'course' => $this->course];
+                // Re-check for an existing record while holding the lock.
+                $existing = $DB->get_record($this->table, $params);
+                if ($existing) {
+                    return $this->update_from_existing($existing);
+                }
+                try {
+                    return $this->insert();
+                } catch (dml_write_exception $e) {
+                    if (!$this->is_unique_constraint_violation($e)) {
+                        throw $e;
+                    }
+                    $existing = $DB->get_record($this->table, $params);
+                    if (!$existing) {
+                        throw $e;
+                    }
+                    return $this->update_from_existing($existing);
+                }
+            });
         }
 
         if ($success) {
@@ -250,5 +303,71 @@ class completion_completion extends data_object {
         }
 
         return null;
+    }
+
+    /**
+     * Runs a callback while holding the per course/user completion lock.
+     *
+     * @param callable $callback
+     * @return mixed Result of the callback.
+     * @throws \moodle_exception If the lock cannot be acquired.
+     */
+    private function with_lock(callable $callback) {
+        $lockfactory = \core\lock\lock_config::get_lock_factory('core_completion');
+        $lock = $lockfactory->get_lock("course_completion_{$this->course}_{$this->userid}", 10);
+        if (!$lock) {
+            throw new \moodle_exception('locktimeout');
+        }
+        try {
+            return $callback();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Checks whether a write exception was caused by a unique constraint violation.
+     *
+     * @param dml_write_exception $exception The database write exception.
+     * @return bool Whether the exception represents a duplicate key.
+     */
+    private function is_unique_constraint_violation(dml_write_exception $exception): bool {
+        $error = strtolower((string) $exception->error);
+
+        return str_contains($error, 'duplicate key value violates unique constraint')
+            || str_contains($error, 'sqlstate 23505')
+            || (str_contains($error, 'duplicate entry') && str_contains($error, ' for key '))
+            || str_contains($error, 'cannot insert duplicate key')
+            || preg_match('/error code: (2601|2627)/', $error) === 1;
+    }
+
+    /**
+     * Updates this completion object from an existing database record.
+     *
+     * @param \stdClass $existing Existing course_completions record from DB.
+     * @return bool True on success.
+     */
+    private function update_from_existing(\stdClass $existing): bool {
+        $this->id = $existing->id;
+        // The first recorded start wins; an explicitly supplied enrolment time is preserved.
+        if (!empty($existing->timestarted)) {
+            $this->timestarted = $existing->timestarted;
+        }
+        if (empty($this->timeenrolled) && !empty($existing->timeenrolled)) {
+            $this->timeenrolled = $existing->timeenrolled;
+        }
+        if (!empty($existing->timecompleted)) {
+            $this->wasalreadycompleted = true;
+            $this->timecompleted = $existing->timecompleted;
+        }
+        if (empty($this->reaggregate) && !empty($existing->reaggregate)) {
+            $this->reaggregate = $existing->reaggregate;
+        } else if (!empty($existing->reaggregate) && !empty($this->reaggregate)) {
+            $this->reaggregate = max((int)$this->reaggregate, (int)$existing->reaggregate);
+        }
+        if ($this->wasalreadycompleted) {
+            return true;
+        }
+        return $this->update();
     }
 }

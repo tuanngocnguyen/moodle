@@ -35,6 +35,8 @@ require_once($CFG->libdir.'/completionlib.php');
 #[\PHPUnit\Framework\Attributes\CoversClass(\completion_can_view_data::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\aggregate_completions::class)]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\completion_completion::class, '_save')]
+#[\PHPUnit\Framework\Attributes\CoversMethod(\completion_completion::class, 'is_unique_constraint_violation')]
+#[\PHPUnit\Framework\Attributes\CoversMethod(\completion_completion::class, 'update_from_existing')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\completion_completion::class, 'mark_enrolled')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\completion_completion::class, 'mark_inprogress')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\completion_completion::class, 'mark_complete')]
@@ -1895,6 +1897,534 @@ final class completionlib_test extends advanced_testcase {
     }
 
     /**
+     * Test for completion_completion::_save() concurrent execution handling.
+     *
+     * Tests that when concurrent requests occur, the lock is used, the existing record
+     * is found upon re-check, and updated without throwing a duplicate key exception.
+     */
+    public function test_save_concurrency(): void {
+        global $DB;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+        $teacher = $this->getDataGenerator()->create_user();
+        $studentrole = $DB->get_record('role', ['shortname' => 'student']);
+        $teacherrole = $DB->get_record('role', ['shortname' => 'editingteacher']);
+
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, $teacherrole->id);
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, $studentrole->id);
+
+        $this->setUser($teacher);
+
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+
+        // Simulate 2 concurrent requests starting before a completion record exists in DB.
+        $ccompletion1 = new completion_completion($cc);
+        $ccompletion2 = new completion_completion($cc);
+
+        $this->assertNull($ccompletion1->id);
+        $this->assertNull($ccompletion2->id);
+
+        // First request saves/marks inprogress.
+        $time1 = 1000;
+        $id1 = $ccompletion1->mark_inprogress($time1);
+        $this->assertNotNull($id1);
+
+        // Second request also attempts to save/mark inprogress (with a different timestamp).
+        // Since $ccompletion2 had no id when instantiated, it enters _save() insert branch,
+        // acquires the lock, re-checks the DB, finds the record created by $ccompletion1,
+        // and updates it instead of attempting an insert.
+        $time2 = 2000;
+        $id2 = $ccompletion2->mark_inprogress($time2);
+        $this->assertEquals($id1, $id2);
+
+        // Verify only 1 record exists in the database.
+        $completions = $DB->get_records('course_completions', ['course' => $course->id, 'userid' => $student->id]);
+        $this->assertCount(1, $completions);
+        $record = reset($completions);
+        $this->assertEquals($id1, $record->id);
+        // timestarted should remain the first request's time (mark_inprogress does not change existing timestarted).
+        $this->assertEquals($time1, $record->timestarted);
+
+        // Verify the lock was released in finally block and can be acquired immediately.
+        $lockfactory = \core\lock\lock_config::get_lock_factory('core_completion');
+        $lock = $lockfactory->get_lock("course_completion_{$course->id}_{$student->id}", 0);
+        $this->assertNotFalse($lock);
+        $lock->release();
+    }
+
+    /**
+     * Test that mark_complete() releases its lock while a transaction is active.
+     */
+    public function test_mark_complete_concurrency_in_transaction(): void {
+        global $DB, $CFG;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $course->id);
+
+        $cc = ['course' => $course->id, 'userid' => $student->id];
+        $stale = new completion_completion($cc);
+        $first = new completion_completion($cc);
+
+        $CFG->lock_factory = test_tracking_lock_factory::class;
+        test_tracking_lock_factory::$heldlocks = [];
+        $resource = "course_completion_{$course->id}_{$student->id}";
+
+        $transaction = $DB->start_delegated_transaction();
+        $sink = $this->redirectEvents();
+        $messagesink = $this->redirectMessages();
+        $this->assertNotNull($first->mark_complete(1000));
+        $this->assertArrayNotHasKey($resource, test_tracking_lock_factory::$heldlocks);
+        $this->assertNull($stale->mark_complete(2000));
+        $this->assertArrayNotHasKey($resource, test_tracking_lock_factory::$heldlocks);
+        $transaction->allow_commit();
+
+        $this->assertArrayNotHasKey($resource, test_tracking_lock_factory::$heldlocks);
+        $completedevents = array_filter($sink->get_events(), function ($event) {
+            return $event instanceof \core\event\course_completed;
+        });
+        $this->assertCount(1, $completedevents);
+        $this->assertCount(1, $messagesink->get_messages());
+        $sink->close();
+        $messagesink->close();
+        $this->assertEquals(1000, $DB->get_field('course_completions', 'timecompleted', $cc));
+        $this->assertCount(1, $DB->get_records('course_completions', $cc));
+
+        $lockfactory = \core\lock\lock_config::get_lock_factory('core_completion');
+        $lock = $lockfactory->get_lock($resource, 0);
+        $this->assertNotFalse($lock);
+        $lock->release();
+    }
+
+    /**
+     * Test for completion_completion::_save() exception handling when an insert race still occurs.
+     */
+    public function test_save_insert_race_exception_handling(): void {
+        global $DB;
+        $this->resetAfterTest(true);
+        $this->preventResetByRollback();
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+        $teacher = $this->getDataGenerator()->create_user();
+        $studentrole = $DB->get_record('role', ['shortname' => 'student']);
+        $teacherrole = $DB->get_record('role', ['shortname' => 'editingteacher']);
+
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, $teacherrole->id);
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, $studentrole->id);
+
+        $this->setUser($teacher);
+
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+
+        // Subclass completion_completion to simulate an insert race condition where another process
+        // inserts the record immediately after our re-check and right before our insert() executes.
+        $testccompletion = new class($cc) extends completion_completion {
+            public bool $raceinserted = false;
+
+            public function insert() {
+                global $DB;
+                if (!$this->raceinserted) {
+                    $this->raceinserted = true;
+                    // Another request inserts the record in the background.
+                    $existing = new \stdClass();
+                    $existing->course = $this->course;
+                    $existing->userid = $this->userid;
+                    $existing->timeenrolled = 100;
+                    $existing->timestarted = 200;
+                    $existing->timecompleted = null;
+                    $existing->reaggregate = 0;
+                    $DB->insert_record('course_completions', $existing);
+                }
+                // Now calling parent::insert() will throw a dml_write_exception due to unique constraint.
+                return parent::insert();
+            }
+        };
+
+        // Saving should catch the dml_write_exception, re-fetch the existing record, and update instead of crashing.
+        $method = new ReflectionMethod($testccompletion, '_save');
+        $completionid = $method->invoke($testccompletion);
+
+        $this->assertNotNull($completionid);
+        $this->assertTrue($testccompletion->raceinserted);
+
+        // Verify only 1 record exists in DB with the correct ID.
+        $completions = $DB->get_records('course_completions', ['course' => $course->id, 'userid' => $student->id]);
+        $this->assertCount(1, $completions);
+        $record = reset($completions);
+        $this->assertEquals($completionid, $record->id);
+        $this->assertEquals(200, $record->timestarted);
+        $this->assertEquals(100, $record->timeenrolled);
+
+        // Verify the lock was released in finally block.
+        $lockfactory = \core\lock\lock_config::get_lock_factory('core_completion');
+        $lock = $lockfactory->get_lock("course_completion_{$course->id}_{$student->id}", 0);
+        $this->assertNotFalse($lock);
+        $lock->release();
+    }
+
+    /**
+     * Test for completion_completion::mark_complete() concurrent execution handling.
+     *
+     * Tests that when concurrent requests attempt to mark_complete(), only the first
+     * request completes the course, triggers the course_completed event, and sends
+     * a notification. The second request detects the existing completion, returns null,
+     * and does not trigger duplicate events or notifications.
+     */
+    public function test_mark_complete_concurrency(): void {
+        global $DB;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+        $teacher = $this->getDataGenerator()->create_user();
+        $studentrole = $DB->get_record('role', ['shortname' => 'student']);
+        $teacherrole = $DB->get_record('role', ['shortname' => 'editingteacher']);
+
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, $teacherrole->id);
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, $studentrole->id);
+
+        $this->setUser($teacher);
+
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+
+        // Simulate 2 concurrent requests starting before a completion record exists in DB.
+        $ccompletion1 = new completion_completion($cc);
+        $ccompletion2 = new completion_completion($cc);
+
+        $this->assertNull($ccompletion1->id);
+        $this->assertNull($ccompletion2->id);
+
+        $sink = $this->redirectEvents();
+        $messagesink = $this->redirectMessages();
+
+        // First request marks complete.
+        $time1 = 1000;
+        $id1 = $ccompletion1->mark_complete($time1);
+        $this->assertNotNull($id1);
+
+        // Second concurrent request also attempts to mark complete.
+        $time2 = 2000;
+        $id2 = $ccompletion2->mark_complete($time2);
+        // Should return null because the course was already completed by request 1.
+        $this->assertNull($id2);
+
+        // Verify only 1 course_completed event was triggered.
+        $events = $sink->get_events();
+        $completedevents = array_filter($events, function ($e) {
+            return $e instanceof \core\event\course_completed;
+        });
+        $this->assertCount(1, $completedevents);
+        $sink->close();
+
+        // Verify only 1 completion message was sent.
+        $messages = $messagesink->get_messages();
+        $this->assertCount(1, $messages);
+        $messagesink->close();
+
+        // Verify only 1 record exists in DB with the original completion time.
+        $completions = $DB->get_records('course_completions', ['course' => $course->id, 'userid' => $student->id]);
+        $this->assertCount(1, $completions);
+        $record = reset($completions);
+        $this->assertEquals($id1, $record->id);
+        $this->assertEquals($time1, $record->timecompleted);
+
+        // Verify the lock was released in finally block.
+        $lockfactory = \core\lock\lock_config::get_lock_factory('core_completion');
+        $lock = $lockfactory->get_lock("course_completion_{$course->id}_{$student->id}", 0);
+        $this->assertNotFalse($lock);
+        $lock->release();
+    }
+
+    /**
+     * Test for completion_completion::mark_complete() concurrent execution handling when record already exists in DB.
+     *
+     * Tests that when concurrent requests attempt to mark_complete() on an existing in-progress record
+     * (where id is already known to both instances), only the first request completes the course, triggers
+     * the course_completed event, and sends a notification. The second request detects the existing completion,
+     * returns null, and does not trigger duplicate events or notifications.
+     */
+    public function test_mark_complete_concurrency_existing_record(): void {
+        global $DB;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+        $teacher = $this->getDataGenerator()->create_user();
+        $studentrole = $DB->get_record('role', ['shortname' => 'student']);
+        $teacherrole = $DB->get_record('role', ['shortname' => 'editingteacher']);
+
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, $teacherrole->id);
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, $studentrole->id);
+
+        $this->setUser($teacher);
+
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+
+        // Create an initial in-progress completion record.
+        $initial = new completion_completion($cc);
+        $initialid = $initial->mark_inprogress(500);
+        $this->assertNotNull($initialid);
+
+        // Simulate 2 concurrent requests fetching the existing in-progress record.
+        $ccompletion1 = new completion_completion($cc);
+        $ccompletion2 = new completion_completion($cc);
+
+        $this->assertEquals($initialid, $ccompletion1->id);
+        $this->assertEquals($initialid, $ccompletion2->id);
+        $this->assertNull($ccompletion1->timecompleted);
+        $this->assertNull($ccompletion2->timecompleted);
+
+        $sink = $this->redirectEvents();
+        $messagesink = $this->redirectMessages();
+
+        // First request marks complete.
+        $time1 = 1000;
+        $id1 = $ccompletion1->mark_complete($time1);
+        $this->assertEquals($initialid, $id1);
+
+        // Second concurrent request also attempts to mark complete.
+        $time2 = 2000;
+        $id2 = $ccompletion2->mark_complete($time2);
+        // Should return null because the course was already completed by request 1.
+        $this->assertNull($id2);
+
+        // Verify only 1 course_completed event was triggered.
+        $events = $sink->get_events();
+        $completedevents = array_filter($events, function ($e) {
+            return $e instanceof \core\event\course_completed;
+        });
+        $this->assertCount(1, $completedevents);
+        $sink->close();
+
+        // Verify only 1 completion message was sent.
+        $messages = $messagesink->get_messages();
+        $this->assertCount(1, $messages);
+        $messagesink->close();
+
+        // Verify only 1 record exists in DB with the original completion time.
+        $completions = $DB->get_records('course_completions', ['course' => $course->id, 'userid' => $student->id]);
+        $this->assertCount(1, $completions);
+        $record = reset($completions);
+        $this->assertEquals($initialid, $record->id);
+        $this->assertEquals($time1, $record->timecompleted);
+
+        // Verify the lock was released in finally block.
+        $lockfactory = \core\lock\lock_config::get_lock_factory('core_completion');
+        $lock = $lockfactory->get_lock("course_completion_{$course->id}_{$student->id}", 0);
+        $this->assertNotFalse($lock);
+        $lock->release();
+    }
+
+    /**
+     * Test for completion_completion::_save() lock timeout handling when inserting.
+     */
+    public function test_save_lock_timeout(): void {
+        global $CFG;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+
+        // Configure a lock factory that fails to acquire locks.
+        $CFG->lock_factory = \test_failing_lock_factory::class;
+
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessageMatches('/lock/i');
+
+        $ccompletion = new completion_completion($cc);
+        $ccompletion->mark_inprogress();
+    }
+
+    /**
+     * Test for completion_completion::_save() lock timeout handling when marking complete on an existing record.
+     */
+    public function test_mark_complete_existing_record_lock_timeout(): void {
+        global $CFG;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+
+        $ccompletion = new completion_completion($cc);
+        $id = $ccompletion->mark_inprogress();
+        $this->assertNotNull($id);
+
+        // Configure a lock factory that fails to acquire locks.
+        $CFG->lock_factory = \test_failing_lock_factory::class;
+
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessageMatches('/lock/i');
+
+        $ccompletion->mark_complete();
+    }
+
+    /**
+     * A failed completion save must not prevent a later retry on the same object.
+     */
+    public function test_mark_complete_lock_timeout_can_be_retried(): void {
+        global $CFG, $DB;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+        $ccompletion = new completion_completion($cc);
+        $this->assertNotNull($ccompletion->mark_inprogress());
+
+        $originallockfactory = $CFG->lock_factory ?? 'auto';
+        $CFG->lock_factory = \test_failing_lock_factory::class;
+        try {
+            $ccompletion->mark_complete(1234);
+            $this->fail('Expected completion save to fail when the lock cannot be acquired.');
+        } catch (\moodle_exception $e) {
+            $this->assertStringContainsString('lock', strtolower($e->getMessage()));
+        }
+        $this->assertEmpty($ccompletion->timecompleted);
+
+        $CFG->lock_factory = $originallockfactory;
+        $this->assertNotNull($ccompletion->mark_complete(1234));
+        $this->assertEquals(1234, $DB->get_field('course_completions', 'timecompleted', $cc));
+    }
+
+    /**
+     * Test for completion_completion::_save() exception handling when an insert race occurs inside a transaction.
+     */
+    public function test_save_insert_race_in_transaction_recovers(): void {
+        global $CFG, $DB;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+
+        $cc = [
+            'course' => $course->id,
+            'userid' => $student->id,
+        ];
+
+        $testccompletion = new class($cc) extends completion_completion {
+            public function insert() {
+                global $DB;
+
+                $existing = (object) [
+                    'course' => $this->course,
+                    'userid' => $this->userid,
+                    'timeenrolled' => 100,
+                    'timestarted' => 200,
+                    'timecompleted' => null,
+                    'reaggregate' => 0,
+                ];
+                $DB->insert_record('course_completions', $existing);
+
+                return parent::insert();
+            }
+        };
+
+        $CFG->lock_factory = test_tracking_lock_factory::class;
+        test_tracking_lock_factory::$heldlocks = [];
+        $resource = "course_completion_{$course->id}_{$student->id}";
+        $transaction = $DB->start_delegated_transaction();
+        $method = new \ReflectionMethod($testccompletion, '_save');
+        $completionid = $method->invoke($testccompletion);
+        $transaction->allow_commit();
+
+        $this->assertNotNull($completionid);
+        $this->assertArrayNotHasKey($resource, test_tracking_lock_factory::$heldlocks);
+        $record = $DB->get_record('course_completions', $cc, '*', MUST_EXIST);
+        $this->assertEquals($completionid, $record->id);
+        $this->assertEquals(100, $record->timeenrolled);
+        $this->assertEquals(200, $record->timestarted);
+    }
+
+    /**
+     * A non-unique insert failure must be propagated and release the lock.
+     */
+    public function test_save_non_unique_insert_failure_is_propagated(): void {
+        global $CFG;
+        $this->resetAfterTest(true);
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $student = $this->getDataGenerator()->create_user();
+        $cc = ['course' => $course->id, 'userid' => $student->id];
+
+        $testccompletion = new class($cc) extends completion_completion {
+            public function insert() {
+                throw new \dml_write_exception('simulated non-unique write error');
+            }
+        };
+
+        $CFG->lock_factory = test_tracking_lock_factory::class;
+        test_tracking_lock_factory::$heldlocks = [];
+        $resource = "course_completion_{$course->id}_{$student->id}";
+        $method = new \ReflectionMethod($testccompletion, '_save');
+
+        try {
+            $method->invoke($testccompletion);
+            $this->fail('Expected the non-unique insert failure to be propagated.');
+        } catch (\dml_write_exception $exception) {
+            $this->assertSame('simulated non-unique write error', $exception->error);
+        }
+        $this->assertArrayNotHasKey($resource, test_tracking_lock_factory::$heldlocks);
+    }
+
+    /**
+     * Supported database error formats are recognised as unique violations.
+     *
+     * @param string $error Database error text.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('unique_constraint_errors_provider')]
+    public function test_unique_constraint_errors_are_recognised(string $error): void {
+        $completion = new completion_completion();
+        $method = new \ReflectionMethod($completion, 'is_unique_constraint_violation');
+
+        $this->assertTrue($method->invoke($completion, new \dml_write_exception($error)));
+    }
+
+    /**
+     * Supported database unique-constraint error formats.
+     *
+     * @return array
+     */
+    public static function unique_constraint_errors_provider(): array {
+        return [
+            'PostgreSQL' => ['ERROR: duplicate key value violates unique constraint "mdl_course_completions_uniq"'],
+            'PostgreSQL SQLSTATE' => ['SQLSTATE 23505'],
+            'MySQL/MariaDB' => ["Duplicate entry '1-2' for key 'mdl_course_completions_uniq'"],
+            'SQL Server message' => ["Cannot insert duplicate key row in object 'dbo.course_completions'"],
+            'SQL Server code 2601' => ['SQLState: 23000<br>Error Code: 2601'],
+            'SQL Server code 2627' => ['SQLState: 23000<br>Error Code: 2627'],
+        ];
+    }
+
+    /**
      * Test for completion_completion::mark_enrolled().
      */
     public function test_mark_enrolled(): void {
@@ -2358,5 +2888,129 @@ class core_completionlib_fake_recordset implements Iterator {
 
     public function was_closed() {
         return $this->closed;
+    }
+}
+
+/**
+ * A dummy lock factory that always returns false to simulate lock timeouts.
+ */
+class test_failing_lock_factory implements \core\lock\lock_factory {
+
+    /**
+     * Constructor.
+     *
+     * @param string $type The lock type.
+     */
+    public function __construct($type) {
+    }
+
+    /**
+     * Check if lock factory supports timeout.
+     *
+     * @return bool
+     */
+    public function supports_timeout() {
+        return true;
+    }
+
+    /**
+     * Check if lock factory supports auto release.
+     *
+     * @return bool
+     */
+    public function supports_auto_release() {
+        return true;
+    }
+
+    /**
+     * Check if lock factory is available.
+     *
+     * @return bool
+     */
+    public function is_available() {
+        return true;
+    }
+
+    /**
+     * Attempt to acquire lock.
+     *
+     * @param string $resource
+     * @param int $timeout
+     * @param int $maxlifetime
+     * @return \core\lock\lock|bool
+     */
+    public function get_lock($resource, $timeout, $maxlifetime = 86400) {
+        return false;
+    }
+
+    /**
+     * Release a lock.
+     *
+     * @param \core\lock\lock $lock
+     * @return bool
+     */
+    public function release_lock(\core\lock\lock $lock) {
+        return true;
+    }
+}
+
+/**
+ * Lock factory that records when a completion lock is held.
+ */
+class test_tracking_lock_factory implements \core\lock\lock_factory {
+
+    /** @var array Locks currently held by this factory. */
+    public static $heldlocks = [];
+
+    /**
+     * Constructor.
+     *
+     * @param string $type The lock type.
+     */
+    public function __construct($type) {
+    }
+
+    /**
+     * @return bool
+     */
+    public function supports_timeout() {
+        return true;
+    }
+
+    /**
+     * @return bool
+     */
+    public function supports_auto_release() {
+        return true;
+    }
+
+    /**
+     * @return bool
+     */
+    public function is_available() {
+        return true;
+    }
+
+    /**
+     * @param string $resource
+     * @param int $timeout
+     * @param int $maxlifetime
+     * @return \core\lock\lock|bool
+     */
+    public function get_lock($resource, $timeout, $maxlifetime = 86400) {
+        if (isset(self::$heldlocks[$resource])) {
+            return false;
+        }
+        self::$heldlocks[$resource] = true;
+        return new \core\lock\lock($resource, $this);
+    }
+
+    /**
+     * @param \core\lock\lock $lock
+     * @return bool
+     */
+    public function release_lock(\core\lock\lock $lock) {
+        unset(self::$heldlocks[$lock->get_key()]);
+        return true;
     }
 }
