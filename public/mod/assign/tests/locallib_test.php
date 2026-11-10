@@ -55,6 +55,7 @@ require_once($CFG->dirroot . '/mod/assign/tests/generator.php');
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'gradebook_item_update')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'normalise_mark_filter_value')]
 #[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'get_mark_filters')]
+#[\PHPUnit\Framework\Attributes\CoversMethod(\assign::class, 'get_grades_menu')]
 #[\PHPUnit\Framework\Attributes\CoversClass(\assign_grading_table::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\mod_assign\output\grading_actionmenu::class)]
 final class locallib_test extends \advanced_testcase {
@@ -5501,8 +5502,8 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         // Without any mark filter, all 4 students should be listed.
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
         set_user_preference('assign_markfilter_greater_than_or_equal', '');
-        set_user_preference('assign_markfilter_less_than_enabled', 0);
-        set_user_preference('assign_markfilter_less_than', '');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_less_than_or_equal', '');
 
         $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
         $output = $assign->get_renderer()->render($gradingtable);
@@ -5512,6 +5513,7 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->assertStringContainsString('David Four', $output);
 
         // Filter Greater than or equal to 75.5.
+        set_user_preference('assign_markfilter_grade', 100);
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
         set_user_preference('assign_markfilter_greater_than_or_equal', '75.5');
 
@@ -5522,11 +5524,11 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->assertStringContainsString('Charlie Three', $output);
         $this->assertStringNotContainsString('David Four', $output);
 
-        // Filter Less than 75.5 (should return Alice 40, but NOT David Four who is ungraded).
+        // Filter Less than or equal to 75 (should return Alice 40, but NOT David Four who is ungraded).
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
         set_user_preference('assign_markfilter_greater_than_or_equal', '');
-        set_user_preference('assign_markfilter_less_than_enabled', 1);
-        set_user_preference('assign_markfilter_less_than', '75.5');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_less_than_or_equal', '75');
 
         $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
         $output = $assign->get_renderer()->render($gradingtable);
@@ -5535,24 +5537,60 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->assertStringNotContainsString('Charlie Three', $output);
         $this->assertStringNotContainsString('David Four', $output);
 
-        // Combined range: >= 50 and < 90 (only Bob 75.5).
+        // Combined range: >= 50 and <= 90 (Bob 75.5 and Charlie 90, as the upper bound is inclusive).
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
         set_user_preference('assign_markfilter_greater_than_or_equal', '50');
-        set_user_preference('assign_markfilter_less_than_enabled', 1);
-        set_user_preference('assign_markfilter_less_than', '90');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_less_than_or_equal', '90');
 
         $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
         $output = $assign->get_renderer()->render($gradingtable);
         $this->assertStringNotContainsString('Alice One', $output);
         $this->assertStringContainsString('Bob Two', $output);
-        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
         $this->assertStringNotContainsString('David Four', $output);
 
         // Checkbox unticked (disabled) ignores the entered value.
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
         set_user_preference('assign_markfilter_greater_than_or_equal', '50');
-        set_user_preference('assign_markfilter_less_than_enabled', 0);
-        set_user_preference('assign_markfilter_less_than', '90');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_less_than_or_equal', '90');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringContainsString('David Four', $output);
+
+        // Boundaries are inclusive: >= 40 and <= 40 only returns Alice.
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '40');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_less_than_or_equal', '40');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringNotContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // An inverted range (<= 50 and >= 90) ignores the 'less than or equal' filter.
+        set_user_preference('assign_markfilter_greater_than_or_equal', '90');
+        set_user_preference('assign_markfilter_less_than_or_equal', '50');
+
+        $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
+        $output = $assign->get_renderer()->render($gradingtable);
+        $this->assertStringNotContainsString('Alice One', $output);
+        $this->assertStringNotContainsString('Bob Two', $output);
+        $this->assertStringContainsString('Charlie Three', $output);
+        $this->assertStringNotContainsString('David Four', $output);
+
+        // Filters saved for a different grade configuration are ignored.
+        set_user_preference('assign_markfilter_greater_than_or_equal', '90');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_grade', 10);
 
         $gradingtable = new \assign_grading_table($assign, 10, '', 0, false);
         $output = $assign->get_renderer()->render($gradingtable);
@@ -5584,10 +5622,11 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->submit_for_grading($student4, $scaleassign);
 
         // Scale filter: >= 2 (Pass). Bob (Pass) and Charlie (Distinction) match.
+        set_user_preference('assign_markfilter_grade', -$scalerecord->id);
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
         set_user_preference('assign_markfilter_greater_than_or_equal', '2');
-        set_user_preference('assign_markfilter_less_than_enabled', 0);
-        set_user_preference('assign_markfilter_less_than', '');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_less_than_or_equal', '');
 
         $gradingtable = new \assign_grading_table($scaleassign, 10, '', 0, false);
         $output = $scaleassign->get_renderer()->render($gradingtable);
@@ -5596,11 +5635,11 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->assertStringContainsString('Charlie Three', $output);
         $this->assertStringNotContainsString('David Four', $output);
 
-        // Scale filter: < 2 (Pass). Only Alice (Fail, 1) matches; David (ungraded) does NOT match.
+        // Scale filter: <= 1 (Fail). Only Alice (Fail, 1) matches; David (ungraded) does NOT match.
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 0);
         set_user_preference('assign_markfilter_greater_than_or_equal', '');
-        set_user_preference('assign_markfilter_less_than_enabled', 1);
-        set_user_preference('assign_markfilter_less_than', '2');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_less_than_or_equal', '1');
 
         $gradingtable = new \assign_grading_table($scaleassign, 10, '', 0, false);
         $output = $scaleassign->get_renderer()->render($gradingtable);
@@ -5632,10 +5671,11 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         ]));
 
         // Set preferences.
+        set_user_preference('assign_markfilter_grade', 100);
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
         set_user_preference('assign_markfilter_greater_than_or_equal', '50.5');
-        set_user_preference('assign_markfilter_less_than_enabled', 1);
-        set_user_preference('assign_markfilter_less_than', '90');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_less_than_or_equal', '90');
 
         $actionmenu = new \mod_assign\output\grading_actionmenu(
             cmid: $assign->get_course_module()->id,
@@ -5645,15 +5685,17 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $data = $actionmenu->export_for_template($renderer);
 
         $this->assertArrayHasKey('extrafiltersdropdown', $data);
+        $this->assertStringContainsString('max="100"', $data['extrafiltersdropdown']['dialogcontent']);
+        $this->assertStringContainsString('data-grade="100"', $data['extrafiltersdropdown']['dialogcontent']);
         $this->assertArrayHasKey('pagereset', $data);
         $this->assertStringContainsString('markfilter_greater_than_or_equal_enabled=0', $data['pagereset']);
-        $this->assertStringContainsString('markfilter_less_than_enabled=0', $data['pagereset']);
+        $this->assertStringContainsString('markfilter_less_than_or_equal_enabled=0', $data['pagereset']);
 
         // Empty or whitespace mark filter value should not be active even if enabled is set.
         set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
         set_user_preference('assign_markfilter_greater_than_or_equal', '   ');
-        set_user_preference('assign_markfilter_less_than_enabled', 0);
-        set_user_preference('assign_markfilter_less_than', '');
+        set_user_preference('assign_markfilter_less_than_or_equal_enabled', 0);
+        set_user_preference('assign_markfilter_less_than_or_equal', '');
         $emptymenu = new \mod_assign\output\grading_actionmenu(
             cmid: $assign->get_course_module()->id,
             assign: $assign,
@@ -5676,14 +5718,16 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->assertArrayHasKey('extrafiltersdropdown', $scaledata);
         $this->assertArrayNotHasKey('pagereset', $scaledata);
         $dialogcontent = $scaledata['extrafiltersdropdown']['dialogcontent'];
+        $this->assertStringContainsString('data-grade="-' . $scalerecord->id . '"', $dialogcontent);
         $this->assertStringContainsString('name="markfilter_greater_than_or_equal"', $dialogcontent);
         $this->assertStringContainsString('Fail', $dialogcontent);
         $this->assertStringContainsString('Pass', $dialogcontent);
         $this->assertStringContainsString('Distinction', $dialogcontent);
 
         // When valid scale preferences are set, the filter is active and pagereset is present.
+        set_user_preference('assign_markfilter_grade', -$scalerecord->id);
         set_user_preference('assign_markfilter_greater_than_or_equal', '2');
-        set_user_preference('assign_markfilter_less_than', '3');
+        set_user_preference('assign_markfilter_less_than_or_equal', '3');
         $scaleactionmenu = new \mod_assign\output\grading_actionmenu(
             cmid: $scaleassign->get_course_module()->id,
             assign: $scaleassign,
@@ -5706,10 +5750,11 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
 
         // Verify preferences are properly registered in mod_assign_user_preferences.
         $preferences = mod_assign_user_preferences();
+        $this->assertArrayHasKey('assign_markfilter_grade', $preferences);
         $this->assertArrayHasKey('assign_markfilter_greater_than_or_equal_enabled', $preferences);
         $this->assertArrayHasKey('assign_markfilter_greater_than_or_equal', $preferences);
-        $this->assertArrayHasKey('assign_markfilter_less_than_enabled', $preferences);
-        $this->assertArrayHasKey('assign_markfilter_less_than', $preferences);
+        $this->assertArrayHasKey('assign_markfilter_less_than_or_equal_enabled', $preferences);
+        $this->assertArrayHasKey('assign_markfilter_less_than_or_equal', $preferences);
     }
 
     /**
@@ -5739,6 +5784,7 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
             'grade' => -$scalerecord->id,
         ]);
 
+        $this->assertSame(make_grades_menu(-$scalerecord->id), $scaleassign->get_grades_menu());
         $this->assertSame('1', $scaleassign->normalise_mark_filter_value('1'));
         $this->assertSame('2', $scaleassign->normalise_mark_filter_value('2'));
         $this->assertSame('3', $scaleassign->normalise_mark_filter_value('3'));
@@ -5754,5 +5800,89 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         ]);
         $this->assertSame('', $nogradeassign->normalise_mark_filter_value('50'));
         $this->assertSame('', $nogradeassign->normalise_mark_filter_value('0'));
+    }
+
+    /**
+     * Test that mark filter preferences are only shared across assignments with compatible grading configurations.
+     */
+    public function test_mark_filter_configuration_compatibility(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+        $this->setUser($teacher);
+
+        $scale1 = $this->getDataGenerator()->create_scale(['scale' => 'Fail,Pass,Distinction']);
+        $scale2 = $this->getDataGenerator()->create_scale(['scale' => 'Poor,Good,Excellent']);
+
+        $pointassign100a = $this->create_instance($course, ['grade' => 100]);
+        $pointassign100b = $this->create_instance($course, ['grade' => 100]);
+        $pointassign50 = $this->create_instance($course, ['grade' => 50]);
+        $scaleassign1a = $this->create_instance($course, ['grade' => -$scale1->id]);
+        $scaleassign1b = $this->create_instance($course, ['grade' => -$scale1->id]);
+        $scaleassign2 = $this->create_instance($course, ['grade' => -$scale2->id]);
+
+        // 1. When a scale threshold (Pass = 2) is saved on scaleassign1a.
+        set_user_preference('assign_markfilter_grade', -$scale1->id);
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '2');
+
+        // Compatible on scaleassign1a (the same assignment).
+        $filters = $scaleassign1a->get_mark_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(2.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('2', $filters['greaterthanorequal']['raw']);
+
+        // Compatible on scaleassign1b (another assignment using the exact same scale).
+        $filters = $scaleassign1b->get_mark_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(2.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('2', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on scaleassign2 (uses a different scale).
+        $filters = $scaleassign2->get_mark_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on pointassign100a: "Pass" (2) must NOT be applied as 2 points.
+        $filters = $pointassign100a->get_mark_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on pointassign50.
+        $filters = $pointassign50->get_mark_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // 2. When a point threshold (75 points) is saved on pointassign100a.
+        set_user_preference('assign_markfilter_grade', 100);
+        set_user_preference('assign_markfilter_greater_than_or_equal_enabled', 1);
+        set_user_preference('assign_markfilter_greater_than_or_equal', '75');
+
+        // Compatible on pointassign100a.
+        $filters = $pointassign100a->get_mark_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(75.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('75', $filters['greaterthanorequal']['raw']);
+
+        // Compatible on pointassign100b (matching max points = 100).
+        $filters = $pointassign100b->get_mark_filters();
+        $this->assertTrue($filters['greaterthanorequal']['enabled']);
+        $this->assertSame(75.0, $filters['greaterthanorequal']['value']);
+        $this->assertSame('75', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on pointassign50 (different max points = 50).
+        $filters = $pointassign50->get_mark_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
+
+        // Incompatible on scale assignments.
+        $filters = $scaleassign1a->get_mark_filters();
+        $this->assertFalse($filters['greaterthanorequal']['enabled']);
+        $this->assertNull($filters['greaterthanorequal']['value']);
+        $this->assertSame('', $filters['greaterthanorequal']['raw']);
     }
 }

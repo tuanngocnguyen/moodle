@@ -169,8 +169,8 @@ class grading_actionmenu implements templatable, renderable {
                 'suspendedparticipantsfilter' => 0,
                 'markfilter_greater_than_or_equal_enabled' => 0,
                 'markfilter_greater_than_or_equal' => '',
-                'markfilter_less_than_enabled' => 0,
-                'markfilter_less_than' => '',
+                'markfilter_less_than_or_equal_enabled' => 0,
+                'markfilter_less_than_or_equal' => '',
                 'tifirst' => '',
                 'tilast' => '',
             ]);
@@ -388,12 +388,13 @@ class grading_actionmenu implements templatable, renderable {
         if ($markfilters) {
             $gradeinstance = $this->assign->get_instance()->grade;
             $isscale = $gradeinstance < 0;
-            $scaleoptions = ['greaterthanorequal' => [], 'lessthan' => []];
+            $scaleoptions = ['greaterthanorequal' => [], 'lessthanorequal' => []];
             if ($isscale) {
+                $gradesmenu = $this->assign->get_grades_menu();
                 foreach ($scaleoptions as $key => $unused) {
                     $selectedvalue = $markfilters[$key]['value'];
                     $first = true;
-                    foreach (make_grades_menu($gradeinstance) as $value => $label) {
+                    foreach ($gradesmenu as $value => $label) {
                         $scaleoptions[$key][] = [
                             'value' => $value,
                             'name' => $label,
@@ -406,13 +407,15 @@ class grading_actionmenu implements templatable, renderable {
             }
 
             $dropdowncontentdata['filters']['markfilter'] = [
+                'grade' => (int)$gradeinstance,
                 'isscale' => $isscale,
+                'maxmark' => $isscale ? null : (float)$gradeinstance,
                 'scale_options_greater_than_or_equal' => $scaleoptions['greaterthanorequal'],
-                'scale_options_less_than' => $scaleoptions['lessthan'],
+                'scale_options_less_than_or_equal' => $scaleoptions['lessthanorequal'],
                 'greater_than_or_equal_active' => $markfilters['greaterthanorequal']['enabled'],
                 'greater_than_or_equal_value' => $markfilters['greaterthanorequal']['raw'],
-                'less_than_active' => $markfilters['lessthan']['enabled'],
-                'less_than_value' => $markfilters['lessthan']['raw'],
+                'less_than_or_equal_active' => $markfilters['lessthanorequal']['enabled'],
+                'less_than_or_equal_value' => $markfilters['lessthanorequal']['raw'],
             ];
         }
 

@@ -133,6 +133,10 @@ class provider implements
         $collection->add_user_preference('assign_markerfilter', 'privacy:metadata:assignmarkerfilter');
         $collection->add_user_preference('assign_workflowfilter', 'privacy:metadata:assignworkflowfilter');
         $collection->add_user_preference(
+            'assign_markfilter_grade',
+            'privacy:metadata:assignmarkfiltergrade'
+        );
+        $collection->add_user_preference(
             'assign_markfilter_greater_than_or_equal',
             'privacy:metadata:assignmarkfiltergreaterthanorequal'
         );
@@ -141,12 +145,12 @@ class provider implements
             'privacy:metadata:assignmarkfiltergreaterthanorequalenabled'
         );
         $collection->add_user_preference(
-            'assign_markfilter_less_than',
-            'privacy:metadata:assignmarkfilterlessthan'
+            'assign_markfilter_less_than_or_equal',
+            'privacy:metadata:assignmarkfilterlessthanorequal'
         );
         $collection->add_user_preference(
-            'assign_markfilter_less_than_enabled',
-            'privacy:metadata:assignmarkfilterlessthanenabled'
+            'assign_markfilter_less_than_or_equal_enabled',
+            'privacy:metadata:assignmarkfilterlessthanorequalenabled'
         );
         $collection->add_user_preference('assign_quickgrading', 'privacy:metadata:assignquickgrading');
         $collection->add_user_preference('assign_downloadasfolders', 'privacy:metadata:assigndownloadasfolders');
@@ -683,6 +687,10 @@ class provider implements
             'assign_markerfilter' => ['string' => get_string('privacy:metadata:assignmarkerfilter', 'mod_assign'), 'bool' => true],
             'assign_workflowfilter' => ['string' => get_string('privacy:metadata:assignworkflowfilter', 'mod_assign'),
                     'bool' => true],
+            'assign_markfilter_grade' => [
+                'string' => get_string('privacy:metadata:assignmarkfiltergrade', 'mod_assign'),
+                'bool' => false,
+            ],
             'assign_markfilter_greater_than_or_equal' => [
                 'string' => get_string('privacy:metadata:assignmarkfiltergreaterthanorequal', 'mod_assign'),
                 'bool' => false,
@@ -691,12 +699,12 @@ class provider implements
                 'string' => get_string('privacy:metadata:assignmarkfiltergreaterthanorequalenabled', 'mod_assign'),
                 'bool' => true,
             ],
-            'assign_markfilter_less_than' => [
-                'string' => get_string('privacy:metadata:assignmarkfilterlessthan', 'mod_assign'),
+            'assign_markfilter_less_than_or_equal' => [
+                'string' => get_string('privacy:metadata:assignmarkfilterlessthanorequal', 'mod_assign'),
                 'bool' => false,
             ],
-            'assign_markfilter_less_than_enabled' => [
-                'string' => get_string('privacy:metadata:assignmarkfilterlessthanenabled', 'mod_assign'),
+            'assign_markfilter_less_than_or_equal_enabled' => [
+                'string' => get_string('privacy:metadata:assignmarkfilterlessthanorequalenabled', 'mod_assign'),
                 'bool' => true,
             ],
             'assign_quickgrading' => ['string' => get_string('privacy:metadata:assignquickgrading', 'mod_assign'), 'bool' => true],

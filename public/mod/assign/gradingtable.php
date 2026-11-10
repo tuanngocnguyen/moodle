@@ -384,15 +384,16 @@ class assign_grading_table extends table_sql implements renderable {
         // Filter by mark if assignment has point or scale grading.
         $markfilters = $this->assignment->get_mark_filters();
         if ($markfilters) {
+            // Ungraded submissions are stored as -1, so exclude them from the upper bound; scales start at 1, points at 0.
             $minimumgrade = $this->assignment->get_instance()->grade < 0 ? 1 : 0;
             if ($markfilters['greaterthanorequal']['enabled']) {
                 $where .= ' AND g.grade >= :markfiltergte';
                 $params['markfiltergte'] = $markfilters['greaterthanorequal']['value'];
             }
-            if ($markfilters['lessthan']['enabled']) {
-                $where .= ' AND g.grade < :markfilterlt AND g.grade >= :minimumgradelt';
-                $params['markfilterlt'] = $markfilters['lessthan']['value'];
-                $params['minimumgradelt'] = $minimumgrade;
+            if ($markfilters['lessthanorequal']['enabled']) {
+                $where .= ' AND g.grade <= :markfilterlte AND g.grade >= :minimumgradelte';
+                $params['markfilterlte'] = $markfilters['lessthanorequal']['value'];
+                $params['minimumgradelte'] = $minimumgrade;
             }
         }
 

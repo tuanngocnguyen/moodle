@@ -14,8 +14,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 import {getDropdownDialog} from 'core/local/dropdown/dialog';
-import {getUserPreference} from 'core_user/repository';
-import {get_string as getString} from 'core/str';
+import {getString} from 'core/str';
+import {prefetchStrings} from 'core/prefetch';
+import Notification from 'core/notification';
 
 /**
  * Module for the extra filters dropdown on the submissions page.
@@ -25,17 +26,23 @@ import {get_string as getString} from 'core/str';
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+prefetchStrings('mod_assign', ['markfilterrangeinvalid']);
+
+let rangeInvalidMessage = '';
+getString('markfilterrangeinvalid', 'mod_assign').then((message) => {
+    rangeInvalidMessage = message;
+    return message;
+}).catch(Notification.exception);
+
 /** @constant {Object} The object containing the relevant selectors. */
 const Selectors = {
     extraFiltersDropdown: '.dropdown.extrafilters',
     extraFiltersClose: 'a[data-action="close"]',
-    workflowFilterElement: 'select[name="workflowfilter"]',
-    markerFilterElement: 'select[name="markingallocationfilter"]',
     suspendedParticipantsFilterCheckbox: 'input[type="checkbox"][name="suspendedparticipantsfilter"]',
     suspendedParticipantsFilterHidden: 'input[type="hidden"][name="suspendedparticipantsfilter"]',
     markFilterElements: '[name^="markfilter_"]',
     markFilterGte: '[name="markfilter_greater_than_or_equal"]',
-    markFilterLt: '[name="markfilter_less_than"]',
+    markFilterLte: '[name="markfilter_less_than_or_equal"]',
     markFilterCheckbox: 'input[type="checkbox"][name^="markfilter_"][name$="_enabled"]',
 };
 
@@ -45,8 +52,10 @@ const Selectors = {
  * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
  */
 const registerEventListeners = (extraFiltersDropdown) => {
+    const dropdownElement = extraFiltersDropdown.getElement();
+
     // Click event listener to the extra filters dropdown element.
-    extraFiltersDropdown.getElement().addEventListener('click', e => {
+    dropdownElement.addEventListener('click', e => {
         // The target is the 'Close' button.
         if (e.target.closest(Selectors.extraFiltersClose)) {
             e.preventDefault();
@@ -55,7 +64,7 @@ const registerEventListeners = (extraFiltersDropdown) => {
     });
 
     // Change event listener to the extra filters dropdown element.
-    extraFiltersDropdown.getElement().addEventListener('change', e => {
+    dropdownElement.addEventListener('change', e => {
         const suspendedParticipantsFilterCheckbox = e.target.closest(Selectors.suspendedParticipantsFilterCheckbox);
         // The target is the 'Suspended participants' filter checkbox.
         if (suspendedParticipantsFilterCheckbox) {
@@ -65,10 +74,6 @@ const registerEventListeners = (extraFiltersDropdown) => {
             const suspendedParticipantsFilterHidden = suspendedParticipantsFilterCheckbox.parentNode
                 .querySelector(Selectors.suspendedParticipantsFilterHidden);
             suspendedParticipantsFilterHidden.disabled = suspendedParticipantsFilterCheckbox.checked;
-        }
-
-        if (e.target.closest(Selectors.markFilterElements)) {
-            validateMarkFilterRange(extraFiltersDropdown);
         }
 
         const markFilterCheckbox = e.target.closest(Selectors.markFilterCheckbox);
@@ -83,57 +88,85 @@ const registerEventListeners = (extraFiltersDropdown) => {
                 input.focus();
             }
         }
+
+        if (e.target.closest(Selectors.markFilterElements)) {
+            validateMarkFilterRange(extraFiltersDropdown);
+        }
+    });
+
+    // Input event listener to clear or update validity as the user types.
+    dropdownElement.addEventListener('input', e => {
+        if (e.target.closest(Selectors.markFilterElements)) {
+            validateMarkFilterRange(extraFiltersDropdown, false);
+        }
+    });
+
+    let isSubmitting = false;
+
+    // Submit event listener to the extra filters dropdown form.
+    const form = dropdownElement.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', e => {
+            if (!validateMarkFilterRange(extraFiltersDropdown)) {
+                e.preventDefault();
+                return;
+            }
+            isSubmitting = true;
+        });
+    }
+
+    // Reset submission state when the dropdown is shown.
+    dropdownElement.addEventListener('show.bs.dropdown', () => {
+        isSubmitting = false;
     });
 
     // Event listener triggered upon hiding of the dropdown.
-    extraFiltersDropdown.getElement().addEventListener('hide.bs.dropdown', () => {
-        // Restore the filters to their stored preference values once the dropdown is closed.
-        restoreAppliedWorkflowFilter(extraFiltersDropdown);
-        restoreAppliedMarkerFilter(extraFiltersDropdown);
-        restoreAppliedSuspendedParticipantsFilter(extraFiltersDropdown);
-        restoreAppliedMarkFilter(extraFiltersDropdown);
+    dropdownElement.addEventListener('hide.bs.dropdown', () => {
+        if (isSubmitting) {
+            return;
+        }
+        // Restore the filters to their applied values once the dropdown is closed.
+        restoreAppliedFilters(extraFiltersDropdown);
     });
 };
 
 /**
- * Restores the currently applied workflow filter to its stored preference value.
+ * Restores the filters in the dropdown to their applied values for the current page.
  *
  * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
  */
-const restoreAppliedWorkflowFilter = async(extraFiltersDropdown) => {
-    const workflowFilterSelect = extraFiltersDropdown.getElement().querySelector(Selectors.workflowFilterElement);
-    if (workflowFilterSelect) {
-        workflowFilterSelect.value = await getUserPreference('assign_workflowfilter');
+const restoreAppliedFilters = (extraFiltersDropdown) => {
+    const dropdownElement = extraFiltersDropdown.getElement();
+    const form = dropdownElement.querySelector('form');
+    if (!form) {
+        return;
     }
-};
 
-/**
- * Restores the currently applied marker filter to its stored preference value.
- *
- * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
- */
-const restoreAppliedMarkerFilter = async(extraFiltersDropdown) => {
-    const markerFilterSelect = extraFiltersDropdown.getElement().querySelector(Selectors.markerFilterElement);
-    if (markerFilterSelect) {
-        markerFilterSelect.value = await getUserPreference('assign_markerfilter');
-    }
-};
+    form.reset();
 
-/**
- * Restores the currently suspended participants filter to its stored preference value.
- *
- * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
- */
-const restoreAppliedSuspendedParticipantsFilter = async(extraFiltersDropdown) => {
-    const suspendedParticipantsFilterCheckbox = extraFiltersDropdown.getElement()
+    const suspendedParticipantsFilterCheckbox = dropdownElement
         .querySelector(Selectors.suspendedParticipantsFilterCheckbox);
     if (suspendedParticipantsFilterCheckbox) {
         const suspendedParticipantsFilterHidden = suspendedParticipantsFilterCheckbox.parentNode
             .querySelector(Selectors.suspendedParticipantsFilterHidden);
-        const showOnlyActiveParticipants = await getUserPreference('grade_report_showonlyactiveenrol');
-        suspendedParticipantsFilterCheckbox.checked = !showOnlyActiveParticipants;
-        suspendedParticipantsFilterHidden.disabled = !showOnlyActiveParticipants;
+        if (suspendedParticipantsFilterHidden) {
+            suspendedParticipantsFilterHidden.disabled = suspendedParticipantsFilterCheckbox.checked;
+        }
     }
+
+    const markFilterCheckboxes = dropdownElement.querySelectorAll(Selectors.markFilterCheckbox);
+    markFilterCheckboxes.forEach((checkbox) => {
+        const {hidden, input} = getMarkFilterElements(checkbox);
+        if (hidden) {
+            hidden.disabled = checkbox.checked;
+        }
+        if (input) {
+            input.disabled = !checkbox.checked;
+        }
+    });
+
+    const lte = dropdownElement.querySelector(Selectors.markFilterLte);
+    lte?.setCustomValidity('');
 };
 
 /**
@@ -148,66 +181,31 @@ const getMarkFilterElements = (checkbox) => ({
 });
 
 /**
- * Ensure the 'less than' mark is greater than the 'greater than or equal' mark when both filters are enabled.
+ * Ensure the 'less than or equal' mark is not less than the 'greater than or equal' mark when both filters are enabled.
  *
  * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
+ * @param {boolean} [report=true] Whether to report the validity to the user.
+ * @returns {boolean} True if valid, false otherwise.
  */
-const validateMarkFilterRange = async(extraFiltersDropdown) => {
+const validateMarkFilterRange = (extraFiltersDropdown, report = true) => {
     const element = extraFiltersDropdown.getElement();
     const gte = element.querySelector(Selectors.markFilterGte);
-    const lt = element.querySelector(Selectors.markFilterLt);
-    if (!gte || !lt) {
-        return;
+    const lte = element.querySelector(Selectors.markFilterLte);
+    if (!gte || !lte) {
+        return true;
     }
-    let message = '';
-    if (!gte.disabled && !lt.disabled && gte.value !== '' && lt.value !== '' &&
-            Number(lt.value) <= Number(gte.value)) {
-        message = await getString('markfilterrangeinvalid', 'mod_assign');
-    }
-    lt.setCustomValidity(message);
-    lt.reportValidity();
-};
-
-/**
- * Restores the currently applied mark filters to their stored preference values.
- *
- * @param {DropdownDialog} extraFiltersDropdown The dropdown dialog instance.
- */
-const restoreAppliedMarkFilter = async(extraFiltersDropdown) => {
-    const checkboxes = extraFiltersDropdown.getElement().querySelectorAll(Selectors.markFilterCheckbox);
-
-    await Promise.all(Array.from(checkboxes).map(async(checkbox) => {
-        const {hidden, input} = getMarkFilterElements(checkbox);
-        const name = checkbox.name.replace(/_enabled$/, '');
-        const [enabledValue, value] = await Promise.all([
-            getUserPreference(`assign_${name}_enabled`),
-            getUserPreference(`assign_${name}`),
-        ]);
-        let enabled = enabledValue === '1' || enabledValue === 1 || enabledValue === true;
-
-        if (input.tagName === 'SELECT') {
-            const option = Array.from(input.options).find((opt) => opt.value === String(value));
-            if (option) {
-                input.value = option.value;
-            } else {
-                // The stored value is no longer a valid option, so the filter cannot be applied.
-                enabled = false;
-                input.selectedIndex = 0;
-            }
-        } else {
-            if (value === null || value === '' || isNaN(Number(value))) {
-                enabled = false;
-            }
-            input.value = value ?? '';
+    const isInvalid = !gte.disabled && !lte.disabled && gte.value !== '' && lte.value !== '' &&
+        Number(lte.value) < Number(gte.value);
+    // A non-empty message is needed to mark the field invalid even if the string has not loaded yet.
+    const message = isInvalid ? (rangeInvalidMessage || ' ') : '';
+    lte.setCustomValidity(message);
+    if (isInvalid) {
+        if (report) {
+            lte.reportValidity();
         }
-
-        checkbox.checked = enabled;
-        hidden.disabled = enabled;
-        input.disabled = !enabled;
-    }));
-
-    const lt = extraFiltersDropdown.getElement().querySelector(Selectors.markFilterLt);
-    lt?.setCustomValidity('');
+        return false;
+    }
+    return true;
 };
 
 /**

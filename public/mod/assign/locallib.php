@@ -364,6 +364,7 @@ class assign {
      */
     public function set_instance(stdClass $data) {
         $this->instance = $data;
+        unset($this->cache['scale'], $this->cache['grades_menu']);
     }
 
     /**
@@ -5071,27 +5072,53 @@ class assign {
 
         // Retrieve mark filter parameters if provided.
         $markfiltergteenabled = optional_param('markfilter_greater_than_or_equal_enabled', null, PARAM_BOOL);
-        if ($markfiltergteenabled !== null) {
-            set_user_preference('assign_markfilter_greater_than_or_equal_enabled', $markfiltergteenabled);
-        }
         $markfiltergte = optional_param('markfilter_greater_than_or_equal', null, PARAM_RAW);
-        if ($markfiltergte !== null) {
-            set_user_preference(
-                'assign_markfilter_greater_than_or_equal',
-                $this->normalise_mark_filter_value($markfiltergte)
-            );
-        }
+        $markfilterlteenabled = optional_param('markfilter_less_than_or_equal_enabled', null, PARAM_BOOL);
+        $markfilterlte = optional_param('markfilter_less_than_or_equal', null, PARAM_RAW);
 
-        $markfilterltenabled = optional_param('markfilter_less_than_enabled', null, PARAM_BOOL);
-        if ($markfilterltenabled !== null) {
-            set_user_preference('assign_markfilter_less_than_enabled', $markfilterltenabled);
-        }
-        $markfilterlt = optional_param('markfilter_less_than', null, PARAM_RAW);
-        if ($markfilterlt !== null) {
-            set_user_preference(
-                'assign_markfilter_less_than',
-                $this->normalise_mark_filter_value($markfilterlt)
-            );
+        if (
+            $markfiltergteenabled !== null ||
+            $markfiltergte !== null ||
+            $markfilterlteenabled !== null ||
+            $markfilterlte !== null
+        ) {
+            $grade = (int)$this->get_instance()->grade;
+            $savedgrade = get_user_preferences('assign_markfilter_grade', null);
+            if ($savedgrade === null || (int)$savedgrade !== $grade) {
+                // Discard values saved for a different grading configuration.
+                foreach (['greater_than_or_equal', 'less_than_or_equal'] as $name) {
+                    unset_user_preference("assign_markfilter_{$name}_enabled");
+                    unset_user_preference("assign_markfilter_{$name}");
+                }
+            }
+            set_user_preference('assign_markfilter_grade', $grade);
+
+            if ($markfiltergteenabled !== null) {
+                set_user_preference('assign_markfilter_greater_than_or_equal_enabled', $markfiltergteenabled);
+            }
+            if ($markfiltergte !== null) {
+                set_user_preference(
+                    'assign_markfilter_greater_than_or_equal',
+                    $this->normalise_mark_filter_value($markfiltergte)
+                );
+            }
+            if ($markfilterlteenabled !== null) {
+                set_user_preference('assign_markfilter_less_than_or_equal_enabled', $markfilterlteenabled);
+            }
+            if ($markfilterlte !== null) {
+                set_user_preference(
+                    'assign_markfilter_less_than_or_equal',
+                    $this->normalise_mark_filter_value($markfilterlte)
+                );
+            }
+
+            $filters = $this->get_mark_filters(false);
+            if (
+                $filters['greaterthanorequal']['enabled'] && $filters['lessthanorequal']['enabled'] &&
+                $filters['lessthanorequal']['value'] < $filters['greaterthanorequal']['value']
+            ) {
+                \core\notification::warning(get_string('markfilterrangeinvalid', 'mod_assign'));
+            }
         }
 
         $controller = $gradingmanager->get_active_controller();
@@ -11127,10 +11154,22 @@ class assign {
         if ($grade > 0 && ($float < 0 || $float > $grade)) {
             return null;
         }
-        if ($grade < 0 && (floor($float) !== $float || !array_key_exists((int)$float, make_grades_menu($grade)))) {
+        if ($grade < 0 && (floor($float) !== $float || !array_key_exists((int)$float, $this->get_grades_menu()))) {
             return null;
         }
         return $float;
+    }
+
+    /**
+     * Return the grades/scale menu for this assignment instance.
+     *
+     * @return array
+     */
+    public function get_grades_menu(): array {
+        if (!isset($this->cache['grades_menu'])) {
+            $this->cache['grades_menu'] = make_grades_menu($this->get_instance()->grade);
+        }
+        return $this->cache['grades_menu'];
     }
 
     /**
@@ -11147,30 +11186,47 @@ class assign {
     /**
      * Return the mark filters currently stored in the user preferences.
      *
-     * @return array Empty if the assignment is not graded, otherwise keyed by 'greaterthanorequal' and 'lessthan', each with:
-     *               'enabled' (bool, enabled and valid), 'value' (float|null, parsed valid value) and 'raw' (string, stored value).
+     * @param bool $ignoreinvalidrange Whether to disable the 'less than or equal' filter when its mark is below the
+     *                                 'greater than or equal' mark.
+     * @return array Empty if the assignment is not graded, otherwise keyed by 'greaterthanorequal' and 'lessthanorequal',
+     *               each with: 'enabled' (bool, enabled and valid), 'value' (float|null, parsed valid value)
+     *               and 'raw' (string, stored value).
      */
-    public function get_mark_filters(): array {
+    public function get_mark_filters(bool $ignoreinvalidrange = true): array {
         if ($this->get_instance()->grade == GRADE_TYPE_NONE) {
             return [];
         }
+        $filters = $this->load_mark_filters();
+        // A 'less than or equal' mark below the 'greater than or equal' mark can never match, so ignore it.
+        if (
+            $ignoreinvalidrange &&
+            $filters['greaterthanorequal']['enabled'] && $filters['lessthanorequal']['enabled'] &&
+            $filters['lessthanorequal']['value'] < $filters['greaterthanorequal']['value']
+        ) {
+            $filters['lessthanorequal']['enabled'] = false;
+        }
+        return $filters;
+    }
+
+    /**
+     * Load the mark filters from the user preferences.
+     *
+     * @return array See {@see get_mark_filters()}.
+     */
+    protected function load_mark_filters(): array {
+        $savedgrade = get_user_preferences('assign_markfilter_grade', null);
+        $iscompatible = ($savedgrade !== null) && ((int)$savedgrade === (int)$this->get_instance()->grade);
+
         $filters = [];
-        $names = ['greaterthanorequal' => 'greater_than_or_equal', 'lessthan' => 'less_than'];
+        $names = ['greaterthanorequal' => 'greater_than_or_equal', 'lessthanorequal' => 'less_than_or_equal'];
         foreach ($names as $key => $name) {
-            $raw = (string)get_user_preferences("assign_markfilter_{$name}", '');
-            $value = $this->parse_mark_filter_value($raw);
+            $raw = $iscompatible ? (string)get_user_preferences("assign_markfilter_{$name}", '') : '';
+            $value = $iscompatible ? $this->parse_mark_filter_value($raw) : null;
             $filters[$key] = [
-                'enabled' => (bool)get_user_preferences("assign_markfilter_{$name}_enabled", 0) && $value !== null,
+                'enabled' => $iscompatible && (bool)get_user_preferences("assign_markfilter_{$name}_enabled", 0) && $value !== null,
                 'value' => $value,
                 'raw' => $raw,
             ];
-        }
-        // A 'less than' mark that is not above the 'greater than or equal' mark can never match, so ignore it.
-        if (
-            $filters['greaterthanorequal']['enabled'] && $filters['lessthan']['enabled'] &&
-            $filters['lessthan']['value'] <= $filters['greaterthanorequal']['value']
-        ) {
-            $filters['lessthan']['enabled'] = false;
         }
         return $filters;
     }
