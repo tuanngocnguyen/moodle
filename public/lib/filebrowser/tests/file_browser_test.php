@@ -77,7 +77,7 @@ final class file_browser_test extends \advanced_testcase {
         $this->initialjpg = $fileinfo->count_non_empty_children(['.jpg']);
 
         $this->getDataGenerator()->create_category(); // Empty category.
-        $this->course1 = $this->getDataGenerator()->create_course(); // Empty course.
+        $this->course1 = $this->getDataGenerator()->create_course(['legacyfiles' => 2]); // Empty course.
 
         $this->course2 = $this->getDataGenerator()->create_course();
 
